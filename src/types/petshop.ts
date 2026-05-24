@@ -94,12 +94,16 @@ export const STATUS_AGENDA: Record<number, { label: string; color: string }> = {
 // ---------------------------------------------------------------------------
 
 export interface Profissional {
-  id: number;
-  nome: string;
-  filial: number;
-  especialidade?: string;
-  crv?: string;
-  ativo?: number;
+  id:                number;
+  filial:            number;
+  nome:              string;
+  cpf?:              string;
+  celular?:          string;
+  email?:            string;
+  crmv?:             string;
+  id_categoria?:     number;
+  status_ativo?:     number;
+  tipo_profissional?:number;
 }
 
 export type ProfissionalResponse = ApiList<Profissional>;
@@ -370,6 +374,7 @@ export interface TipoPelo {
   filial: number;
   descricao: string;
   id_especie: number;
+  especie?: string;
 }
 
 export type EspecieResponse  = ApiList<Especie>;
@@ -450,6 +455,31 @@ export interface Produto {
 }
 
 export type ProdutoResponse = ApiList<Produto>;
+
+// ---------------------------------------------------------------------------
+// Cadastros — Vacinas catálogo e Medicamentos
+// ---------------------------------------------------------------------------
+
+export interface VacinaCatalogo {
+  id:           number;
+  filial:       number;
+  descricao:    string;
+  id_especie:   number;
+  especie:      string;
+  id_laboratorio:number;
+  laboratorio:  string;
+}
+
+export interface Medicamento {
+  id:          number;
+  filial:      number;
+  medicamento: string;
+  laboratorio: string;
+  aplicacao:   string;
+}
+
+export type VacinaCatalogoResponse = ApiList<VacinaCatalogo>;
+export type MedicamentoResponse    = ApiList<Medicamento>;
 
 // ---------------------------------------------------------------------------
 // Relatórios
