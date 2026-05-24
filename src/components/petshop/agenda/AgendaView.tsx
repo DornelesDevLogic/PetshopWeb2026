@@ -19,9 +19,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 
 interface Props {
   items: AgendaItem[];
@@ -194,11 +195,12 @@ export default function AgendaView({ items, profissionais, dataAtual, profission
                   <TableHead className="hidden lg:table-cell">Profissional</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell text-right">Valor</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtrados.map((item) => (
-                  <TableRow key={`${item.id}-${item.filial}`} className="hover:bg-gray-50">
+                  <TableRow key={`${item.id}-${item.filial}`} className="hover:bg-gray-50 cursor-pointer">
                     <TableCell className="font-mono text-sm font-medium">
                       {item.hora?.slice(0, 5) ?? '—'}
                     </TableCell>
@@ -222,6 +224,13 @@ export default function AgendaView({ items, profissionais, dataAtual, profission
                       {item.sub_total
                         ? `R$ ${Number(item.sub_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                         : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/agenda/${item.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

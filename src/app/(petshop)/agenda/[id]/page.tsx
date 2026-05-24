@@ -1,0 +1,31 @@
+import { apiFetch, FILIAL } from '@/lib/api';
+import { AgendaDetalhe, AgendaItensResponse } from '@/types/petshop';
+import AgendaDetalheView from '@/components/petshop/agenda/AgendaDetalheView';
+import { notFound } from 'next/navigation';
+
+interface Props {
+  params: { id: string };
+}
+
+export default async function AgendaDetalhePage({ params }: Props) {
+  const id = Number(params.id);
+  if (!id) notFound();
+
+  const emptyItens: AgendaItensResponse = {
+    agenda_id: id, dados: [], Count: 0, StartsAt: '', EndsAt: '',
+  };
+
+  const [detalhe, itensRes] = await Promise.all([
+    apiFetch<AgendaDetalhe>(
+      `/api/petshop/agenda/detalhe?id=${id}&filial=${FILIAL}`,
+    ).catch(() => null),
+
+    apiFetch<AgendaItensResponse>(
+      `/api/petshop/agenda/itens?id=${id}&filial=${FILIAL}`,
+    ).catch(() => emptyItens),
+  ]);
+
+  if (!detalhe || detalhe.CodStatus === -5) notFound();
+
+  return <AgendaDetalheView detalhe={detalhe} itens={itensRes.dados} />;
+}

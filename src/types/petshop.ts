@@ -42,6 +42,46 @@ export interface AgendaItem {
 
 export type AgendaResponse = ApiList<AgendaItem>;
 
+/** Retorno de GET /api/petshop/agenda/detalhe */
+export interface AgendaDetalhe extends AgendaItem {
+  situacao:        string;
+  data_agendamento:string;
+  tipo_ocorrencia: number;
+  justificativa:   string;
+  data_canc:       string;
+  banho_normal:    string;
+  tosa_alta:       string;
+  tosa_baixa:      string;
+  antipulga:       string;
+  hidra:           string;
+  medic:           string;
+  pago:            string;
+  CodStatus?:      number;   // -5 = não encontrado
+}
+
+/** Item de serviço da agenda (PRODORCA) */
+export interface AgendaItemServico {
+  id_item:   number;
+  agenda_id: number;
+  produto:   string;
+  descricao: string;
+  unidade:   string;
+  qtd:       string;
+  valor:     string;
+  valor_liq: string;
+  desconto:  string;
+  preco_tab: string;
+  vendido:   string;
+}
+
+export interface AgendaItensResponse {
+  agenda_id: number;
+  dados:     AgendaItemServico[];
+  Count:     number;
+  StartsAt:  string;
+  EndsAt:    string;
+}
+
 export const STATUS_AGENDA: Record<number, { label: string; color: string }> = {
   1: { label: 'Agendado',       color: 'bg-blue-100 text-blue-700 border-blue-200' },
   2: { label: 'Em atendimento', color: 'bg-amber-100 text-amber-700 border-amber-200' },
