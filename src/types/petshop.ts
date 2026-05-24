@@ -134,6 +134,36 @@ export interface Animal {
 export type AnimalResponse = ApiList<Animal>;
 
 // ---------------------------------------------------------------------------
+// Lookups (espécies, raças, tipos de pelo)
+// ---------------------------------------------------------------------------
+
+export interface Especie {
+  id: number;
+  filial: number;
+  descricao: string;
+}
+
+export interface Raca {
+  id: number;
+  filial: number;
+  descricao: string;
+  id_especie: number;
+  especie: string;
+  porte: string;
+}
+
+export interface TipoPelo {
+  id: number;
+  filial: number;
+  descricao: string;
+  id_especie: number;
+}
+
+export type EspecieResponse  = ApiList<Especie>;
+export type RacaResponse     = ApiList<Raca>;
+export type TipoPeloResponse = ApiList<TipoPelo>;
+
+// ---------------------------------------------------------------------------
 // Financeiro
 // ---------------------------------------------------------------------------
 

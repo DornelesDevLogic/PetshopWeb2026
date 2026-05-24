@@ -23,6 +23,7 @@ import {
 import { Users, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import NovoClienteDialog from './NovoClienteDialog';
 
 interface Props {
   clientes: Cliente[];
@@ -94,9 +95,12 @@ export default function ClientesView({
             <Users className="h-5 w-5 text-primary" />
             Clientes
           </h1>
-          <span className="text-sm text-muted-foreground">
-            {total > 0 ? `${total} resultado${total !== 1 ? 's' : ''}` : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              {total > 0 ? `${total} resultado${total !== 1 ? 's' : ''}` : ''}
+            </span>
+            <NovoClienteDialog />
+          </div>
         </div>
 
         {/* Filtros */}

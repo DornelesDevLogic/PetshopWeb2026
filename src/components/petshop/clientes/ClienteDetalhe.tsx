@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Cliente, Animal } from '@/types/petshop';
+import { Cliente, Animal, Especie, Raca, TipoPelo } from '@/types/petshop';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import NovoAnimalDialog from './NovoAnimalDialog';
 import {
   ArrowLeft,
   CalendarDays,
@@ -16,8 +17,11 @@ import {
 import { cn } from '@/lib/utils';
 
 interface Props {
-  cliente: Cliente;
-  animais: Animal[];
+  cliente:  Cliente;
+  animais:  Animal[];
+  especies: Especie[];
+  racas:    Raca[];
+  pelos:    TipoPelo[];
 }
 
 function Info({ label, value }: { label: string; value?: string | number }) {
@@ -60,7 +64,7 @@ function AnimalCard({ a }: { a: Animal }) {
   );
 }
 
-export default function ClienteDetalhe({ cliente: c, animais }: Props) {
+export default function ClienteDetalhe({ cliente: c, animais, especies, racas, pelos }: Props) {
   const endereco = [c.endereco, c.numero, c.complemento, c.bairro]
     .filter(Boolean)
     .join(', ');
@@ -198,11 +202,20 @@ export default function ClienteDetalhe({ cliente: c, animais }: Props) {
 
       {/* Animais */}
       <div className="rounded-xl border bg-white p-6">
-        <h2 className="font-semibold flex items-center gap-2 mb-4">
-          <PawPrint className="h-4 w-4 text-primary" />
-          Animais
-          <span className="ml-1 text-xs text-muted-foreground font-normal">({animais.length})</span>
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold flex items-center gap-2">
+            <PawPrint className="h-4 w-4 text-primary" />
+            Animais
+            <span className="ml-1 text-xs text-muted-foreground font-normal">({animais.length})</span>
+          </h2>
+          <NovoAnimalDialog
+            clienteId={c.id}
+            filialCliente={c.filial}
+            especies={especies}
+            racas={racas}
+            pelos={pelos}
+          />
+        </div>
 
         {animais.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum animal cadastrado.</p>
