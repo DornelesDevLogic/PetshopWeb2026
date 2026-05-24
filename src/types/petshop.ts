@@ -188,6 +188,97 @@ export interface Servico {
 export type ServicoResponse = ApiList<Servico>;
 
 // ---------------------------------------------------------------------------
+// Consultas clínicas
+// ---------------------------------------------------------------------------
+
+export interface Consulta {
+  id:           number;
+  filial:       number;
+  agenda_id:    number;
+  animal_id:    number;
+  animal:       string;
+  proprietario: string;   // nome do cliente/proprietário
+  veterinario:  string;   // nome do veterinário
+  data:         string;   // DATA_CONSULTA
+  data_alta:    string;
+  motivo:       string;
+  status:       string;   // 'ABERTO' | 'FECHADO'
+  peso:         string;
+  temperatura:  string;
+  prognostico:  string;
+}
+
+export interface ConsultaDetalhe extends Consulta {
+  proprietario_id:  number;
+  veterinario_id:   number;
+  prescricao:       string;
+  obs_gerais:       string;
+  texto:            string;
+  diagnostico:      string;
+  diagnostico_def:  string;
+  CodStatus?:       number;
+}
+
+export interface Prontuario {
+  id:       number;
+  animal:   string;
+  cliente:  string;
+  data:     string;
+  hora:     string;
+  box:      string;
+  obs:      string;
+  medicacao:string;
+  dose:     string;
+}
+
+export interface ProntuarioResponse {
+  consulta_id: number;
+  dados:       Prontuario[];
+  Count:       number;
+  StartsAt:    string;
+  EndsAt:      string;
+}
+
+export interface VacinaAplicada {
+  id:          number;
+  animal_id:   number;
+  animal:      string;
+  vacina_id:   number;
+  vacina:      string;
+  vet_id:      number;
+  veterinario: string;
+  data:        string;
+  data_marcada:string;
+  laboratorio: string;
+  obs:         string;
+  status:      string;
+}
+
+export interface VacinaResponse {
+  animal_id: number;
+  dados:     VacinaAplicada[];
+  Count:     number;
+  StartsAt:  string;
+  EndsAt:    string;
+}
+
+export interface Exame {
+  id:          number;
+  consulta_id: number;
+  tipo_exame:  string;
+}
+
+export interface ExameResponse {
+  consulta_id: number;
+  dados:       Exame[];
+  Count:       number;
+  StartsAt:    string;
+  EndsAt:      string;
+}
+
+export type ConsultaResponse = ApiList<Consulta>;
+
+// ---------------------------------------------------------------------------
 // Lookups (espécies, raças, tipos de pelo)
 // ---------------------------------------------------------------------------
 
