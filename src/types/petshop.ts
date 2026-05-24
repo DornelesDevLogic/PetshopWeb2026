@@ -381,23 +381,29 @@ export type TipoPeloResponse = ApiList<TipoPelo>;
 // ---------------------------------------------------------------------------
 
 export interface ContaReceber {
-  nro_doc: number;
-  parcela: number;
-  filial: string;
-  cliente_id: number;
-  cliente: string;
-  valor: number;
-  val_pag: number;
-  saldo: number;
-  dt_emissao: string;
+  nro_doc:       number;
+  parcela:       number;
+  filial:        number;
+  cliente_id:    number;
+  cliente:       string;
+  valor:         number;
+  val_pag:       number;
+  saldo:         number;
+  dt_emissao:    string;
   dt_vencimento: string;
-  dt_prorrog: string;
+  dt_prorrog:    string;
   dt_efetivacao: string;
-  historico: string;
-  operador: string;
-  status_baixa: 0 | 2 | 3;
-  num_nf: string;
-  id_orca: number;
+  historico:     string;
+  operador:      string;
+  status_baixa:  0 | 2 | 3;
+  num_nf:        number;
+  id_orca:       number;
+}
+
+export interface ContaReceberTotais {
+  total:       number;
+  total_valor: number;
+  total_saldo: number;
 }
 
 export type ContaReceberResponse = ApiList<ContaReceber>;
@@ -444,3 +450,55 @@ export interface Produto {
 }
 
 export type ProdutoResponse = ApiList<Produto>;
+
+// ---------------------------------------------------------------------------
+// Relatórios
+// ---------------------------------------------------------------------------
+
+export interface RelatorioComissaoItem {
+  id_orca:        number;
+  filial:         number;
+  data:           string;
+  cliente:        string;
+  animal:         string;
+  codvend:        number;
+  atendente:      string;
+  tecnico_id:     number;
+  tecnico:        string;
+  produto:        string;
+  comissao_perc:  number;
+  qtd:            number;
+  valorliq:       number;
+  total:          number;
+  comissao_valor: number;
+}
+
+export interface RelatorioComissaoResponse {
+  periodo:        string;
+  dados:          RelatorioComissaoItem[];
+  Count:          number;
+  total_venda:    number;
+  total_comissao: number;
+  StartsAt:       string;
+  EndsAt:         string;
+}
+
+export interface RelatorioVendasSecaoItem {
+  secao_id:  number;
+  secao:     string;
+  grupo_id:  number;
+  cod_prod:  string;
+  produto:   string;
+  qtd_total: number;
+  valorliq:  number;
+  total:     number;
+}
+
+export interface RelatorioVendasSecaoResponse {
+  periodo:     string;
+  dados:       RelatorioVendasSecaoItem[];
+  Count:       number;
+  total_geral: number;
+  StartsAt:    string;
+  EndsAt:      string;
+}
