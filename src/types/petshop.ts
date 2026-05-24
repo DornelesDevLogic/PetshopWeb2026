@@ -174,6 +174,20 @@ export interface Animal {
 export type AnimalResponse = ApiList<Animal>;
 
 // ---------------------------------------------------------------------------
+// Serviços
+// ---------------------------------------------------------------------------
+
+export interface Servico {
+  id:         number;
+  filial:     number;
+  descricao:  string;
+  duracao:    string;
+  cor_status: string;
+}
+
+export type ServicoResponse = ApiList<Servico>;
+
+// ---------------------------------------------------------------------------
 // Lookups (espécies, raças, tipos de pelo)
 // ---------------------------------------------------------------------------
 
