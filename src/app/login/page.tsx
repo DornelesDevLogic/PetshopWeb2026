@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { PawPrint, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const [error, setError]       = useState('');
+  const [error, setError]            = useState('');
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,6 +25,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm space-y-6">
+
         {/* Brand */}
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow">
@@ -37,23 +38,26 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-xl border bg-white p-8 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <div className="space-y-1.5">
-              <Label htmlFor="username">Usuário</Label>
+              <Label htmlFor="codigo">Código do Usuário</Label>
               <Input
-                id="username"
-                name="username"
-                type="text"
+                id="codigo"
+                name="codigo"
+                type="number"
+                inputMode="numeric"
                 autoComplete="username"
                 required
-                placeholder="seu usuário"
+                placeholder="Ex: 1"
+                min={1}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="senha">Senha</Label>
               <Input
-                id="password"
-                name="password"
+                id="senha"
+                name="senha"
                 type="password"
                 autoComplete="current-password"
                 required
@@ -80,6 +84,7 @@ export default function LoginPage() {
             </Button>
           </form>
         </div>
+
       </div>
     </div>
   );

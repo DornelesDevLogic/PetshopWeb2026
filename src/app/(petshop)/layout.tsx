@@ -1,9 +1,36 @@
 import NavLinks from '@/components/petshop/sidebar/NavLinks';
 import { logout } from '@/app/login/actions';
-import { PawPrint, LogOut } from 'lucide-react';
+import { PawPrint, LogOut, UserCircle2 } from 'lucide-react';
 import { FILIAL } from '@/lib/api';
+import { cookies } from 'next/headers';
+
+interface UserInfo {
+  codigo:  number;
+  nome:    string;
+  tipo:    string;
+  empresa: number;
+}
+
+function getUser(): UserInfo | null {
+  try {
+    const raw = cookies().get('ps_user')?.value;
+    if (!raw) return null;
+    return JSON.parse(raw) as UserInfo;
+  } catch {
+    return null;
+  }
+}
+
+const TIPO_LABEL: Record<string, string> = {
+  S: 'Supervisor',
+  G: 'Gerente',
+  F: 'Ger. Especial',
+  O: 'Operador',
+};
 
 export default function PetShopLayout({ children }: { children: React.ReactNode }) {
+  const user = getUser();
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -22,8 +49,20 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
           <NavLinks />
         </div>
 
-        {/* Logout */}
-        <div className="border-t px-3 py-3">
+        {/* Usuário logado + Logout */}
+        <div className="border-t px-3 py-3 space-y-1">
+          {user && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 text-xs text-muted-foreground">
+              <UserCircle2 className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="font-medium text-foreground truncate">{user.nome}</p>
+                <p className="truncate">
+                  Cód. {user.codigo}
+                  {user.tipo ? ` · ${TIPO_LABEL[user.tipo] ?? user.tipo}` : ''}
+                </p>
+              </div>
+            </div>
+          )}
           <form action={logout}>
             <button
               type="submit"
