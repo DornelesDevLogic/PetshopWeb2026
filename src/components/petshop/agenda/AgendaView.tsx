@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, CalendarDays, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Eye, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
@@ -93,14 +93,22 @@ export default function AgendaView({ items, profissionais, dataAtual, profission
       {/* Header */}
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              Agenda
-            </h1>
-            <p className="text-sm text-muted-foreground capitalize mt-0.5">
-              {diaSemana(dataAtual)}, {fmtData(dataAtual)}
-            </p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-xl font-semibold flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-primary" />
+                Agenda
+              </h1>
+              <p className="text-sm text-muted-foreground capitalize mt-0.5">
+                {diaSemana(dataAtual)}, {fmtData(dataAtual)}
+              </p>
+            </div>
+            <Link href="/agenda/nova">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Novo
+              </Button>
+            </Link>
           </div>
 
           {/* Navegação de data */}
