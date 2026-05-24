@@ -279,6 +279,74 @@ export interface ExameResponse {
 export type ConsultaResponse = ApiList<Consulta>;
 
 // ---------------------------------------------------------------------------
+// Vendas / Pré-vendas (ORCA TIPO_SERVICO='VENDAS')
+// ---------------------------------------------------------------------------
+
+export interface Prevenda {
+  id:           number;
+  filial:       number;
+  cliente_id:   number;
+  cliente:      string;
+  data:         string;
+  hora:         string;
+  valor:        number;
+  sub_total:    number;
+  desconto:     number;
+  valor_frete:  number;
+  status:       number;   // 1=Em aberto, 2=Confirmado, 3=Finalizado, 4=Cancelado
+  formapgto:    string;
+  condpgto:     string;
+  situacao:     string;
+  data_entrega: string;
+  hora_entrega: string;
+  animal:       string;
+  profissional: string;
+}
+
+export interface PrevendaDetalhe extends Prevenda {
+  val_produtos:  number;
+  val_acresc:    number;
+  frete:         string;
+  pz_entrega:    string;
+  justificativa: string;
+  dados:         string;   // obs
+  tipo_servico:  string;
+  CodStatus?:    number;
+}
+
+export interface PrevendaItem {
+  id_prodorca:    number;
+  id_orca:        number;
+  cod_prod:       string;
+  desc_pro:       string;
+  descpro:        string;
+  qtd:            number;
+  valor:          number;
+  valorliq:       number;
+  desconto:       number;
+  preco_tabela:   number;
+  unid_pro:       string;
+  status_vendido: string;
+  ordem:          number;
+}
+
+export interface PrevendaItensResponse {
+  dados:   PrevendaItem[];
+  Count:   number;
+  StartsAt:string;
+  EndsAt:  string;
+}
+
+export type PrevendaResponse = ApiList<Prevenda>;
+
+export const STATUS_PREVENDA: Record<number, { label: string; color: string }> = {
+  1: { label: 'Em aberto',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  2: { label: 'Confirmado',  color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  3: { label: 'Finalizado',  color: 'bg-green-100 text-green-700 border-green-200' },
+  4: { label: 'Cancelado',   color: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+// ---------------------------------------------------------------------------
 // Lookups (espécies, raças, tipos de pelo)
 // ---------------------------------------------------------------------------
 
