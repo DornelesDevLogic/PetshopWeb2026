@@ -72,11 +72,30 @@ export interface Cliente {
   id: number;
   filial: number;
   nome: string;
-  cpf_cnpj?: string;
-  telefone?: string;
-  celular?: string;
-  email?: string;
-  ativo?: number;
+  nome_fantasia: string;
+  cpf_cnpj: string;
+  telefone: string;
+  telefone2: string;
+  celular: string;
+  email: string;
+  contato: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  cep: string;
+  data_cadastro: string;
+  data_nascimento: string;
+  situacao: string;       // 'A' = ativo, 'I' = inativo
+  pessoa: string;         // 'F' = física, 'J' = jurídica
+  comentario: string;
+  ie: string;
+  atacadista: number;
+  mei: number;
+  saldo_disponivel: number;
+  data_ult_compra: string;
 }
 
 export type ClienteResponse = ApiList<Cliente>;
@@ -88,13 +107,28 @@ export type ClienteResponse = ApiList<Cliente>;
 export interface Animal {
   id: number;
   filial: number;
-  cliente_id: number;
   nome: string;
-  especie?: string;
-  raca?: string;
-  sexo?: string;
-  dt_nascimento?: string;
-  ativo?: number;
+  apelido: string;
+  data_nascimento: string;
+  sexo: string;           // 'M' | 'F'
+  castrado: number;       // 0 | 1
+  peso: string;
+  id_especie: number;
+  especie: string;
+  id_raca: number;
+  raca: string;
+  id_pelo: number;
+  pelo: string;
+  cor: string;
+  tipo_animal: string;
+  id_cliente: number;
+  filial_cliente: number;
+  nome_cliente: string;
+  ativo: number;          // 0 | 1
+  obito: number;          // 0 | 1
+  obs: string;
+  id_veterinario: number;
+  veterinario: string;
 }
 
 export type AnimalResponse = ApiList<Animal>;

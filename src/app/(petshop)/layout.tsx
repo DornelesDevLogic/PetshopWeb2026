@@ -1,5 +1,6 @@
 import NavLinks from '@/components/petshop/sidebar/NavLinks';
-import { PawPrint } from 'lucide-react';
+import { logout } from '@/app/login/actions';
+import { PawPrint, LogOut } from 'lucide-react';
 import { FILIAL } from '@/lib/api';
 
 export default function PetShopLayout({ children }: { children: React.ReactNode }) {
@@ -21,9 +22,17 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
           <NavLinks />
         </div>
 
-        {/* Footer */}
-        <div className="border-t px-5 py-3 text-xs text-muted-foreground">
-          PetShop API v1
+        {/* Logout */}
+        <div className="border-t px-3 py-3">
+          <form action={logout}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              Sair
+            </button>
+          </form>
         </div>
       </aside>
 
