@@ -35,7 +35,7 @@ export async function login(
       method: 'POST',
       body: JSON.stringify({ codigo: Number(codigo), senha }),
     });
-  } catch (_e) {
+  } catch {
     return { error: 'Não foi possível conectar ao servidor. Verifique a conexão.' };
   }
 
