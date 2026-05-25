@@ -23,7 +23,8 @@ export async function GET(
 
   if (!data?.foto) return new NextResponse(null, { status: 404 });
 
-  const buf = Buffer.from(data.foto, 'base64');
+  // Remove eventuais quebras de linha MIME (CRLF/LF) antes de decodificar
+  const buf = Buffer.from(data.foto.replace(/[\r\n]/g, ''), 'base64');
   return new NextResponse(buf, {
     headers: {
       'Content-Type':  'image/jpeg',
