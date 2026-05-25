@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   animal:    Animal;
-  historico: AnimalHistoricoItem[];
+  historico: AnimalHistoricoItem[] | undefined;
   especies:  Especie[];
   racas:     Raca[];
   pelos:     TipoPelo[];
@@ -244,10 +244,10 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
         <div className="flex items-center gap-2 px-5 py-3.5 border-b bg-muted/20">
           <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           <h2 className="font-semibold text-sm">Histórico de Compras</h2>
-          <span className="ml-auto text-xs text-muted-foreground">{historico.length} itens</span>
+          <span className="ml-auto text-xs text-muted-foreground">{(historico ?? []).length} itens</span>
         </div>
 
-        {historico.length === 0 ? (
+        {(historico ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
             <ShoppingBag className="h-8 w-8 mb-2 opacity-30" />
             <p className="text-sm">Nenhuma compra registrada.</p>
@@ -264,7 +264,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {historico.map((h, i) => (
+              {(historico ?? []).map((h, i) => (
                 <TableRow key={i} className="hover:bg-gray-50">
                   <TableCell className="font-mono text-sm">{fmtData(h.data)}</TableCell>
                   <TableCell>
