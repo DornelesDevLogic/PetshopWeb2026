@@ -9,17 +9,22 @@ export async function uploadFoto(
   _clienteId: number,
   fotoBase64: string,
 ): Promise<{ error?: string }> {
-  let res: ApiWrite;
+  let res: Record<string, unknown>;
   try {
-    res = await apiFetch<ApiWrite>('/api/petshop/animais/foto', {
+    res = await apiFetch<Record<string, unknown>>('/api/petshop/animais/foto', {
       method: 'POST',
       body: JSON.stringify({ animal_id: animalId, filial: FILIAL, foto_base64: fotoBase64 }),
     });
-  } catch {
-    return { error: 'Não foi possível conectar ao servidor.' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[uploadFoto]', msg);
+    return { error: msg };
   }
 
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  // Backend retorna {"ok":true} ou {"CodStatus":1,...}
+  if (res['ok'] !== true && res['CodStatus'] !== 1) {
+    return { error: (res['DescricaoStatus'] as string | undefined) ?? (res['erro'] as string | undefined) ?? 'Erro ao salvar foto.' };
+  }
 
   revalidatePath(`/animais/${animalId}`);
   return {};
@@ -29,17 +34,21 @@ export async function deleteFoto(
   animalId: number,
   _clienteId: number,
 ): Promise<{ error?: string }> {
-  let res: ApiWrite;
+  let res: Record<string, unknown>;
   try {
-    res = await apiFetch<ApiWrite>('/api/petshop/animais/foto', {
+    res = await apiFetch<Record<string, unknown>>('/api/petshop/animais/foto', {
       method: 'DELETE',
       body: JSON.stringify({ animal_id: animalId, filial: FILIAL }),
     });
-  } catch {
-    return { error: 'Não foi possível conectar ao servidor.' };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[deleteFoto]', msg);
+    return { error: msg };
   }
 
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  if (res['ok'] !== true && res['CodStatus'] !== 1) {
+    return { error: (res['DescricaoStatus'] as string | undefined) ?? (res['erro'] as string | undefined) ?? 'Erro ao remover foto.' };
+  }
 
   revalidatePath(`/animais/${animalId}`);
   return {};
