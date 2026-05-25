@@ -33,7 +33,7 @@ function fmtQtd(v: number) {
 /** Agrupa itens por seção para exibição em blocos */
 function agruparPorSecao(itens: RelatorioVendasSecaoItem[]) {
   const grupos: Record<string, { secao: string; itens: RelatorioVendasSecaoItem[]; totalSecao: number }> = {};
-  for (const item of itens) {
+  for (const item of itens ?? []) {
     const key = item.secao || '(Sem seção)';
     if (!grupos[key]) grupos[key] = { secao: key, itens: [], totalSecao: 0 };
     grupos[key].itens.push(item);

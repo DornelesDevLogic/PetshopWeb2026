@@ -124,7 +124,7 @@ export default function RelatorioComissoes({ dados, dataIni, dataFim }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dados.dados.map((r, i) => (
+              {(dados.dados ?? []).map((r, i) => (
                 <TableRow key={i} className="hover:bg-gray-50">
                   <TableCell className="font-mono text-xs">{fmtData(r.data)}</TableCell>
                   <TableCell className="text-sm">{r.cliente}</TableCell>
