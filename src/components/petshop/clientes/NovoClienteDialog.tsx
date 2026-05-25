@@ -58,7 +58,7 @@ export default function NovoClienteDialog() {
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
 
           {/* Tipo de pessoa + Nome */}
-          <div className="grid grid-cols-[140px_1fr] gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3">
             <div className="space-y-1.5">
               <Label>Tipo</Label>
               <Select value={pessoa} onValueChange={(v) => { if (v) setPessoa(v); }}>
@@ -78,7 +78,7 @@ export default function NovoClienteDialog() {
           </div>
 
           {/* Nome fantasia / CPF/CNPJ */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="nome_fantasia">
                 {pessoa === 'J' ? 'Nome Fantasia' : 'Apelido'}
@@ -92,7 +92,7 @@ export default function NovoClienteDialog() {
           </div>
 
           {/* Contato */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="celular">Celular</Label>
               <Input id="celular" name="celular" placeholder="(00) 00000-0000" />
@@ -119,7 +119,7 @@ export default function NovoClienteDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="bairro">Bairro</Label>
               <Input id="bairro" name="bairro" />

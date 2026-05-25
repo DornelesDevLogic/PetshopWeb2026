@@ -121,7 +121,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
   const idade = calcIdade(animal.data_nascimento);
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-4xl mx-auto">
       {/* Voltar */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -292,8 +292,8 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
             <DialogTitle>Editar Animal</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4 mt-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1 col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 col-span-full">
                 <Label>Nome *</Label>
                 <Input name="nome" required defaultValue={animal.nome} />
               </div>
@@ -339,7 +339,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
                 <Label>Cor</Label>
                 <Input name="cor" defaultValue={animal.cor} />
               </div>
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-1 col-span-full">
                 <Label>Espécie</Label>
                 <Select value={editEspecie} onValueChange={(v) => { if (v) { setEditEspecie(v); setEditRaca(''); setEditPelo(''); } }}>
                   <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -375,7 +375,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
                 </Select>
                 <input type="hidden" name="id_pelo" value={editPelo} />
               </div>
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-1 col-span-full">
                 <Label>Observações</Label>
                 <Input name="obs" defaultValue={animal.obs} />
               </div>

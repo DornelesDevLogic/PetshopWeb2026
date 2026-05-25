@@ -134,7 +134,7 @@ export default function NovoAnimalDialog({
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
 
           {/* Nome + Apelido */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="nome">Nome *</Label>
               <Input id="nome" name="nome" required placeholder="Nome do animal" />
@@ -146,7 +146,7 @@ export default function NovoAnimalDialog({
           </div>
 
           {/* Espécie + Raça */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Espécie</Label>
               <Select value={idEspecie} onValueChange={(v) => { if (v) handleEspecieChange(v); }}>
@@ -184,7 +184,7 @@ export default function NovoAnimalDialog({
           </div>
 
           {/* Pelo + Tipo animal */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Tipo de Pelo</Label>
               <Select
@@ -211,7 +211,7 @@ export default function NovoAnimalDialog({
           </div>
 
           {/* Sexo + Castrado + Data nasc */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Sexo</Label>
               <Select value={sexo} onValueChange={(v) => { if (v) setSexo(v); }}>
@@ -243,7 +243,7 @@ export default function NovoAnimalDialog({
           </div>
 
           {/* Peso + Cor */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="peso">Peso (kg)</Label>
               <Input id="peso" name="peso" placeholder="Ex: 4.5" />

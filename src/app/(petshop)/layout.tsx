@@ -1,4 +1,5 @@
 import NavLinks from '@/components/petshop/sidebar/NavLinks';
+import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
 import { logout } from '@/app/login/actions';
 import { PawPrint, LogOut, UserCircle2 } from 'lucide-react';
 import { FILIAL } from '@/lib/api';
@@ -32,9 +33,10 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
   const user = getUser();
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r bg-white">
+    <div className="flex h-screen overflow-hidden">
+
+      {/* ── Sidebar (desktop) ─────────────────────────────────────────────── */}
+      <aside className="hidden md:flex w-56 shrink-0 flex-col border-r bg-white">
         {/* Brand */}
         <div className="flex items-center gap-2 px-5 py-4 border-b">
           <PawPrint className="h-6 w-6 text-primary" />
@@ -75,10 +77,17 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Header mobile com hamburger + drawer */}
+        <MobileHeader filial={FILIAL} user={user} />
+
+        {/* Conteúdo da página */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+
     </div>
   );
 }

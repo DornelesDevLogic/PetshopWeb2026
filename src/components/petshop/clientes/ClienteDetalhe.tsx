@@ -70,7 +70,7 @@ export default function ClienteDetalhe({ cliente: c, animais, especies, racas, p
     .join(', ');
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Back + actions */}
       <div className="flex items-center justify-between">
         <Link href="/clientes">
