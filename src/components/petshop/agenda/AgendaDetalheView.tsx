@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   detalhe: AgendaDetalhe;
-  itens:   AgendaItemServico[];
+  itens:   AgendaItemServico[] | undefined;
 }
 
 function StatusBadge({ status }: { status: number }) {
@@ -249,7 +249,7 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
       </div>
 
       {/* ── Itens / Serviços (PRODORCA) ── */}
-      {itens.length > 0 && (
+      {(itens ?? []).length > 0 && (
         <div className="rounded-xl border bg-white p-5">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5" />
@@ -266,7 +266,7 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {itens.map((item) => (
+                {(itens ?? []).map((item) => (
                   <TableRow key={item.id_item}>
                     <TableCell>
                       <p className="font-medium">{item.produto || item.descricao}</p>

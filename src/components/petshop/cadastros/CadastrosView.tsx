@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Settings, Loader2, AlertCircle, Plus, Trash2, X } from 'lucide-react';
+import { Settings, Loader2, AlertCircle, Plus, Trash2, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -109,16 +109,37 @@ function AddForm({ onClose, onSubmit, isPending, error, children }: {
 }
 
 // ── Seção de Tab ──────────────────────────────────────────────────────────────
-function TabSection({ count, onAdd, children }: {
-  count: number; onAdd: () => void; children: React.ReactNode;
+function TabSection({ count, total, onAdd, busca, onBusca, children }: {
+  count: number;
+  total?: number;
+  onAdd: () => void;
+  busca?: string;
+  onBusca?: (v: string) => void;
+  children: React.ReactNode;
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{count} {count === 1 ? 'registro' : 'registros'}</p>
-        <Button type="button" size="sm" variant="outline" onClick={onAdd}>
-          <Plus className="h-3.5 w-3.5 mr-1" />Adicionar
-        </Button>
+      <div className="flex items-center gap-3 flex-wrap">
+        {onBusca !== undefined && (
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Pesquisar..."
+              value={busca ?? ''}
+              onChange={(e) => onBusca(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-3 ml-auto">
+          <p className="text-sm text-muted-foreground whitespace-nowrap">
+            {count}{total !== undefined && total !== count ? `/${total}` : ''}{' '}
+            {count === 1 ? 'registro' : 'registros'}
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={onAdd}>
+            <Plus className="h-3.5 w-3.5 mr-1" />Adicionar
+          </Button>
+        </div>
       </div>
       {children}
     </div>
@@ -143,10 +164,14 @@ export default function CadastrosView({
   const [peloEspecie, setPeloEspecie] = useState('');
   const [vacinaEspecie, setVacinaEspecie] = useState('');
 
+  // Filtro de pesquisa (compartilhado — reseta ao trocar de aba)
+  const [busca, setBusca] = useState('');
+
   function switchTab(t: TabId) {
     setTab(t);
     setShowForm(false);
     setFormError('');
+    setBusca('');
     setRacaEspecie('');
     setRacaPorte('');
     setPeloEspecie('');
@@ -209,8 +234,11 @@ export default function CadastrosView({
       <div className="rounded-xl border bg-white p-5">
 
         {/* ── Serviços ── */}
-        {tab === 'servicos' && (
-          <TabSection count={servicos.length} onAdd={() => { setShowForm(true); setFormError(''); }}>
+        {tab === 'servicos' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (servicos ?? []).filter((s) => !q || s.descricao.toLowerCase().includes(q));
+          return (
+          <TabSection count={lista.length} total={(servicos ?? []).length} onAdd={() => { setShowForm(true); setFormError(''); }} busca={busca} onBusca={setBusca}>
             {showForm && (
               <AddForm onClose={() => setShowForm(false)} onSubmit={handleAction(createServico)} isPending={isPending} error={formError}>
                 <div className="grid grid-cols-2 gap-3">
@@ -230,10 +258,10 @@ export default function CadastrosView({
               </AddForm>
             )}
             <div className="rounded-md border overflow-hidden">
-              {servicos.length === 0 && (
-                <p className="text-sm text-muted-foreground px-4 py-3">Nenhum serviço cadastrado.</p>
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhum serviço encontrado.' : 'Nenhum serviço cadastrado.'}</p>
               )}
-              {(servicos ?? []).map((s) => (
+              {lista.map((s) => (
                 <Row key={s.id} onDelete={() => handleDelete(deleteServico, s.id)} isPending={isPending}>
                   <div className="flex items-center gap-3">
                     {s.cor_status && (
@@ -251,11 +279,19 @@ export default function CadastrosView({
               ))}
             </div>
           </TabSection>
-        )}
+          );
+        })()}
 
         {/* ── Profissionais ── */}
-        {tab === 'profissionais' && (
-          <TabSection count={profissionais.length} onAdd={() => { setShowForm(true); setFormError(''); }}>
+        {tab === 'profissionais' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (profissionais ?? []).filter((p) =>
+            !q || p.nome.toLowerCase().includes(q) ||
+            (p.crmv ?? '').toLowerCase().includes(q) ||
+            (p.email ?? '').toLowerCase().includes(q)
+          );
+          return (
+          <TabSection count={lista.length} total={(profissionais ?? []).length} onAdd={() => { setShowForm(true); setFormError(''); }} busca={busca} onBusca={setBusca}>
             {showForm && (
               <AddForm onClose={() => setShowForm(false)} onSubmit={handleAction(createProfissional)} isPending={isPending} error={formError}>
                 <div className="grid grid-cols-2 gap-3">
@@ -283,10 +319,10 @@ export default function CadastrosView({
               </AddForm>
             )}
             <div className="rounded-md border overflow-hidden">
-              {profissionais.length === 0 && (
-                <p className="text-sm text-muted-foreground px-4 py-3">Nenhum profissional cadastrado.</p>
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhum profissional encontrado.' : 'Nenhum profissional cadastrado.'}</p>
               )}
-              {(profissionais ?? []).map((p) => (
+              {lista.map((p) => (
                 <Row key={p.id} canDelete={false} isPending={isPending}>
                   <div>
                     <p className="font-medium text-sm">{p.nome}</p>
@@ -298,7 +334,8 @@ export default function CadastrosView({
               ))}
             </div>
           </TabSection>
-        )}
+          );
+        })()}
 
         {/* ── Espécies ── */}
         {tab === 'especies' && (
@@ -325,8 +362,14 @@ export default function CadastrosView({
         )}
 
         {/* ── Raças ── */}
-        {tab === 'racas' && (
-          <TabSection count={racas.length} onAdd={() => { setShowForm(true); setFormError(''); }}>
+        {tab === 'racas' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (racas ?? []).filter((r) =>
+            !q || r.descricao.toLowerCase().includes(q) ||
+            (r.especie ?? '').toLowerCase().includes(q)
+          );
+          return (
+          <TabSection count={lista.length} total={(racas ?? []).length} onAdd={() => { setShowForm(true); setFormError(''); }} busca={busca} onBusca={setBusca}>
             {showForm && (
               <AddForm onClose={() => setShowForm(false)} onSubmit={handleAction(createRaca)} isPending={isPending} error={formError}>
                 <div className="grid grid-cols-2 gap-3">
@@ -366,10 +409,10 @@ export default function CadastrosView({
               </AddForm>
             )}
             <div className="rounded-md border overflow-hidden">
-              {racas.length === 0 && (
-                <p className="text-sm text-muted-foreground px-4 py-3">Nenhuma raça cadastrada.</p>
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhuma raça encontrada.' : 'Nenhuma raça cadastrada.'}</p>
               )}
-              {(racas ?? []).map((r) => (
+              {lista.map((r) => (
                 <Row key={r.id} onDelete={() => handleDelete(deleteRaca, r.id)} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{r.descricao}</p>
@@ -381,7 +424,8 @@ export default function CadastrosView({
               ))}
             </div>
           </TabSection>
-        )}
+          );
+        })()}
 
         {/* ── Tipos de Pelo ── */}
         {tab === 'pelos' && (
@@ -427,8 +471,15 @@ export default function CadastrosView({
         )}
 
         {/* ── Vacinas catálogo ── */}
-        {tab === 'vacinas' && (
-          <TabSection count={vacinas.length} onAdd={() => { setShowForm(true); setFormError(''); }}>
+        {tab === 'vacinas' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (vacinas ?? []).filter((v) =>
+            !q || v.descricao.toLowerCase().includes(q) ||
+            (v.especie ?? '').toLowerCase().includes(q) ||
+            (v.laboratorio ?? '').toLowerCase().includes(q)
+          );
+          return (
+          <TabSection count={lista.length} total={(vacinas ?? []).length} onAdd={() => { setShowForm(true); setFormError(''); }} busca={busca} onBusca={setBusca}>
             {showForm && (
               <AddForm onClose={() => setShowForm(false)} onSubmit={handleAction(createVacinaCatalogo)} isPending={isPending} error={formError}>
                 <div className="grid grid-cols-2 gap-3">
@@ -454,10 +505,10 @@ export default function CadastrosView({
               </AddForm>
             )}
             <div className="rounded-md border overflow-hidden">
-              {vacinas.length === 0 && (
-                <p className="text-sm text-muted-foreground px-4 py-3">Nenhuma vacina cadastrada.</p>
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhuma vacina encontrada.' : 'Nenhuma vacina cadastrada.'}</p>
               )}
-              {(vacinas ?? []).map((v) => (
+              {lista.map((v) => (
                 <Row key={v.id} onDelete={() => handleDelete(deleteVacinaCatalogo, v.id)} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{v.descricao}</p>
@@ -469,11 +520,19 @@ export default function CadastrosView({
               ))}
             </div>
           </TabSection>
-        )}
+          );
+        })()}
 
         {/* ── Medicamentos ── */}
-        {tab === 'medicamentos' && (
-          <TabSection count={medicamentos.length} onAdd={() => { setShowForm(true); setFormError(''); }}>
+        {tab === 'medicamentos' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (medicamentos ?? []).filter((m) =>
+            !q || m.medicamento.toLowerCase().includes(q) ||
+            (m.laboratorio ?? '').toLowerCase().includes(q) ||
+            (m.aplicacao ?? '').toLowerCase().includes(q)
+          );
+          return (
+          <TabSection count={lista.length} total={(medicamentos ?? []).length} onAdd={() => { setShowForm(true); setFormError(''); }} busca={busca} onBusca={setBusca}>
             {showForm && (
               <AddForm onClose={() => setShowForm(false)} onSubmit={handleAction(createMedicamento)} isPending={isPending} error={formError}>
                 <div className="grid grid-cols-2 gap-3">
@@ -493,10 +552,10 @@ export default function CadastrosView({
               </AddForm>
             )}
             <div className="rounded-md border overflow-hidden">
-              {medicamentos.length === 0 && (
-                <p className="text-sm text-muted-foreground px-4 py-3">Nenhum medicamento cadastrado.</p>
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhum medicamento encontrado.' : 'Nenhum medicamento cadastrado.'}</p>
               )}
-              {(medicamentos ?? []).map((m) => (
+              {lista.map((m) => (
                 <Row key={m.id} canDelete={false} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{m.medicamento}</p>
@@ -508,7 +567,8 @@ export default function CadastrosView({
               ))}
             </div>
           </TabSection>
-        )}
+          );
+        })()}
 
       </div>
     </div>

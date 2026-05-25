@@ -4,6 +4,47 @@ import { revalidatePath } from 'next/cache';
 import { apiFetch, FILIAL } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
+export async function uploadFoto(
+  animalId: number,
+  _clienteId: number,
+  fotoBase64: string,
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/animais/foto', {
+      method: 'POST',
+      body: JSON.stringify({ animal_id: animalId, filial: FILIAL, foto_base64: fotoBase64 }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+
+  revalidatePath(`/animais/${animalId}`);
+  return {};
+}
+
+export async function deleteFoto(
+  animalId: number,
+  _clienteId: number,
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/animais/foto', {
+      method: 'DELETE',
+      body: JSON.stringify({ animal_id: animalId, filial: FILIAL }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+
+  revalidatePath(`/animais/${animalId}`);
+  return {};
+}
+
 export async function updateAnimal(
   animalId: number,
   clienteId: number,

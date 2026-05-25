@@ -35,6 +35,7 @@ import {
   ArrowLeft, Pencil, Trash2, Loader2, AlertCircle,
   PawPrint, ShoppingBag, User,
 } from 'lucide-react';
+import AnimalFotoUpload from '@/components/petshop/animais/AnimalFotoUpload';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -238,6 +239,9 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
           </div>
         </div>
       </div>
+
+      {/* Foto do animal */}
+      <AnimalFotoUpload animalId={animal.id} clienteId={animal.id_cliente} />
 
       {/* Histórico de compras */}
       <div className="rounded-xl border bg-white overflow-hidden">
