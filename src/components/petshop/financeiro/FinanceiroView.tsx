@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ContaReceber, ContaReceberTotais } from '@/types/petshop';
+import { baixarConta } from '@/app/(petshop)/financeiro/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +21,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Wallet } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Wallet, CreditCard, AlertCircle, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useTransition } from 'react';
 
@@ -48,7 +57,6 @@ const hoje = new Date().toISOString().split('T')[0];
 function statusBaixaInfo(c: ContaReceber) {
   if (c.status_baixa === 2) return { label: 'Pago',    color: 'bg-green-100 text-green-700 border-green-200' };
   if (c.status_baixa === 3) return { label: 'Parcial', color: 'bg-amber-100 text-amber-700 border-amber-200' };
-  // aberto
   const venc = c.dt_vencimento.split('T')[0] || c.dt_vencimento;
   const vencida = venc < hoje;
   return {
@@ -64,7 +72,12 @@ export default function FinanceiroView({
 }: Props) {
   const router = useRouter();
   const [busca, setBusca] = useState('');
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+
+  // Baixa dialog
+  const [baixaConta, setBaixaConta] = useState<ContaReceber | null>(null);
+  const [valorPago, setValorPago]   = useState('');
+  const [baixaError, setBaixaError] = useState('');
 
   function navigate(params: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
@@ -78,9 +91,30 @@ export default function FinanceiroView({
     startTransition(() => router.push('/financeiro?' + sp.toString()));
   }
 
+  function openBaixa(c: ContaReceber) {
+    setBaixaConta(c);
+    setValorPago(c.saldo.toFixed(2).replace('.', ','));
+    setBaixaError('');
+  }
+
+  function handleBaixar() {
+    if (!baixaConta) return;
+    const val = parseFloat(valorPago.replace(',', '.'));
+    if (isNaN(val) || val <= 0) { setBaixaError('Informe um valor válido.'); return; }
+    setBaixaError('');
+    startTransition(async () => {
+      const r = await baixarConta(baixaConta.nro_doc, baixaConta.parcela, val);
+      if (r.error) { setBaixaError(r.error); return; }
+      setBaixaConta(null);
+      router.refresh();
+    });
+  }
+
   const filtrados = busca.trim()
     ? contas.filter((c) => c.cliente.toLowerCase().includes(busca.toLowerCase()))
     : contas;
+
+  const podesBaixar = (c: ContaReceber) => c.status_baixa !== 2; // não baixar contas já pagas
 
   return (
     <div className="flex flex-col h-full">
@@ -97,8 +131,15 @@ export default function FinanceiroView({
             </p>
           </div>
 
-          {/* Filtro período */}
           <div className="flex items-center gap-2">
+            {/* Link para saldos */}
+            <Link href="/financeiro/saldos">
+              <Button variant="outline" size="sm">
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+                Saldos
+              </Button>
+            </Link>
+            {/* Filtro período */}
             <Input
               type="date"
               value={dataDe}
@@ -194,6 +235,7 @@ export default function FinanceiroView({
                   <TableHead className="text-right hidden lg:table-cell">Pago</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -219,6 +261,19 @@ export default function FinanceiroView({
                           {info.label}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        {podesBaixar(c) && c.saldo > 0 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                            onClick={() => openBaixa(c)}
+                          >
+                            <CreditCard className="h-3.5 w-3.5 mr-1" />
+                            Baixar
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -227,6 +282,55 @@ export default function FinanceiroView({
           </div>
         )}
       </div>
+
+      {/* ── Dialog Baixa ── */}
+      <Dialog open={!!baixaConta} onOpenChange={(o) => { if (!o) setBaixaConta(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Registrar Pagamento
+            </DialogTitle>
+          </DialogHeader>
+
+          {baixaConta && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Cliente:</span> <strong>{baixaConta.cliente}</strong></p>
+                <p><span className="text-muted-foreground">Doc/Parcela:</span> {baixaConta.nro_doc}/{baixaConta.parcela}</p>
+                <p><span className="text-muted-foreground">Vencimento:</span> {fmtData(baixaConta.dt_vencimento)}</p>
+                <p><span className="text-muted-foreground">Saldo:</span> <strong>{fmtMoeda(baixaConta.saldo)}</strong></p>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Valor Pago (R$)</Label>
+                <Input
+                  value={valorPago}
+                  onChange={(e) => setValorPago(e.target.value)}
+                  placeholder="0,00"
+                  className="text-right font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Preencha com o saldo para quitação total, ou valor parcial.
+                </p>
+              </div>
+
+              {baixaError && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4 shrink-0" />{baixaError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setBaixaConta(null)}>Cancelar</Button>
+                <Button onClick={handleBaixar} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

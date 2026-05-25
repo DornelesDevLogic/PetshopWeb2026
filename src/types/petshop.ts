@@ -482,6 +482,54 @@ export type VacinaCatalogoResponse = ApiList<VacinaCatalogo>;
 export type MedicamentoResponse    = ApiList<Medicamento>;
 
 // ---------------------------------------------------------------------------
+// Animais — histórico de compras e aniversariantes
+// ---------------------------------------------------------------------------
+
+export interface AnimalHistoricoItem {
+  id_srqnf:   number;
+  filial:     number;
+  data:       string;
+  num_nf:     number;
+  produto:    string;
+  unidade:    string;
+  qtd:        string;
+  valor_unit: string;
+  preco_tab:  string;
+}
+
+export interface AnimalHistoricoResponse {
+  animal_id:  number;
+  cliente_id: number;
+  dados:      AnimalHistoricoItem[];
+  Count:      number;
+  StartsAt:   string;
+  EndsAt:     string;
+}
+
+export interface AnimalAniversariante {
+  id:               number;
+  filial:           number;
+  nome:             string;
+  apelido:          string;
+  data_nascimento:  string;
+  especie:          string;
+  raca:             string;
+  id_cliente:       number;
+  nome_cliente:     string;
+  fone_cliente:     string;
+  celular_cliente:  string;
+  email_cliente:    string;
+}
+
+export interface AniversariantesResponse {
+  mes:      number;
+  dados:    AnimalAniversariante[];
+  Count:    number;
+  StartsAt: string;
+  EndsAt:   string;
+}
+
+// ---------------------------------------------------------------------------
 // Relatórios
 // ---------------------------------------------------------------------------
 
