@@ -80,13 +80,12 @@ export default function AgendaView({ items, profissionais, dataAtual, profission
   }
 
   // Filtro client-side por nome de cliente/animal
-  const filtrados = busca.trim()
-    ? items.filter(
-        (i) =>
-          i.cliente.toLowerCase().includes(busca.toLowerCase()) ||
-          i.animal.toLowerCase().includes(busca.toLowerCase())
-      )
-    : items;
+  const filtrados = (items ?? []).filter(
+    (i) =>
+      !busca.trim() ||
+      i.cliente.toLowerCase().includes(busca.toLowerCase()) ||
+      i.animal.toLowerCase().includes(busca.toLowerCase()),
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -153,7 +152,7 @@ export default function AgendaView({ items, profissionais, dataAtual, profission
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os profissionais</SelectItem>
-              {profissionais.map((p) => (
+              {(profissionais ?? []).map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>
                   {p.nome}
                 </SelectItem>

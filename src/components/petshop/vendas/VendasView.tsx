@@ -67,9 +67,9 @@ export default function VendasView({ items, dataDe, dataAte, statusAtual }: Prop
     startTransition(() => router.push('/vendas?' + sp.toString()));
   }
 
-  const filtrados = busca.trim()
-    ? items.filter((i) => i.cliente.toLowerCase().includes(busca.toLowerCase()))
-    : items;
+  const filtrados = (items ?? []).filter(
+    (i) => !busca.trim() || i.cliente.toLowerCase().includes(busca.toLowerCase()),
+  );
 
   return (
     <div className="flex flex-col h-full">

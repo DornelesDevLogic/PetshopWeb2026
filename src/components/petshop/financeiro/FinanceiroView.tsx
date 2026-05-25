@@ -110,9 +110,9 @@ export default function FinanceiroView({
     });
   }
 
-  const filtrados = busca.trim()
-    ? contas.filter((c) => c.cliente.toLowerCase().includes(busca.toLowerCase()))
-    : contas;
+  const filtrados = (contas ?? []).filter((c) =>
+    !busca.trim() || c.cliente.toLowerCase().includes(busca.toLowerCase()),
+  );
 
   const podesBaixar = (c: ContaReceber) => c.status_baixa !== 2; // não baixar contas já pagas
 

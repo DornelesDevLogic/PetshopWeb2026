@@ -243,7 +243,7 @@ export default function NovaConsultaForm({ profissionais }: Props) {
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {profissionais.map((p) => (
+                  {(profissionais ?? []).map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
                   ))}
                 </SelectContent>

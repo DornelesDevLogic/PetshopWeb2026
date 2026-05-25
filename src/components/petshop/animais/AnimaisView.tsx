@@ -76,7 +76,7 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
     if (m) startTransition(() => router.push(`/animais?mes=${m}`));
   }
 
-  const filtrados = animais.filter((a) => {
+  const filtrados = (animais ?? []).filter((a) => {
     const q = busca.trim().toLowerCase();
     if (q && !a.nome.toLowerCase().includes(q) && !a.nome_cliente.toLowerCase().includes(q)) return false;
     if (especieId && String(a.id_especie) !== especieId) return false;

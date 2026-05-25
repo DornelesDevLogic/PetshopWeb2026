@@ -74,13 +74,12 @@ export default function ConsultasView({
     startTransition(() => router.push('/consultas?' + sp.toString()));
   }
 
-  const filtrados = busca.trim()
-    ? items.filter(
-        (i) =>
-          i.animal.toLowerCase().includes(busca.toLowerCase()) ||
-          i.proprietario.toLowerCase().includes(busca.toLowerCase()),
-      )
-    : items;
+  const filtrados = (items ?? []).filter(
+    (i) =>
+      !busca.trim() ||
+      i.animal.toLowerCase().includes(busca.toLowerCase()) ||
+      i.proprietario.toLowerCase().includes(busca.toLowerCase()),
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -141,7 +140,7 @@ export default function ConsultasView({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os veterinários</SelectItem>
-              {profissionais.map((p) => (
+              {(profissionais ?? []).map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
               ))}
             </SelectContent>

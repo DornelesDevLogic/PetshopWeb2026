@@ -27,9 +27,9 @@ function fmtMoeda(v: number) {
 export default function SaldosView({ saldos }: Props) {
   const [busca, setBusca] = useState('');
 
-  const filtrados = busca.trim()
-    ? saldos.filter((s) => s.cliente.toLowerCase().includes(busca.toLowerCase()))
-    : saldos;
+  const filtrados = (saldos ?? []).filter(
+    (s) => !busca.trim() || s.cliente.toLowerCase().includes(busca.toLowerCase()),
+  );
 
   const totalDevedor    = filtrados.reduce((acc, s) => acc + s.saldo_devedor, 0);
   const totalDisponivel = filtrados.reduce((acc, s) => acc + Math.max(s.saldo_disponivel, 0), 0);

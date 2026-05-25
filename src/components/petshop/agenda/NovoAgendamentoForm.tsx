@@ -269,7 +269,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos }: Props) 
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {profissionais.map((p) => (
+                  {(profissionais ?? []).map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>
                       {p.nome}
                     </SelectItem>
@@ -285,7 +285,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos }: Props) 
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {servicos.map((s) => (
+                  {(servicos ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.descricao}
                     </SelectItem>

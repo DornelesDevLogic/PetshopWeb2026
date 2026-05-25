@@ -233,7 +233,7 @@ export default function CadastrosView({
               {servicos.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhum serviço cadastrado.</p>
               )}
-              {servicos.map((s) => (
+              {(servicos ?? []).map((s) => (
                 <Row key={s.id} onDelete={() => handleDelete(deleteServico, s.id)} isPending={isPending}>
                   <div className="flex items-center gap-3">
                     {s.cor_status && (
@@ -286,7 +286,7 @@ export default function CadastrosView({
               {profissionais.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhum profissional cadastrado.</p>
               )}
-              {profissionais.map((p) => (
+              {(profissionais ?? []).map((p) => (
                 <Row key={p.id} canDelete={false} isPending={isPending}>
                   <div>
                     <p className="font-medium text-sm">{p.nome}</p>
@@ -315,7 +315,7 @@ export default function CadastrosView({
               {especies.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhuma espécie cadastrada.</p>
               )}
-              {especies.map((e) => (
+              {(especies ?? []).map((e) => (
                 <Row key={e.id} onDelete={() => handleDelete(deleteEspecie, e.id)} isPending={isPending}>
                   <p className="text-sm">{e.descricao}</p>
                 </Row>
@@ -341,7 +341,7 @@ export default function CadastrosView({
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {especies.map((e) => (
+                        {(especies ?? []).map((e) => (
                           <SelectItem key={e.id} value={String(e.id)}>{e.descricao}</SelectItem>
                         ))}
                       </SelectContent>
@@ -369,7 +369,7 @@ export default function CadastrosView({
               {racas.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhuma raça cadastrada.</p>
               )}
-              {racas.map((r) => (
+              {(racas ?? []).map((r) => (
                 <Row key={r.id} onDelete={() => handleDelete(deleteRaca, r.id)} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{r.descricao}</p>
@@ -400,7 +400,7 @@ export default function CadastrosView({
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {especies.map((e) => (
+                        {(especies ?? []).map((e) => (
                           <SelectItem key={e.id} value={String(e.id)}>{e.descricao}</SelectItem>
                         ))}
                       </SelectContent>
@@ -414,7 +414,7 @@ export default function CadastrosView({
               {pelos.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhum tipo de pelo cadastrado.</p>
               )}
-              {pelos.map((p) => (
+              {(pelos ?? []).map((p) => (
                 <Row key={p.id} onDelete={() => handleDelete(deleteTipoPelo, p.id)} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{p.descricao}</p>
@@ -443,7 +443,7 @@ export default function CadastrosView({
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {especies.map((e) => (
+                        {(especies ?? []).map((e) => (
                           <SelectItem key={e.id} value={String(e.id)}>{e.descricao}</SelectItem>
                         ))}
                       </SelectContent>
@@ -457,7 +457,7 @@ export default function CadastrosView({
               {vacinas.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhuma vacina cadastrada.</p>
               )}
-              {vacinas.map((v) => (
+              {(vacinas ?? []).map((v) => (
                 <Row key={v.id} onDelete={() => handleDelete(deleteVacinaCatalogo, v.id)} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{v.descricao}</p>
@@ -496,7 +496,7 @@ export default function CadastrosView({
               {medicamentos.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">Nenhum medicamento cadastrado.</p>
               )}
-              {medicamentos.map((m) => (
+              {(medicamentos ?? []).map((m) => (
                 <Row key={m.id} canDelete={false} isPending={isPending}>
                   <div>
                     <p className="text-sm font-medium">{m.medicamento}</p>
