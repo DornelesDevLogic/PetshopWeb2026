@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PawPrint, Cake, ChevronRight, Phone } from 'lucide-react';
+import { PawPrint, Cake, ChevronRight, Phone, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -87,10 +87,18 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b bg-white px-6 py-4">
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          <PawPrint className="h-5 w-5 text-primary" />
-          Animais
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <PawPrint className="h-5 w-5 text-primary" />
+            Animais
+          </h1>
+          <Link href="/animais/novo">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Novo Animal
+            </Button>
+          </Link>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-1 mt-3 border-b -mb-4">
