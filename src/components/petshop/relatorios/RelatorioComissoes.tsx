@@ -103,12 +103,12 @@ export default function RelatorioComissoes({ dados, dataIni, dataFim }: Props) {
 
       {/* Tabela */}
       {dados.Count === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-white">
+        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
           <Users className="h-12 w-12 mb-3 opacity-30" />
           <p className="text-sm">Nenhum dado para o período.</p>
         </div>
       ) : (
-        <div className="rounded-md border bg-white overflow-auto">
+        <div className="rounded-md border bg-card overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -125,7 +125,7 @@ export default function RelatorioComissoes({ dados, dataIni, dataFim }: Props) {
             </TableHeader>
             <TableBody>
               {(dados.dados ?? []).map((r, i) => (
-                <TableRow key={i} className="hover:bg-gray-50">
+                <TableRow key={i} className="hover:bg-muted/40">
                   <TableCell className="font-mono text-xs">{fmtData(r.data)}</TableCell>
                   <TableCell className="text-sm">{r.cliente}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{r.animal || '—'}</TableCell>

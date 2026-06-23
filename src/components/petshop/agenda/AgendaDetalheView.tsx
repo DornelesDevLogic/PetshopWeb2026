@@ -14,36 +14,30 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   ArrowLeft,
   CalendarDays,
-  Clock,
   User,
-  PawPrint,
   Scissors,
   AlertTriangle,
   CheckCircle2,
   PlayCircle,
   XCircle,
   Loader2,
-  MapPin,
+  Printer,
 } from 'lucide-react';
+import { printWindow } from '@/lib/printWindow';
+import { gerarComandaBanhoTosa } from '@/components/petshop/print/comandaBanhoTosa';
+import ProdutosAgenda from './ProdutosAgenda';
 import { cn } from '@/lib/utils';
 
 interface Props {
-  detalhe: AgendaDetalhe;
-  itens:   AgendaItemServico[] | undefined;
+  detalhe:          AgendaDetalhe;
+  itens:            AgendaItemServico[] | undefined;
+  avisosProdutos?:  boolean;
 }
 
 function StatusBadge({ status }: { status: number }) {
-  const s = STATUS_AGENDA[status] ?? { label: String(status), color: 'bg-gray-100 text-gray-600' };
+  const s = STATUS_AGENDA[status] ?? { label: String(status), color: 'bg-muted text-muted-foreground' };
   return (
     <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold', s.color)}>
       {s.label}
@@ -88,7 +82,7 @@ const ACOES: Record<number, Acao[]> = {
   ],
 };
 
-export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
+export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }: Props) {
   const router = useRouter();
   const [isPending, startTransition]     = useTransition();
   const [errorMsg, setErrorMsg]          = useState('');
@@ -96,6 +90,29 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
   const [obsCanc, setObsCanc]            = useState('');
 
   const acoes = ACOES[d.status] ?? [];
+
+  function handlePrint() {
+    const html = gerarComandaBanhoTosa({
+      id:           d.id,
+      cliente:      d.cliente,
+      data:         d.data,
+      hora:         d.hora,
+      profissional: d.profissional,
+      servico:      d.servico,
+      animal:       d.animal,
+      raca:         d.raca,
+      obs:          d.obs,
+      banho_normal: d.banho_normal,
+      tosa_alta:    d.tosa_alta,
+      tosa_baixa:   d.tosa_baixa,
+      antipulga:    d.antipulga,
+      hidra:        d.hidra,
+      medic:        d.medic,
+      valor:        d.valor,
+      sub_total:    d.sub_total,
+    });
+    printWindow(html);
+  }
 
   function executarAcao(acao: Acao, obs?: string) {
     setErrorMsg('');
@@ -129,6 +146,14 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
 
+      {/* ── Aviso de produtos com erro ── */}
+      {avisosProdutos && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Agenda criada, mas alguns produtos não foram salvos. Adicione-os novamente na seção de produtos abaixo.
+        </div>
+      )}
+
       {/* ── Cabeçalho ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Link href="/agenda">
@@ -152,6 +177,9 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
               <span className="ml-1.5">{a.label}</span>
             </Button>
           ))}
+          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
+            <Printer className="h-4 w-4" /> Imprimir
+          </Button>
         </div>
       </div>
 
@@ -166,7 +194,7 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
       <div className="grid md:grid-cols-2 gap-5">
 
         {/* Data / Hora / Profissional / Serviço */}
-        <div className="rounded-xl border bg-white p-5 space-y-1">
+        <div className="rounded-xl border bg-card p-5 space-y-1">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5" />
             Agendamento #{d.id}
@@ -185,7 +213,7 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
         </div>
 
         {/* Cliente / Animal */}
-        <div className="rounded-xl border bg-white p-5 space-y-1">
+        <div className="rounded-xl border bg-card p-5 space-y-1">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
             <User className="h-3.5 w-3.5" />
             Cliente e Animal
@@ -208,7 +236,7 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
       </div>
 
       {/* ── Financeiro ── */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
           <Scissors className="h-3.5 w-3.5" />
           Financeiro
@@ -248,42 +276,13 @@ export default function AgendaDetalheView({ detalhe: d, itens }: Props) {
         )}
       </div>
 
-      {/* ── Itens / Serviços (PRODORCA) ── */}
-      {(itens ?? []).length > 0 && (
-        <div className="rounded-xl border bg-white p-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5" />
-            Itens do Atendimento
-          </h2>
-          <div className="rounded-md border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produto / Serviço</TableHead>
-                  <TableHead className="text-right w-16">Qtd</TableHead>
-                  <TableHead className="text-right w-28">Valor Unit.</TableHead>
-                  <TableHead className="text-right w-28">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(itens ?? []).map((item) => (
-                  <TableRow key={item.id_item}>
-                    <TableCell>
-                      <p className="font-medium">{item.produto || item.descricao}</p>
-                      {item.produto && item.descricao && item.produto !== item.descricao && (
-                        <p className="text-xs text-muted-foreground">{item.descricao}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{item.qtd}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{fmtMoeda(item.valor)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-medium">{fmtMoeda(item.valor_liq)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
+      {/* ── Produtos / Itens (interativo) ── */}
+      <ProdutosAgenda
+        agendaId={d.id}
+        filial={d.filial}
+        itensInic={itens ?? []}
+        podeEditar={d.status === 1 || d.status === 2}
+      />
 
       {/* ── Dialog de confirmação (cancelar) ── */}
       {confirmAcao && (

@@ -32,7 +32,7 @@ interface Props {
 }
 
 function StatusBadge({ status }: { status: number }) {
-  const info = STATUS_PREVENDA[status] ?? { label: String(status), color: 'bg-gray-100 text-gray-600 border-gray-200' };
+  const info = STATUS_PREVENDA[status] ?? { label: String(status), color: 'bg-muted text-muted-foreground border-border' };
   return (
     <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold', info.color)}>
       {info.label}
@@ -74,7 +74,7 @@ export default function VendasView({ items, dataDe, dataAte, statusAtual }: Prop
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b bg-white px-6 py-4">
+      <div className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div>
@@ -150,7 +150,7 @@ export default function VendasView({ items, dataDe, dataAte, statusAtual }: Prop
             <p className="text-sm">Nenhuma venda no período.</p>
           </div>
         ) : (
-          <div className="rounded-md border bg-white">
+          <div className="rounded-md border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -165,7 +165,7 @@ export default function VendasView({ items, dataDe, dataAte, statusAtual }: Prop
               </TableHeader>
               <TableBody>
                 {filtrados.map((item) => (
-                  <TableRow key={`${item.id}-${item.filial}`} className="hover:bg-gray-50">
+                  <TableRow key={`${item.id}-${item.filial}`} className="hover:bg-muted/40">
                     <TableCell className="font-mono text-xs text-muted-foreground">{item.id}</TableCell>
                     <TableCell className="font-mono text-sm">{fmtData(item.data)}</TableCell>
                     <TableCell className="font-medium">{item.cliente}</TableCell>

@@ -4,13 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { apiFetch, FILIAL } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
+const up = (v: FormDataEntryValue | null) =>
+  ((v as string | null)?.trim() ?? '').toUpperCase();
+
 export async function createAnimal(
   clienteId: number,
   filialCliente: number,
   _prev: { error?: string },
   formData: FormData,
 ): Promise<{ error?: string; id?: number }> {
-  const nome = (formData.get('nome') as string | null)?.trim() ?? '';
+  const nome = up(formData.get('nome'));
   if (!nome) return { error: 'Nome é obrigatório.' };
 
   const body = {
@@ -18,12 +21,12 @@ export async function createAnimal(
     id_cliente:      clienteId,
     filial_cliente:  filialCliente,
     nome,
-    apelido:         formData.get('apelido')         ?? '',
+    apelido:         up(formData.get('apelido')),
     sexo:            formData.get('sexo')            ?? '',
     castrado:        formData.get('castrado') === '1' ? 1 : 0,
     data_nascimento: formData.get('data_nascimento') ?? '',
     peso:            formData.get('peso')            ?? '',
-    cor:             formData.get('cor')             ?? '',
+    cor:             up(formData.get('cor')),
     tipo_animal:     formData.get('tipo_animal')     ?? '',
     id_especie:      Number(formData.get('id_especie')  || 0),
     especie:         formData.get('especie')         ?? '',
@@ -31,7 +34,8 @@ export async function createAnimal(
     raca:            formData.get('raca')            ?? '',
     id_pelo:         Number(formData.get('id_pelo')     || 0),
     pelo:            formData.get('pelo')            ?? '',
-    obs:             formData.get('obs')             ?? '',
+    obs:             up(formData.get('obs')),
+    controla_racao:  Number(formData.get('controla_racao') || 0),
   };
 
   let res: ApiWrite;

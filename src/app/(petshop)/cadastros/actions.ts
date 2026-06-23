@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, FILIAL } from '@/lib/api';
-import { ApiWrite } from '@/types/petshop';
+import { ApiWrite, ServicoResponse } from '@/types/petshop';
+import { corServicoCss } from '@/lib/cores';
 
 async function post(endpoint: string, body: Record<string, unknown>): Promise<{ error?: string; id?: number }> {
   let res: ApiWrite;
@@ -27,14 +28,73 @@ async function del(endpoint: string, id: number): Promise<{ error?: string }> {
 }
 
 // ── Serviços ──────────────────────────────────────────────────────────────
+
+/** Valida se já existe outro serviço com a mesma descrição ou mesma cor */
+async function validarServicoDuplicado(
+  descricao: string,
+  cor: string,
+  ignorarId?: number,
+): Promise<string | null> {
+  const res = await apiFetch<ServicoResponse>(
+    `/api/petshop/servicos?filial=${FILIAL}&limit=500`,
+  ).catch(() => null);
+  const descNorm = descricao.trim().toUpperCase();
+  const corNorm  = corServicoCss(cor); // normaliza hex/TColor para comparar
+  for (const s of res?.dados ?? []) {
+    if (ignorarId && s.id === ignorarId) continue;
+    if (descNorm && s.descricao.trim().toUpperCase() === descNorm)
+      return `Já existe um serviço com a descrição "${s.descricao}".`;
+    if (corNorm && corServicoCss(s.cor_status) === corNorm)
+      return `A cor escolhida já está em uso pelo serviço "${s.descricao}". Escolha outra cor.`;
+  }
+  return null;
+}
+
 export async function createServico(_prev: unknown, fd: FormData): Promise<{ error?: string }> {
-  const r = await post('/api/petshop/servicos', {
-    descricao:  fd.get('descricao') ?? '',
-    duracao:    fd.get('duracao')   ?? '',
-    cor_status: fd.get('cor_status')?? '',
-  });
+  const descricao = String(fd.get('descricao') ?? '').trim();
+  const duracao   = String(fd.get('duracao') ?? '').trim();
+  const cor       = String(fd.get('cor_status') ?? '').trim();
+
+  const dup = await validarServicoDuplicado(descricao, cor);
+  if (dup) return { error: dup };
+
+  // Campos vazios são OMITIDOS: o Delphi não converte "" para TIME/numérico
+  const body: Record<string, unknown> = { descricao };
+  if (duracao) body.duracao    = duracao;
+  if (cor)     body.cor_status = cor;
+
+  const r = await post('/api/petshop/servicos', body);
   if (!r.error) revalidatePath('/cadastros');
   return r;
+}
+
+export async function updateServico(id: number, fd: FormData): Promise<{ error?: string }> {
+  const descricao = String(fd.get('descricao') ?? '').trim();
+  const duracao   = String(fd.get('duracao') ?? '').trim();
+  const cor       = String(fd.get('cor_status') ?? '').trim();
+
+  const dup = await validarServicoDuplicado(descricao, cor, id);
+  if (dup) return { error: dup };
+
+  // Campos vazios são OMITIDOS: o backend usa COALESCE e mantém o valor atual
+  const body: Record<string, unknown> = { id, filial: FILIAL };
+  if (descricao) body.descricao  = descricao;
+  if (duracao)   body.duracao    = duracao;
+  if (cor)       body.cor_status = cor;
+
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/servicos', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  revalidatePath('/cadastros');
+  revalidatePath('/agenda');
+  return {};
 }
 
 export async function deleteServico(id: number): Promise<{ error?: string }> {

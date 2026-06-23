@@ -6,17 +6,8 @@ import Link from 'next/link';
 import {
   Animal, AnimalHistoricoItem, Especie, Raca, TipoPelo,
 } from '@/types/petshop';
-import { updateAnimal, deactivateAnimal } from '@/app/(petshop)/animais/[id]/actions';
+import { deactivateAnimal } from '@/app/(petshop)/animais/[id]/actions';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -33,9 +24,10 @@ import {
 } from '@/components/ui/table';
 import {
   ArrowLeft, Pencil, Trash2, Loader2, AlertCircle,
-  PawPrint, ShoppingBag, User,
+  PawPrint, ShoppingBag, User, History,
 } from 'lucide-react';
 import AnimalFotoUpload from '@/components/petshop/animais/AnimalFotoUpload';
+import EditarAnimalDialog from '@/components/petshop/animais/EditarAnimalDialog';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -77,37 +69,9 @@ function fmtMoeda(s: string) {
 export default function AnimalDetalheView({ animal, historico, especies, racas, pelos }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [editOpen, setEditOpen] = useState(false);
-  const [editError, setEditError] = useState('');
-  const [deactError, setDeactError] = useState('');
+  const [editOpen,    setEditOpen]    = useState(false);
+  const [deactError,  setDeactError]  = useState('');
   const [confirmDeact, setConfirmDeact] = useState(false);
-
-  // Form state for select fields in Edit
-  const [editEspecie, setEditEspecie] = useState(String(animal.id_especie || ''));
-  const [editRaca,    setEditRaca]    = useState(String(animal.id_raca    || ''));
-  const [editPelo,    setEditPelo]    = useState(String(animal.id_pelo    || ''));
-  const [editSexo,    setEditSexo]    = useState(animal.sexo || '');
-  const [editCast,    setEditCast]    = useState(String(animal.castrado));
-
-  const racasFiltradas = editEspecie
-    ? racas.filter((r) => String(r.id_especie) === editEspecie)
-    : racas;
-
-  const pelosFiltrados = editEspecie
-    ? pelos.filter((p) => String(p.id_especie) === editEspecie)
-    : pelos;
-
-  function handleEdit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setEditError('');
-    const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const r = await updateAnimal(animal.id, animal.id_cliente, {}, fd);
-      if (r.error) { setEditError(r.error); return; }
-      setEditOpen(false);
-      router.refresh();
-    });
-  }
 
   function handleDeactivate() {
     setDeactError('');
@@ -139,6 +103,20 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href={`/animais/${animal.id}/historico`}>
+            <Button variant="outline" size="sm">
+              <History className="h-3.5 w-3.5 mr-1.5" />
+              Histórico
+            </Button>
+          </Link>
+          <EditarAnimalDialog
+            animal={animal}
+            especies={especies}
+            racas={racas}
+            pelos={pelos}
+            open={editOpen}
+            onOpenChange={setEditOpen}
+          />
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />
             Editar
@@ -164,7 +142,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
       {/* Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Dados do animal */}
-        <div className="rounded-xl border bg-white p-5 space-y-3">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Dados do Animal</h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted-foreground">Espécie</dt>
@@ -206,7 +184,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
         </div>
 
         {/* Dono */}
-        <div className="rounded-xl border bg-white p-5 space-y-3">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Proprietário</h2>
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
@@ -232,7 +210,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
               {animal.ativo === 1 ? 'Ativo' : 'Inativo'}
             </span>
             {animal.obito === 1 && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-600 border-gray-200">
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-muted text-muted-foreground border-border">
                 Óbito
               </span>
             )}
@@ -244,7 +222,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
       <AnimalFotoUpload animalId={animal.id} clienteId={animal.id_cliente} />
 
       {/* Histórico de compras */}
-      <div className="rounded-xl border bg-white overflow-hidden">
+      <div className="rounded-xl border bg-card overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3.5 border-b bg-muted/20">
           <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           <h2 className="font-semibold text-sm">Histórico de Compras</h2>
@@ -269,7 +247,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
             </TableHeader>
             <TableBody>
               {(historico ?? []).map((h, i) => (
-                <TableRow key={i} className="hover:bg-gray-50">
+                <TableRow key={i} className="hover:bg-muted/40">
                   <TableCell className="font-mono text-sm">{fmtData(h.data)}</TableCell>
                   <TableCell>
                     <p className="text-sm">{h.produto}</p>
@@ -284,118 +262,6 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
           </Table>
         )}
       </div>
-
-      {/* ── Dialog Editar ── */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar Animal</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEdit} className="space-y-4 mt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1 col-span-full">
-                <Label>Nome *</Label>
-                <Input name="nome" required defaultValue={animal.nome} />
-              </div>
-              <div className="space-y-1">
-                <Label>Apelido</Label>
-                <Input name="apelido" defaultValue={animal.apelido} />
-              </div>
-              <div className="space-y-1">
-                <Label>Data de Nascimento</Label>
-                <Input
-                  name="data_nascimento"
-                  type="date"
-                  defaultValue={animal.data_nascimento?.slice(0, 10)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Sexo</Label>
-                <Select value={editSexo} onValueChange={(v) => { if (v) setEditSexo(v); }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Macho</SelectItem>
-                    <SelectItem value="F">Fêmea</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="sexo" value={editSexo} />
-              </div>
-              <div className="space-y-1">
-                <Label>Castrado</Label>
-                <Select value={editCast} onValueChange={(v) => { if (v) setEditCast(v); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Não</SelectItem>
-                    <SelectItem value="1">Sim</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="castrado" value={editCast} />
-              </div>
-              <div className="space-y-1">
-                <Label>Peso (kg)</Label>
-                <Input name="peso" defaultValue={animal.peso} placeholder="Ex: 12.5" />
-              </div>
-              <div className="space-y-1">
-                <Label>Cor</Label>
-                <Input name="cor" defaultValue={animal.cor} />
-              </div>
-              <div className="space-y-1 col-span-full">
-                <Label>Espécie</Label>
-                <Select value={editEspecie} onValueChange={(v) => { if (v) { setEditEspecie(v); setEditRaca(''); setEditPelo(''); } }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {especies.map((e) => (
-                      <SelectItem key={e.id} value={String(e.id)}>{e.descricao}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="id_especie" value={editEspecie} />
-              </div>
-              <div className="space-y-1">
-                <Label>Raça</Label>
-                <Select value={editRaca} onValueChange={(v) => { if (v) setEditRaca(v); }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {racasFiltradas.map((r) => (
-                      <SelectItem key={r.id} value={String(r.id)}>{r.descricao}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="id_raca" value={editRaca} />
-              </div>
-              <div className="space-y-1">
-                <Label>Tipo de Pelo</Label>
-                <Select value={editPelo} onValueChange={(v) => { if (v) setEditPelo(v); }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    {pelosFiltrados.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.descricao}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="id_pelo" value={editPelo} />
-              </div>
-              <div className="space-y-1 col-span-full">
-                <Label>Observações</Label>
-                <Input name="obs" defaultValue={animal.obs} />
-              </div>
-            </div>
-
-            {editError && (
-              <div className="flex items-center gap-2 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 shrink-0" />{editError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Dialog Confirmar Desativação ── */}
       <Dialog open={confirmDeact} onOpenChange={setConfirmDeact}>

@@ -73,10 +73,17 @@ export async function updateAnimal(
     data_nascimento: formData.get('data_nascimento') ?? '',
     peso:            formData.get('peso')            ?? '',
     cor:             formData.get('cor')             ?? '',
+    tipo_animal:     formData.get('tipo_animal')     ?? '',
     id_especie:      Number(formData.get('id_especie')  || 0),
+    especie:         formData.get('especie')         ?? '',
     id_raca:         Number(formData.get('id_raca')     || 0),
+    raca:            formData.get('raca')            ?? '',
     id_pelo:         Number(formData.get('id_pelo')     || 0),
+    pelo:            formData.get('pelo')            ?? '',
+    controla_racao:  Number(formData.get('controla_racao') || 0),
     obs:             formData.get('obs')             ?? '',
+    obito:           Number(formData.get('obito')    || 0),
+    ativo:           Number(formData.get('ativo')    || 0),
   };
 
   let res: ApiWrite;

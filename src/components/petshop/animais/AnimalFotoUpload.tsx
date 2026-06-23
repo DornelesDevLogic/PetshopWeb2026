@@ -4,57 +4,11 @@ import { useState, useRef, useTransition, useCallback } from 'react';
 import { Camera, ImageUp, Trash2, Loader2, AlertTriangle, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { uploadFoto, deleteFoto } from '@/app/(petshop)/animais/[id]/actions';
+import { comprimirParaBase64, validarArquivo } from '@/lib/foto';
 
 interface Props {
   animalId:  number;
   clienteId: number;
-}
-
-/* ── Configurações de compressão ────────────────────────────────────────────── */
-const MAX_DIM  = 1024;   // px — lado maior máximo após redimensionamento
-const QUALITY  = 0.82;   // qualidade JPEG (0–1)
-const MAX_FILE = 20;     // MB — limite do arquivo original (rejeição antes de comprimir)
-
-/**
- * Redimensiona e comprime a imagem via Canvas.
- * Retorna a string base64 JPEG (sem o prefixo data:...).
- */
-function comprimirParaBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new window.Image();
-
-    img.onload = () => {
-      let { naturalWidth: w, naturalHeight: h } = img;
-
-      // Redimensiona mantendo proporção
-      if (w > MAX_DIM || h > MAX_DIM) {
-        if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
-        else        { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width  = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject(new Error('Canvas não disponível neste browser.')); return; }
-
-      ctx.drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(objectUrl);
-
-      // toDataURL devolve "data:image/jpeg;base64,XXXX" — pegar só o XXXX
-      const b64 = canvas.toDataURL('image/jpeg', QUALITY).split(',')[1];
-      if (!b64) { reject(new Error('Falha ao gerar base64.')); return; }
-      resolve(b64);
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Não foi possível carregar a imagem.'));
-    };
-
-    img.src = objectUrl;
-  });
 }
 
 /* ── Componente ─────────────────────────────────────────────────────────────── */
@@ -72,14 +26,8 @@ export default function AnimalFotoUpload({ animalId, clienteId }: Props) {
 
   /* ── Processa qualquer File selecionado ───────────────────────────────────── */
   const processarArquivo = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Selecione um arquivo de imagem (JPG, PNG, WEBP…).');
-      return;
-    }
-    if (file.size > MAX_FILE * 1024 * 1024) {
-      setError(`Arquivo muito grande. Máximo aceito: ${MAX_FILE} MB.`);
-      return;
-    }
+    const erroValidacao = validarArquivo(file);
+    if (erroValidacao) { setError(erroValidacao); return; }
 
     setError('');
 
@@ -118,7 +66,7 @@ export default function AnimalFotoUpload({ animalId, clienteId }: Props) {
 
   /* ── Render ───────────────────────────────────────────────────────────────── */
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border bg-card p-5">
 
       <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
         <Camera className="h-3.5 w-3.5" />
@@ -239,7 +187,7 @@ export default function AnimalFotoUpload({ animalId, clienteId }: Props) {
 
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
             A imagem é redimensionada automaticamente<br />
-            para no máximo {MAX_DIM}px antes de salvar.
+            para no máximo 1024px antes de salvar.
           </p>
 
           {error && (

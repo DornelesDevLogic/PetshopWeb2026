@@ -37,7 +37,7 @@ export default function SaldosView({ saldos }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b bg-white px-6 py-4 space-y-4">
+      <div className="border-b bg-background px-6 py-4 space-y-4">
         <div className="flex items-center gap-3">
           <Link href="/financeiro">
             <Button variant="ghost" size="sm">
@@ -84,12 +84,12 @@ export default function SaldosView({ saldos }: Props) {
       {/* Tabela */}
       <div className="flex-1 overflow-auto p-6">
         {filtrados.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-white">
+          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
             <Users className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm">Nenhum saldo encontrado.</p>
           </div>
         ) : (
-          <div className="rounded-md border bg-white">
+          <div className="rounded-md border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -106,7 +106,7 @@ export default function SaldosView({ saldos }: Props) {
                   const negativo     = disponivel < 0;
                   const semLimite    = s.limite_cred === 0;
                   return (
-                    <TableRow key={`${s.cliente_id}-${s.filial}`} className="hover:bg-gray-50">
+                    <TableRow key={`${s.cliente_id}-${s.filial}`} className="hover:bg-muted/40">
                       <TableCell className="font-medium">
                         <Link
                           href={`/clientes/${s.cliente_id}`}

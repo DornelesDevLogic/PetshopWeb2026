@@ -32,7 +32,7 @@ export default function RelatoriosPage() {
           <Link
             key={href}
             href={href}
-            className="rounded-xl border bg-white p-5 hover:border-primary/40 hover:shadow-sm transition-all group"
+            className="rounded-xl border bg-card p-5 hover:border-primary/40 hover:shadow-sm transition-all group"
           >
             <div className="flex items-center gap-3 mb-3">
               <div className="rounded-lg bg-primary/10 p-2 group-hover:bg-primary/15 transition-colors">

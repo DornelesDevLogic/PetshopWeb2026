@@ -2,64 +2,377 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   APPLE LIQUID GLASS — Design Tokens
+   Tema escuro como padrão, claro como alternativa
+   ============================================================ */
+
 @layer base {
+
+  /* ── Tema Claro ── */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* Fundo: branco levemente frio */
+    --background:        220 20% 97%;
+    --foreground:        220 25% 10%;
+
+    /* Superfícies glass (claro) */
+    --card:              0 0% 100%;
+    --card-foreground:   220 25% 10%;
+    --popover:           0 0% 100%;
+    --popover-foreground:220 25% 10%;
+
+    /* Primária: Azul Apple */
+    --primary:           211 100% 55%;
+    --primary-foreground:0 0% 100%;
+
+    /* Secundária */
+    --secondary:         220 14% 93%;
+    --secondary-foreground:220 25% 20%;
+
+    /* Muted */
+    --muted:             220 14% 93%;
+    --muted-foreground:  220 10% 50%;
+
+    /* Accent */
+    --accent:            220 14% 91%;
+    --accent-foreground: 220 25% 15%;
+
+    /* Destrutivo */
+    --destructive:       0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Bordas e inputs — um passo mais visíveis para separar os painéis */
+    --border:            220 14% 82%;
+    --input:             220 14% 84%;
+    --ring:              211 100% 55%;
+
+    /* Border radius — mais arredondado */
+    --radius:            0.75rem;
+
+    /* ── Tokens Liquid Glass (claro) ── */
+    --glass-bg:          rgba(255, 255, 255, 0.72);
+    --glass-bg-hover:    rgba(255, 255, 255, 0.85);
+    --glass-border:      rgba(0, 0, 0, 0.08);
+    --glass-shadow:      0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+    --glass-blur:        20px;
+    --glass-active:      rgba(41, 151, 255, 0.12);
+
+    /* Gradiente de fundo da página */
+    --page-gradient:     radial-gradient(ellipse 80% 60% at 20% -10%, rgba(41,151,255,0.08) 0%, transparent 60%),
+                         radial-gradient(ellipse 60% 50% at 80% 110%, rgba(100,65,255,0.06) 0%, transparent 55%),
+                         hsl(var(--background));
   }
 
+  /* ── Tema Escuro (Apple Space Black) ── */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Fundo: deep space, quase preto com tom azul */
+    --background:        228 28% 7%;
+    --foreground:        210 30% 94%;
+
+    /* Superfícies glass (escuro) */
+    --card:              226 25% 10%;
+    --card-foreground:   210 30% 94%;
+    --popover:           226 25% 10%;
+    --popover-foreground:210 30% 94%;
+
+    /* Primária: Azul Apple brilhante */
+    --primary:           211 100% 60%;
+    --primary-foreground:226 28% 7%;
+
+    /* Secundária */
+    --secondary:         226 18% 18%;
+    --secondary-foreground:210 30% 94%;
+
+    /* Muted */
+    --muted:             226 18% 16%;
+    --muted-foreground:  218 14% 55%;
+
+    /* Accent */
+    --accent:            226 18% 20%;
+    --accent-foreground: 210 30% 94%;
+
+    /* Destrutivo */
+    --destructive:       0 68% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Bordas e inputs */
+    --border:            226 18% 20%;
+    --input:             226 18% 20%;
+    --ring:              211 100% 60%;
+
+    --radius:            0.75rem;
+
+    /* ── Tokens Liquid Glass (escuro) ── */
+    --glass-bg:          rgba(255, 255, 255, 0.055);
+    --glass-bg-hover:    rgba(255, 255, 255, 0.09);
+    --glass-border:      rgba(255, 255, 255, 0.10);
+    --glass-shadow:      0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
+    --glass-blur:        24px;
+    --glass-active:      rgba(41, 151, 255, 0.18);
+
+    /* Gradiente de fundo da página */
+    --page-gradient:     radial-gradient(ellipse 70% 55% at 15% -5%, rgba(41,151,255,0.12) 0%, transparent 55%),
+                         radial-gradient(ellipse 55% 45% at 85% 105%, rgba(120,80,255,0.10) 0%, transparent 50%),
+                         radial-gradient(ellipse 80% 60% at 50% 50%, rgba(20,30,60,0.4) 0%, transparent 100%),
+                         hsl(var(--background));
   }
 }
+
+/* ============================================================
+   BASE
+   ============================================================ */
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Rolagem suave global */
+    scroll-behavior: smooth;
+    /* Ocupa safe-area (notch/home bar) */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background: var(--page-gradient);
+    background-attachment: fixed;
+    min-height: 100dvh;
+    /* Evita scroll horizontal acidental em mobile */
+    overflow-x: hidden;
+  }
+
+  /* Inputs não dão zoom no iOS (font-size >= 16px) */
+  input, textarea, select {
+    font-size: max(1rem, 16px);
+  }
+
+  /* Área mínima de toque para elementos interativos (WCAG 2.5.5) */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove highlight azul ao tocar em mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Melhor controle de touch em listas roláveis */
+  [data-scroll], .overflow-y-auto, .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 }
+
+/* ============================================================
+   LIQUID GLASS — Classes utilitárias reutilizáveis
+   ============================================================ */
+
+@layer components {
+
+  /* Superfície glass padrão */
+  .glass {
+    background:    var(--glass-bg);
+    border:        1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow:    var(--glass-shadow);
+  }
+
+  /* Glass com brilho no topo (highlight especular) */
+  .glass-highlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(255,255,255,0.10) 0%,
+      rgba(255,255,255,0.02) 40%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  /* Item de nav ativo */
+  .glass-active {
+    background: var(--glass-active);
+    border: 1px solid rgba(41, 151, 255, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Botão glass primário */
+  .btn-glass-primary {
+    background:    rgba(41, 151, 255, 0.85);
+    border:        1px solid rgba(41, 151, 255, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:    0 2px 12px rgba(41, 151, 255, 0.35), 0 1px 0 rgba(255,255,255,0.15) inset;
+    color:         #fff;
+    transition:    all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-glass-primary:hover {
+    background:    rgba(41, 151, 255, 0.95);
+    box-shadow:    0 4px 20px rgba(41, 151, 255, 0.50), 0 1px 0 rgba(255,255,255,0.2) inset;
+    transform:     translateY(-1px);
+  }
+  .btn-glass-primary:active {
+    transform:     translateY(0);
+    box-shadow:    0 1px 6px rgba(41, 151, 255, 0.30);
+  }
+
+  /* Botão glass secundário */
+  .btn-glass-secondary {
+    background:    var(--glass-bg);
+    border:        1px solid var(--glass-border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:    var(--glass-shadow);
+    transition:    all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-glass-secondary:hover {
+    background:    var(--glass-bg-hover);
+    transform:     translateY(-1px);
+  }
+  .btn-glass-secondary:active {
+    transform:     translateY(0);
+  }
+
+  /* Input glass */
+  .input-glass {
+    background:    var(--glass-bg);
+    border:        1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition:    all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .input-glass:focus {
+    background:    var(--glass-bg-hover);
+    border-color:  rgba(41, 151, 255, 0.50);
+    box-shadow:    0 0 0 3px rgba(41, 151, 255, 0.12);
+    outline:       none;
+  }
+}
+
+/* ============================================================
+   SCROLLBAR — minimalista estilo macOS
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width:  6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background:    rgba(128, 128, 128, 0.35);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.55);
+}
+
+/* ============================================================
+   TRANSIÇÕES — suaves e fluidas
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  transition-property: color, background-color, border-color, fill, stroke,
+                       box-shadow, opacity, transform;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sem transição em elementos com animação própria */
+.no-theme-transition,
+.no-theme-transition * {
+  transition: none !important;
+}
+
+/* Animações rápidas não devem receber a transição global */
+[data-radix-popper-content-wrapper],
+[data-state="open"],
+[data-state="closed"] {
+  transition: none !important;
+}
+
+/* ============================================================
+   SELEÇÃO DE TEXTO — Apple style
+   ============================================================ */
+
+::selection {
+  background: rgba(41, 151, 255, 0.30);
+  color: inherit;
+}
+
+/* ============================================================
+   TIPOGRAFIA — Inter com ajustes Apple
+   ============================================================ */
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Peso e tracking Apple-like */
+  .text-display {
+    font-size:      clamp(1.5rem, 3vw, 2.25rem);
+    font-weight:    700;
+    letter-spacing: -0.02em;
+    line-height:    1.15;
+  }
+
+  .text-title {
+    font-size:      1.125rem;
+    font-weight:    600;
+    letter-spacing: -0.01em;
+  }
+
+  .text-label {
+    font-size:      0.6875rem;
+    font-weight:    600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Utilitários PWA / Mobile ───────────────────────────────────────────── */
+
+  /* Ocupa a tela inteira excluindo barras do sistema */
+  .safe-top    { padding-top:    env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-left   { padding-left:   env(safe-area-inset-left); }
+  .safe-right  { padding-right:  env(safe-area-inset-right); }
+
+  /* Tabelas responsivas em mobile — scroll horizontal suave */
+  .table-mobile-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Botão touch-friendly quando precisa ser menor por design */
+  .touch-target {
+    position: relative;
+  }
+  .touch-target::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  /* Ocultar scrollbar mas manter funcionalidade */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

@@ -66,7 +66,7 @@ export default function NovaVendaForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* Cliente */}
-        <div className="rounded-xl border bg-white p-5 space-y-3">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <User className="h-3.5 w-3.5" />
             Cliente *
@@ -99,7 +99,7 @@ export default function NovaVendaForm() {
                 </Button>
               </div>
               {resultados.length > 0 && (
-                <div className="rounded-md border divide-y bg-white shadow-sm overflow-hidden">
+                <div className="rounded-md border divide-y bg-card shadow-sm overflow-hidden">
                   {resultados.map((c) => (
                     <button
                       key={c.id}
@@ -120,7 +120,7 @@ export default function NovaVendaForm() {
         </div>
 
         {/* Dados opcionais */}
-        <div className="rounded-xl border bg-white p-5 space-y-4">
+        <div className="rounded-xl border bg-card p-5 space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Dados da Venda
           </h2>

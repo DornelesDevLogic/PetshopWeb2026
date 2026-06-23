@@ -86,7 +86,7 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b bg-white px-6 py-4">
+      <div className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold flex items-center gap-2">
             <PawPrint className="h-5 w-5 text-primary" />
@@ -109,7 +109,7 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
               className={cn(
                 'px-4 py-2 text-sm font-medium rounded-t-md transition-colors -mb-px',
                 tab === t
-                  ? 'border border-b-white bg-white text-primary'
+                  ? 'border border-b-background bg-background text-primary'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -164,12 +164,12 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
 
             {/* Tabela */}
             {filtrados.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-white">
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
                 <PawPrint className="h-12 w-12 mb-3 opacity-30" />
                 <p className="text-sm">Nenhum animal encontrado.</p>
               </div>
             ) : (
-              <div className="rounded-md border bg-white">
+              <div className="rounded-md border bg-card">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -185,7 +185,7 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
                     {filtrados.map((a) => (
                       <TableRow
                         key={a.id}
-                        className="cursor-pointer hover:bg-gray-50"
+                        className="cursor-pointer hover:bg-muted/40"
                         onClick={() => router.push(`/animais/${a.id}`)}
                       >
                         <TableCell>
@@ -254,12 +254,12 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
             </div>
 
             {aniversariantes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-white">
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
                 <Cake className="h-12 w-12 mb-3 opacity-30" />
                 <p className="text-sm">Nenhum aniversariante em {MESES[mes - 1]}.</p>
               </div>
             ) : (
-              <div className="rounded-md border bg-white">
+              <div className="rounded-md border bg-card">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -272,7 +272,7 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
                   </TableHeader>
                   <TableBody>
                     {aniversariantes.map((a) => (
-                      <TableRow key={a.id} className="hover:bg-gray-50">
+                      <TableRow key={a.id} className="hover:bg-muted/40">
                         <TableCell>
                           <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-pink-100 text-pink-700 text-sm font-bold">
                             {diaAniversario(a.data_nascimento)}

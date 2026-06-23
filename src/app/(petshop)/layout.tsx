@@ -1,8 +1,7 @@
-import NavLinks from '@/components/petshop/sidebar/NavLinks';
+import CollapsibleSidebar from '@/components/petshop/sidebar/CollapsibleSidebar';
 import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
 import { logout } from '@/app/login/actions';
-import { PawPrint, LogOut, UserCircle2 } from 'lucide-react';
-import { FILIAL } from '@/lib/api';
+import { FILIAL, apiFetch } from '@/lib/api';
 import { cookies } from 'next/headers';
 
 interface UserInfo {
@@ -22,67 +21,34 @@ function getUser(): UserInfo | null {
   }
 }
 
-const TIPO_LABEL: Record<string, string> = {
-  S: 'Supervisor',
-  G: 'Gerente',
-  F: 'Ger. Especial',
-  O: 'Operador',
-};
+async function getBackendVersion(): Promise<string> {
+  try {
+    const data = await apiFetch<{ versao?: string }>('/api/petshop/status');
+    return data.versao ?? '';
+  } catch {
+    return '';
+  }
+}
 
-export default function PetShopLayout({ children }: { children: React.ReactNode }) {
-  const user = getUser();
+export default async function PetShopLayout({ children }: { children: React.ReactNode }) {
+  const user           = getUser();
+  const backendVersion = await getBackendVersion();
 
   return (
     <div className="flex h-screen overflow-hidden">
 
-      {/* ── Sidebar (desktop) ─────────────────────────────────────────────── */}
-      <aside className="hidden md:flex w-56 shrink-0 flex-col border-r bg-white">
-        {/* Brand */}
-        <div className="flex items-center gap-2 px-5 py-4 border-b">
-          <PawPrint className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-base leading-none">PetShop</span>
-          <span className="ml-auto text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            Filial {FILIAL}
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-3">
-          <NavLinks />
-        </div>
-
-        {/* Usuário logado + Logout */}
-        <div className="border-t px-3 py-3 space-y-1">
-          {user && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 text-xs text-muted-foreground">
-              <UserCircle2 className="h-4 w-4 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <p className="font-medium text-foreground truncate">{user.nome}</p>
-                <p className="truncate">
-                  Cód. {user.codigo}
-                  {user.tipo ? ` · ${TIPO_LABEL[user.tipo] ?? user.tipo}` : ''}
-                </p>
-              </div>
-            </div>
-          )}
-          <form action={logout}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              Sair
-            </button>
-          </form>
-        </div>
-      </aside>
+      {/* ── Sidebar colapsável (desktop) ──────────────────────────────────── */}
+      <CollapsibleSidebar
+        filial={FILIAL}
+        supervisor={user?.tipo === 'S'}
+        user={user}
+        logoutAction={logout}
+        backendVersion={backendVersion}
+      />
 
       {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Header mobile com hamburger + drawer */}
         <MobileHeader filial={FILIAL} user={user} />
-
-        {/* Conteúdo da página */}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>

@@ -4,10 +4,11 @@ import AgendaDetalheView from '@/components/petshop/agenda/AgendaDetalheView';
 import { notFound } from 'next/navigation';
 
 interface Props {
-  params: { id: string };
+  params:       { id: string };
+  searchParams: { aviso?: string };
 }
 
-export default async function AgendaDetalhePage({ params }: Props) {
+export default async function AgendaDetalhePage({ params, searchParams }: Props) {
   const id = Number(params.id);
   if (!id) notFound();
 
@@ -27,5 +28,11 @@ export default async function AgendaDetalhePage({ params }: Props) {
 
   if (!detalhe || detalhe.CodStatus === -5) notFound();
 
-  return <AgendaDetalheView detalhe={detalhe} itens={itensRes.dados} />;
+  return (
+    <AgendaDetalheView
+      detalhe={detalhe}
+      itens={itensRes.dados}
+      avisosProdutos={searchParams.aviso === 'produtos'}
+    />
+  );
 }

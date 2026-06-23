@@ -12,25 +12,44 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  BellRing,
+  SlidersHorizontal,
+  Package,
+  Truck,
+  ClipboardList,
 } from 'lucide-react';
 
 const links = [
-  { href: '/agenda',     label: 'Agenda',      icon: CalendarDays },
-  { href: '/clientes',   label: 'Clientes',    icon: Users },
-  { href: '/animais',    label: 'Animais',     icon: PawPrint },
-  { href: '/consultas',  label: 'Consultas',   icon: Stethoscope },
-  { href: '/vendas',     label: 'Vendas',      icon: ShoppingCart },
+  { href: '/agenda',         label: 'Agenda',         icon: CalendarDays },
+  { href: '/clientes',       label: 'Clientes',       icon: Users },
+  { href: '/animais',        label: 'Animais',        icon: PawPrint },
+  { href: '/consultas',      label: 'Consultas',      icon: Stethoscope },
+  { href: '/estimativas',    label: 'Estimativas',    icon: BellRing },
+  { href: '/tele-entregas',  label: 'Tele-entregas',  icon: Truck },
+  { href: '/prevendas',      label: 'Pré-vendas',     icon: ClipboardList },
+  { href: '/produtos',       label: 'Produtos',       icon: Package },
+  { href: '/vendas',         label: 'Vendas',         icon: ShoppingCart },
   { href: '/financeiro', label: 'Financeiro',  icon: Wallet },
   { href: '/relatorios', label: 'Relatórios',  icon: BarChart3 },
   { href: '/cadastros',  label: 'Cadastros',   icon: Settings },
 ];
 
-export default function NavLinks() {
+// Visível apenas para Supervisor (SENHA.TIPO = 'S') — regra do sistema legado
+const linkConfiguracoes = {
+  href: '/configuracoes', label: 'Configurações', icon: SlidersHorizontal,
+};
+
+interface Props {
+  supervisor?: boolean;
+}
+
+export default function NavLinks({ supervisor }: Props) {
   const pathname = usePathname();
+  const todos = supervisor ? [...links, linkConfiguracoes] : links;
 
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {links.map(({ href, label, icon: Icon }) => {
+      {todos.map(({ href, label, icon: Icon }) => {
         const active = pathname.startsWith(href);
         return (
           <Link

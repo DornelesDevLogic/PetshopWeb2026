@@ -23,7 +23,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm space-y-6">
 
         {/* Brand */}
@@ -36,7 +36,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-xl border bg-white p-8 shadow-sm">
+        <div className="rounded-xl border bg-card p-8 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div className="space-y-1.5">

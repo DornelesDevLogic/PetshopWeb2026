@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Menu, X, PawPrint, UserCircle2, LogOut } from 'lucide-react';
 import NavLinks from './NavLinks';
+import ThemeToggle from './ThemeToggle';
 import { logout } from '@/app/login/actions';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +20,7 @@ export default function MobileHeader({ filial, user }: Props) {
   return (
     <>
       {/* ── Top bar (mobile only) ─────────────────────────────────────────── */}
-      <header className="md:hidden flex items-center gap-3 border-b bg-white px-4 h-14 shrink-0 z-30">
+      <header className="md:hidden flex items-center gap-3 border-b bg-background px-4 h-14 shrink-0 z-30 safe-top" style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top))' }}>
         <button
           onClick={() => setOpen(true)}
           className="p-1.5 rounded-md text-muted-foreground hover:bg-accent transition-colors"
@@ -27,7 +28,7 @@ export default function MobileHeader({ filial, user }: Props) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <PawPrint className="h-5 w-5 text-primary" />
           <span className="font-semibold text-base leading-none">PetShop</span>
           <span className="ml-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -48,7 +49,7 @@ export default function MobileHeader({ filial, user }: Props) {
       {/* ── Drawer ────────────────────────────────────────────────────────── */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white md:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-background md:hidden',
           'transition-transform duration-200 ease-in-out',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
@@ -70,10 +71,10 @@ export default function MobileHeader({ filial, user }: Props) {
 
         {/* Links — clicar em qualquer link fecha o drawer */}
         <div className="flex-1 overflow-y-auto py-3" onClick={() => setOpen(false)}>
-          <NavLinks />
+          <NavLinks supervisor={user?.tipo === 'S'} />
         </div>
 
-        {/* Usuário + logout */}
+        {/* Usuário + tema + logout */}
         <div className="border-t px-3 py-3 space-y-1">
           {user && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 text-xs text-muted-foreground">
@@ -87,6 +88,7 @@ export default function MobileHeader({ filial, user }: Props) {
               </div>
             </div>
           )}
+          <ThemeToggle />
           <form action={logout}>
             <button
               type="submit"

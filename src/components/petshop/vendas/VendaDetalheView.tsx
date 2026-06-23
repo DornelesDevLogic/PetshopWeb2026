@@ -72,7 +72,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
   const [desconto, setDesconto] = useState('0');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const statusInfo = STATUS_PREVENDA[venda.status] ?? { label: String(venda.status), color: 'bg-gray-100 text-gray-600 border-gray-200' };
+  const statusInfo = STATUS_PREVENDA[venda.status] ?? { label: String(venda.status), color: 'bg-muted text-muted-foreground border-border' };
   const podeEditar = venda.status === 1;
   const podeConfirmar = venda.status === 1;
   const podeCancelar = venda.status === 1 || venda.status === 2;
@@ -178,7 +178,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
       {/* Dialog cancelamento */}
       {showCancelDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Cancelar Pré-venda</h3>
               <Button variant="ghost" size="icon" onClick={() => setShowCancelDialog(false)}>
@@ -212,7 +212,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
       )}
 
       {/* Dados do cliente */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
           Cliente
         </h2>
@@ -243,7 +243,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
       </div>
 
       {/* Itens */}
-      <div className="rounded-xl border bg-white p-5 space-y-4">
+      <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Itens ({itens.length})
@@ -279,7 +279,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
                   </Button>
                 </div>
                 {resultados.length > 0 && (
-                  <div className="rounded-md border divide-y bg-white shadow-sm overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="rounded-md border divide-y bg-card shadow-sm overflow-hidden max-h-60 overflow-y-auto">
                     {resultados.map((p) => (
                       <button
                         key={p.id_dadospro}

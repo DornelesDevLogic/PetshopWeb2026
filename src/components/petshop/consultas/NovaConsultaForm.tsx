@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -21,12 +21,12 @@ import {
 } from '@/components/ui/select';
 import {
   ArrowLeft,
-  Search,
   Loader2,
   AlertCircle,
   User,
   PawPrint,
   X,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,7 @@ export default function NovaConsultaForm({ profissionais }: Props) {
   const [clienteRes, setClienteRes]        = useState<Cliente[]>([]);
   const [clienteSel, setClienteSel]        = useState<Cliente | null>(null);
   const [isBuscando, startBusca]           = useTransition();
+  const debounceRef                        = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Animais ──
   const [animais, setAnimais]              = useState<Animal[]>([]);
@@ -59,14 +60,19 @@ export default function NovaConsultaForm({ profissionais }: Props) {
   const formRef                            = useRef<HTMLFormElement>(null);
   const hoje = new Date().toISOString().split('T')[0];
 
-  function handleBuscar(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clienteQ.trim()) return;
-    startBusca(async () => {
-      const lista = await buscarClientes(clienteQ);
-      setClienteRes(lista);
-    });
-  }
+  useEffect(() => {
+    if (clienteSel) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (clienteQ.length === 0) { setClienteRes([]); return; }
+    if (clienteQ.length < 3) return;
+    debounceRef.current = setTimeout(() => {
+      startBusca(async () => {
+        const lista = await buscarClientes(clienteQ);
+        setClienteRes(lista);
+      });
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [clienteQ, clienteSel]);
 
   function selecionarCliente(c: Cliente) {
     setClienteSel(c);
@@ -132,7 +138,7 @@ export default function NovaConsultaForm({ profissionais }: Props) {
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
 
         {/* Cliente */}
-        <div className="rounded-xl border bg-white p-5 space-y-3">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <User className="h-3.5 w-3.5" />
             Proprietário *
@@ -152,20 +158,24 @@ export default function NovaConsultaForm({ profissionais }: Props) {
             </div>
           ) : (
             <>
-              <div className="flex gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   placeholder="Nome, CPF ou telefone..."
                   value={clienteQ}
                   onChange={(e) => setClienteQ(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleBuscar(e as unknown as React.FormEvent); } }}
-                  className="flex-1"
+                  className="pl-9 pr-9"
+                  autoComplete="off"
                 />
-                <Button type="button" variant="outline" onClick={handleBuscar} disabled={isBuscando}>
-                  {isBuscando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                </Button>
+                {isBuscando && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
+              {clienteQ.length > 0 && clienteQ.length < 3 && (
+                <p className="text-xs text-muted-foreground">Digite ao menos 3 letras para pesquisar...</p>
+              )}
               {clienteRes.length > 0 && (
-                <div className="rounded-md border divide-y bg-white shadow-sm overflow-hidden">
+                <div className="rounded-md border divide-y bg-card shadow-sm overflow-hidden">
                   {clienteRes.map((c) => (
                     <button
                       key={c.id}
@@ -186,7 +196,7 @@ export default function NovaConsultaForm({ profissionais }: Props) {
         </div>
 
         {/* Animal */}
-        <div className="rounded-xl border bg-white p-5 space-y-3">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <PawPrint className="h-3.5 w-3.5" />
             Animal *
@@ -226,7 +236,7 @@ export default function NovaConsultaForm({ profissionais }: Props) {
         </div>
 
         {/* Detalhes */}
-        <div className="rounded-xl border bg-white p-5 space-y-4">
+        <div className="rounded-xl border bg-card p-5 space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Dados da Consulta
           </h2>

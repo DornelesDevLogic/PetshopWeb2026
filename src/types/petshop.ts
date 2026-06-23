@@ -38,6 +38,10 @@ export interface AgendaItem {
   desconto: string;
   sub_total: string;
   obs: string;
+  situacao?: string;        // status do atendimento: FINALIZADA, ENCERRADA, etc.
+  pago?: string;           // 'S' = pago
+  data_previsao?: string;  // "DD/MM/YYYY HH:MM:SS" - início previsto
+  data_entrega?: string;   // "DD/MM/YYYY HH:MM:SS" - término previsto
 }
 
 export type AgendaResponse = ApiList<AgendaItem>;
@@ -56,6 +60,11 @@ export interface AgendaDetalhe extends AgendaItem {
   hidra:           string;
   medic:           string;
   pago:            string;
+  telefone:        string;
+  celular:         string;
+  vend_id:         number;
+  vend_filial:     number;
+  vend_nome:       string;
   CodStatus?:      number;   // -5 = não encontrado
 }
 
@@ -63,8 +72,9 @@ export interface AgendaDetalhe extends AgendaItem {
 export interface AgendaItemServico {
   id_item:   number;
   agenda_id: number;
-  produto:   string;
-  descricao: string;
+  cod_pro:   string;   // código do produto (TBLCODIGOPRO)
+  produto:   string;   // nome do produto (SRQPRO.DESC_PRO)
+  descricao: string;   // descrição salva no momento (PRODORCA.DESCPRO)
   unidade:   string;
   qtd:       string;
   valor:     string;
@@ -82,11 +92,12 @@ export interface AgendaItensResponse {
   EndsAt:    string;
 }
 
+// STATUS = status fiscal da ORCA (1-Orçamento | 2-Pedido | 3-NF emitida | 4-NF Cancelada)
 export const STATUS_AGENDA: Record<number, { label: string; color: string }> = {
-  1: { label: 'Agendado',       color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  2: { label: 'Em atendimento', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  3: { label: 'Finalizado',     color: 'bg-green-100 text-green-700 border-green-200' },
-  4: { label: 'Cancelado',      color: 'bg-red-100 text-red-700 border-red-200' },
+  1: { label: 'Orçamento',  color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  2: { label: 'Pedido',     color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  3: { label: 'NF emitida', color: 'bg-green-100 text-green-700 border-green-200' },
+  4: { label: 'Cancelado',  color: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +118,18 @@ export interface Profissional {
 }
 
 export type ProfissionalResponse = ApiList<Profissional>;
+
+// ---------------------------------------------------------------------------
+// Vendedores
+// ---------------------------------------------------------------------------
+
+export interface Vendedor {
+  id:     number;
+  filial: number;
+  nome:   string;
+}
+
+export type VendedorResponse = ApiList<Vendedor>;
 
 // ---------------------------------------------------------------------------
 // Clientes
@@ -132,12 +155,13 @@ export interface Cliente {
   cep: string;
   data_cadastro: string;
   data_nascimento: string;
-  situacao: string;       // 'A' = ativo, 'I' = inativo
+  situacao: string;
   pessoa: string;         // 'F' = física, 'J' = jurídica
   comentario: string;
   ie: string;
   atacadista: number;
   mei: number;
+  status_ativo: number;   // 0 = ativo, 1 = inativo
   saldo_disponivel: number;
   data_ult_compra: string;
 }
@@ -176,6 +200,14 @@ export interface Animal {
 }
 
 export type AnimalResponse = ApiList<Animal>;
+
+export interface PesoHistItem {
+  id:       number;
+  peso:     number;
+  data:     string;
+  anotacao: string;
+}
+export interface PesoHistResponse { dados: PesoHistItem[]; Count: number; CodStatus: number }
 
 // ---------------------------------------------------------------------------
 // Serviços
@@ -221,6 +253,95 @@ export interface ConsultaDetalhe extends Consulta {
   diagnostico:      string;
   diagnostico_def:  string;
   CodStatus?:       number;
+
+  // ── Anamnese — Geral (lookups são índices numéricos) ──────────────────
+  evolucao_quadro?:   number;
+  estado_corporal?:   number;
+  freq_cardiaca?:     string;
+  freq_respiratoria?: string;
+  exame_tpc?:         string;
+  exame_lfn?:         string;
+  hidratacao?:        string;
+  pressao_arterial?:  string;
+  pulso_arterial?:    number;
+  comportamento?:     number;
+  mucosas?:           number;
+  nivel_consciencia?: number;
+  convenio?:          string;
+  // ── Achados ───────────────────────────────────────────────────────────
+  ouvidos?:           string;
+  olhos?:             string;
+  dentes?:            string;
+  // ── Ausculação ────────────────────────────────────────────────────────
+  coracao?:           string;
+  pulmao?:            string;
+  fetal?:             string;
+  obs_ausculacao?:    string;
+  // ── Fezes ─────────────────────────────────────────────────────────────
+  fezes_odor?:        string;
+  fezes_consistencia?:string;
+  fezes_aparencia?:   string;
+  fezes_parasitas?:   string;
+  fezes_obs?:         string;
+  // ── Urina ─────────────────────────────────────────────────────────────
+  uri_odor?:          string;
+  uri_miccao?:        string;
+  uri_aspecto?:       string;
+  uri_obs?:           string;
+  // ── Alimentação ───────────────────────────────────────────────────────
+  aliment_tipo?:       string;
+  aliment_frequencia?: string;
+  aliment_quantidade?: string;
+  aliment_obs?:        string;
+  // ── Habitat ───────────────────────────────────────────────────────────
+  habitat_local?:       string;
+  habitat_convivencia?: string;
+  habitat_obs?:         string;
+  // ── Pele ──────────────────────────────────────────────────────────────
+  pele_pelos?:         string;
+  pele_ectoparasitas?: string;
+  pele_obs?:           string;
+  // ── Nariz / Membros ───────────────────────────────────────────────────
+  nariz?:             string;
+  membros?:           string;
+  // ── Diagnóstico / Prognóstico (observações) ───────────────────────────
+  diagnostico_obs?:     string;
+  diagnostico_def_obs?: string;
+  prognostico_obs?:     string;
+}
+
+// ---------------------------------------------------------------------------
+// Configuração de Anamnese (espelha PET_CONFIG_ANAMNESE + CONFIG.PET_ANAMNESE_RESUMIDO)
+// Todos os flags são 0/1. PET_ANAMNESE_RESUMIDO tem semântica INVERTIDA ao nome:
+//   anamnese_resumido = 1  → "Anamnese Completa = Sim" (mostra todas as abas; ABA_* customiza)
+//   anamnese_resumido = 0  → "Anamnese Completa = Não" (modo resumido: só Geral + diag/prog/prescr)
+// ---------------------------------------------------------------------------
+
+export interface ConfigAnamnese {
+  anamnese_resumido:            number;  // interruptor mestre (1=completa, 0=resumida)
+  // pares por grupo: ABA_<x> (exibir) + <x>_obrigatorio + def_imp_<x>
+  aba_achados:                  number;  achados_obrigatorio:       number;
+  aba_ausculacao:               number;  ausculacao_obrigatorio:    number;
+  aba_fezes:                    number;  fezes_obrigatorio:         number;
+  aba_urina:                    number;  urina_obrigatorio:         number;
+  aba_alimentacao:              number;  alimentacao_obrigatorio:   number;
+  aba_habitat:                  number;  habitat_obrigatorio:       number;
+  aba_pele:                     number;  pele_obrigatorio:          number;
+  aba_nariz:                    number;  nariz_obrigatorio:         number;
+  aba_membros:                  number;  membros_obrigatorio:       number;
+  aba_diagnostico:              number;  diagnostico_obrigatorio:   number;
+  aba_prognostico:              number;  prognostico_obrigatorio:   number;
+  aba_prescricao:               number;  prescricao_obrigatorio:    number;
+  preenchimento_obrig_geral:    number;
+  preenchimento_obrig_resumido: number;
+  peso_temp_obrig:              number;
+  // padrões de impressão no receituário
+  def_imp_achados:     number;  def_imp_ausculacao:  number;  def_imp_fezes:       number;
+  def_imp_urina:       number;  def_imp_aliment:     number;  def_imp_habitat:     number;
+  def_imp_pele:        number;  def_imp_nariz:       number;  def_imp_membros:     number;
+  def_imp_diagnostico: number;  def_imp_prognostico: number;  def_imp_prescricao:  number;
+  def_imp_geral:       number;
+  CodStatus?:          number;
 }
 
 export interface Prontuario {
@@ -278,6 +399,44 @@ export interface ExameResponse {
   Count:       number;
   StartsAt:    string;
   EndsAt:      string;
+}
+
+/** Anexo de exame (PET_ANEXO_EXAME) — laudo/imagem em PDF, JPG, PNG, DOC */
+export interface AnexoExame {
+  id:          number;
+  filial:      number;
+  consulta_id: number;
+  nome:        string;   // nome original do arquivo
+  tipo:        string;   // extensão: .pdf, .jpg, .png, .doc...
+  data:        string;   // yyyy-mm-dd
+  tamanho:     number;    // bytes
+  obs:         string;
+}
+
+export interface AnexoExameResponse {
+  dados:  AnexoExame[];
+  Count:  number;
+}
+
+/** Dados cadastrais da empresa/filial (TBLCAPFILIAIS) para cabeçalho de PDF */
+export interface DadosEmpresa {
+  id:          number;
+  nome:        string;
+  fantasia:    string;
+  cnpj:        string;
+  endereco:    string;
+  numero:      string;
+  bairro:      string;
+  cidade:      string;
+  uf:          string;
+  cep:         string;
+  fone:        string;
+  celular:     string;
+  email:       string;
+  site:        string;
+  logo_base64: string;   // logo da empresa (temporariamente do produto LOGO1001)
+  logo_mime?:  string;   // image/jpeg | image/png | ...
+  CodStatus?:  number;
 }
 
 export type ConsultaResponse = ApiList<Consulta>;
@@ -504,6 +663,43 @@ export interface AnimalHistoricoResponse {
   Count:      number;
   StartsAt:   string;
   EndsAt:     string;
+}
+
+export interface ConsultaAnimalItem {
+  id:          number;
+  filial:      number;
+  data:        string;
+  veterinario: string;
+  motivo:      string;
+  peso:        string;
+  temperatura: string;
+  diagnostico: string;
+  prognostico: string;
+  prescricao:  string;
+  obs:         string;
+}
+
+/** Retorno de GET /api/petshop/consultas/detalhe */
+export interface ConsultaDetalhe extends ConsultaAnimalItem {
+  agenda_id:       number;
+  proprietario_id: number;
+  proprietario:    string;
+  veterinario_id:  number;
+  data_alta:       string;
+  status:          string;
+  obs_gerais:      string;
+  prescricao:      string;
+  texto:           string;
+  diagnostico_def: string;
+  CodStatus?:      number;
+}
+
+export interface ConsultaAnimalResponse {
+  animal_id: number;
+  dados:     ConsultaAnimalItem[];
+  Count:     number;
+  StartsAt:  string;
+  EndsAt:    string;
 }
 
 export interface AnimalAniversariante {

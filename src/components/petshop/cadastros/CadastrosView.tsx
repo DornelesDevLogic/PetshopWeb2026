@@ -7,7 +7,7 @@ import {
   VacinaCatalogo, Medicamento,
 } from '@/types/petshop';
 import {
-  createServico, deleteServico,
+  createServico, deleteServico, updateServico,
   createProfissional,
   createEspecie, deleteEspecie,
   createRaca, deleteRaca,
@@ -25,8 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Settings, Loader2, AlertCircle, Plus, Trash2, X, Search } from 'lucide-react';
+import { Settings, Loader2, AlertCircle, Plus, Trash2, X, Search, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { corServicoCss } from '@/lib/cores';
 
 interface Props {
   especies:     Especie[];
@@ -50,16 +51,43 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
+/** Converte a cor gravada (hex ou TColor Delphi) para o formato do <input type="color"> */
+function corParaInputHex(cor: string | null | undefined): string {
+  const css = corServicoCss(cor);
+  if (!css) return '#3b82f6';
+  if (css.startsWith('#')) {
+    if (css.length === 4) return '#' + css.slice(1).split('').map((c) => c + c).join('');
+    return css.toLowerCase();
+  }
+  const m = css.match(/rgb\((\d+), (\d+), (\d+)\)/);
+  if (!m) return '#3b82f6';
+  const h = (n: string) => Number(n).toString(16).padStart(2, '0');
+  return `#${h(m[1])}${h(m[2])}${h(m[3])}`;
+}
+
 // ── Componente de linha com delete ────────────────────────────────────────────
-function Row({ children, onDelete, canDelete = true, isPending }: {
+function Row({ children, onDelete, onEdit, canDelete = true, isPending }: {
   children: React.ReactNode;
   onDelete?: () => void;
+  onEdit?: () => void;
   canDelete?: boolean;
   isPending?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b last:border-0 hover:bg-gray-50">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b last:border-0 hover:bg-muted/40">
       <div className="flex-1 min-w-0">{children}</div>
+      {onEdit && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="shrink-0 h-7 w-7 text-muted-foreground hover:text-primary"
+          onClick={onEdit}
+          disabled={isPending}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      )}
       {canDelete && onDelete && (
         <Button
           type="button"
@@ -155,6 +183,7 @@ export default function CadastrosView({
   const [tab, setTab] = useState<TabId>('servicos');
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState('');
+  const [servEdit, setServEdit] = useState<Servico | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -170,6 +199,7 @@ export default function CadastrosView({
   function switchTab(t: TabId) {
     setTab(t);
     setShowForm(false);
+    setServEdit(null);
     setFormError('');
     setBusca('');
     setRacaEspecie('');
@@ -189,6 +219,7 @@ export default function CadastrosView({
         const r = await fn(null, fd);
         if (r.error) { setFormError(r.error); return; }
         setShowForm(false);
+        setServEdit(null);
         formRef.current?.reset();
         router.refresh();
       });
@@ -221,7 +252,7 @@ export default function CadastrosView({
             className={cn(
               'px-4 py-2 text-sm font-medium rounded-t-md transition-colors -mb-px',
               tab === t.id
-                ? 'border border-b-white bg-white text-primary'
+                ? 'border border-b-background bg-background text-primary'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -231,7 +262,7 @@ export default function CadastrosView({
       </div>
 
       {/* Tab content */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-card p-5">
 
         {/* ── Serviços ── */}
         {tab === 'servicos' && (() => {
@@ -251,23 +282,81 @@ export default function CadastrosView({
                     <Input name="duracao" placeholder="60" />
                   </div>
                   <div className="space-y-1">
-                    <Label>Cor (hex)</Label>
-                    <Input name="cor_status" placeholder="#3B82F6" maxLength={7} />
+                    <Label>Cor do serviço</Label>
+                    <input
+                      type="color"
+                      name="cor_status"
+                      defaultValue="#3b82f6"
+                      className="h-9 w-full cursor-pointer rounded-md border border-input bg-background p-1"
+                      title="Cor exibida nos cards e na legenda da agenda"
+                    />
                   </div>
                 </div>
               </AddForm>
+            )}
+
+            {/* ── Editar serviço ── */}
+            {servEdit && (
+              <form
+                key={servEdit.id}
+                onSubmit={handleAction((_prev, fd) => updateServico(servEdit.id, fd))}
+                className="rounded-lg border p-4 space-y-3 bg-muted/20 mb-3"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium">Editar serviço — {servEdit.descricao}</p>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setServEdit(null); setFormError(''); }}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1 col-span-2">
+                    <Label>Descrição *</Label>
+                    <Input name="descricao" required defaultValue={servEdit.descricao} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Duração (min)</Label>
+                    <Input name="duracao" defaultValue={servEdit.duracao} placeholder="60" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Cor do serviço</Label>
+                    <input
+                      type="color"
+                      name="cor_status"
+                      defaultValue={corParaInputHex(servEdit.cor_status)}
+                      className="h-9 w-full cursor-pointer rounded-md border border-input bg-background p-1"
+                      title="Cor exibida nos cards e na legenda da agenda"
+                    />
+                  </div>
+                </div>
+                {formError && (
+                  <div className="flex items-center gap-2 text-xs text-red-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{formError}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setServEdit(null); setFormError(''); }}>Cancelar</Button>
+                  <Button type="submit" size="sm" disabled={isPending}>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar alterações'}
+                  </Button>
+                </div>
+              </form>
             )}
             <div className="rounded-md border overflow-hidden">
               {lista.length === 0 && (
                 <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhum serviço encontrado.' : 'Nenhum serviço cadastrado.'}</p>
               )}
               {lista.map((s) => (
-                <Row key={s.id} onDelete={() => handleDelete(deleteServico, s.id)} isPending={isPending}>
+                <Row
+                  key={s.id}
+                  onEdit={() => { setServEdit(s); setShowForm(false); setFormError(''); }}
+                  onDelete={() => handleDelete(deleteServico, s.id)}
+                  isPending={isPending}
+                >
                   <div className="flex items-center gap-3">
-                    {s.cor_status && (
+                    {corServicoCss(s.cor_status) && (
                       <span
                         className="h-3 w-3 rounded-full shrink-0 border"
-                        style={{ background: s.cor_status }}
+                        style={{ background: corServicoCss(s.cor_status)! }}
                       />
                     )}
                     <div>

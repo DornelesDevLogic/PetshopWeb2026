@@ -10,6 +10,8 @@ interface LoginApiResult {
   nome?: string;
   tipo?: string;
   empresa?: number;
+  tecnico_id?: number;    // profissional vinculado (TBLTECNICO.FK_USUARIO)
+  tecnico_nome?: string;
   erro?: string;
 }
 
@@ -55,10 +57,12 @@ export async function login(
 
   // Cookie com dados do usuário logado
   cookieStore.set('ps_user', JSON.stringify({
-    codigo:  result.codigo,
-    nome:    result.nome   ?? '',
-    tipo:    result.tipo   ?? '',
-    empresa: result.empresa ?? 0,
+    codigo:       result.codigo,
+    nome:         result.nome   ?? '',
+    tipo:         result.tipo   ?? '',
+    empresa:      result.empresa ?? 0,
+    tecnico_id:   result.tecnico_id ?? 0,
+    tecnico_nome: result.tecnico_nome ?? '',
   }), {
     httpOnly: true,
     sameSite: 'lax',

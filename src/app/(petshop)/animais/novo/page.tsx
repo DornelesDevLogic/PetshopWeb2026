@@ -1,6 +1,6 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+﻿import { apiFetch, qs, FILIAL } from '@/lib/api';
 import { EspecieResponse, RacaResponse, TipoPeloResponse } from '@/types/petshop';
-import NovoAnimalForm from '@/components/petshop/animais/NovoAnimalForm';
+import NovoAnimalDialog from '@/components/petshop/animais/NovoAnimalDialog';
 
 export default async function NovoAnimalPage() {
   const empty = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
@@ -18,10 +18,11 @@ export default async function NovoAnimalPage() {
   ]);
 
   return (
-    <NovoAnimalForm
+    <NovoAnimalDialog modoInline
       especies={especiesRes.dados}
       racas={racasRes.dados}
       pelos={pelosRes.dados}
     />
   );
 }
+

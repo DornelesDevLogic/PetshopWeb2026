@@ -108,14 +108,14 @@ export default function RelatorioVendasSecao({ dados, dataIni, dataFim }: Props)
 
       {/* Tabela por seção */}
       {dados.Count === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-white">
+        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
           <ShoppingBag className="h-12 w-12 mb-3 opacity-30" />
           <p className="text-sm">Nenhum dado para o período.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {grupos.map((g) => (
-            <div key={g.secao} className="rounded-xl border bg-white overflow-hidden">
+            <div key={g.secao} className="rounded-xl border bg-card overflow-hidden">
               {/* Cabeçalho da seção */}
               <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between border-b">
                 <h3 className="font-semibold text-sm">{g.secao}</h3>
@@ -133,7 +133,7 @@ export default function RelatorioVendasSecao({ dados, dataIni, dataFim }: Props)
                 </TableHeader>
                 <TableBody>
                   {g.itens.map((item, i) => (
-                    <TableRow key={i} className="hover:bg-gray-50">
+                    <TableRow key={i} className="hover:bg-muted/40">
                       <TableCell className="text-sm">
                         <span>{item.produto}</span>
                         {item.cod_prod && (

@@ -119,8 +119,8 @@ export default function FinanceiroView({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+      <div className="border-b bg-background px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
@@ -131,7 +131,7 @@ export default function FinanceiroView({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Link para saldos */}
             <Link href="/financeiro/saldos">
               <Button variant="outline" size="sm">
@@ -143,21 +143,21 @@ export default function FinanceiroView({
             <Input
               type="date"
               value={dataDe}
-              className="w-36"
+              className="w-full sm:w-36"
               onChange={(e) => navigate({ data_de: e.target.value })}
             />
-            <span className="text-sm text-muted-foreground">até</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">até</span>
             <Input
               type="date"
               value={dataAte}
-              className="w-36"
+              className="w-full sm:w-36"
               onChange={(e) => navigate({ data_ate: e.target.value })}
             />
           </div>
         </div>
 
         {/* Totais */}
-        <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
           <div className="rounded-lg border bg-muted/30 px-4 py-3">
             <p className="text-xs text-muted-foreground">Registros</p>
             <p className="text-lg font-semibold">{totais.total}</p>
@@ -173,19 +173,19 @@ export default function FinanceiroView({
         </div>
 
         {/* Filtros */}
-        <div className="flex items-center gap-3 mt-4">
+        <div className="flex flex-wrap items-center gap-2 mt-4">
           <Input
             placeholder="Buscar cliente..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
 
           <Select
             value={statusAtual || 'todos'}
             onValueChange={(v) => { if (v) navigate({ status: v === 'todos' ? undefined : v }); }}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -199,7 +199,7 @@ export default function FinanceiroView({
             value={tipoData}
             onValueChange={(v) => { if (v) navigate({ tipo_data: v }); }}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Tipo de data" />
             </SelectTrigger>
             <SelectContent>
@@ -209,7 +209,7 @@ export default function FinanceiroView({
             </SelectContent>
           </Select>
 
-          <span className="ml-auto text-sm text-muted-foreground">
+          <span className="sm:ml-auto text-sm text-muted-foreground">
             {filtrados.length} {filtrados.length === 1 ? 'conta' : 'contas'}
           </span>
         </div>
@@ -223,17 +223,17 @@ export default function FinanceiroView({
             <p className="text-sm">Nenhuma conta no período.</p>
           </div>
         ) : (
-          <div className="rounded-md border bg-white">
+          <div className="rounded-md border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">Doc/Parc</TableHead>
+                  <TableHead className="w-20 hidden sm:table-cell">Doc/Parc</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead className="hidden md:table-cell">Histórico</TableHead>
-                  <TableHead className="w-28">Vencimento</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="w-24 hidden sm:table-cell">Vencimento</TableHead>
+                  <TableHead className="text-right w-24">Valor</TableHead>
                   <TableHead className="text-right hidden lg:table-cell">Pago</TableHead>
-                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Saldo</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -242,20 +242,23 @@ export default function FinanceiroView({
                 {filtrados.map((c) => {
                   const info = statusBaixaInfo(c);
                   return (
-                    <TableRow key={`${c.nro_doc}-${c.parcela}-${c.filial}`} className="hover:bg-gray-50">
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableRow key={`${c.nro_doc}-${c.parcela}-${c.filial}`} className="hover:bg-muted/40">
+                      <TableCell className="font-mono text-xs text-muted-foreground hidden sm:table-cell">
                         {c.nro_doc}/{c.parcela}
                       </TableCell>
-                      <TableCell className="font-medium">{c.cliente}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        {c.cliente}
+                        <p className="sm:hidden text-xs text-muted-foreground font-mono">{fmtData(c.dt_vencimento)}</p>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-[180px] truncate">
                         {c.historico || '—'}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{fmtData(c.dt_vencimento)}</TableCell>
-                      <TableCell className="text-right text-sm">{fmtMoeda(c.valor)}</TableCell>
+                      <TableCell className="font-mono text-sm hidden sm:table-cell">{fmtData(c.dt_vencimento)}</TableCell>
+                      <TableCell className="text-right text-sm font-mono">{fmtMoeda(c.valor)}</TableCell>
                       <TableCell className="text-right text-sm hidden lg:table-cell text-muted-foreground">
                         {c.val_pag > 0 ? fmtMoeda(c.val_pag) : '—'}
                       </TableCell>
-                      <TableCell className="text-right font-medium text-sm">{fmtMoeda(c.saldo)}</TableCell>
+                      <TableCell className="text-right font-medium text-sm hidden sm:table-cell">{fmtMoeda(c.saldo)}</TableCell>
                       <TableCell>
                         <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold', info.color)}>
                           {info.label}

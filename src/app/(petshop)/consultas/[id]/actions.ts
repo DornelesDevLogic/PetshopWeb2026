@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
-import { ApiWrite } from '@/types/petshop';
+import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { ApiWrite, AnexoExame, AnexoExameResponse } from '@/types/petshop';
 
 async function postAction(
   endpoint: string,
@@ -18,6 +18,25 @@ async function postAction(
     return { error: 'Não foi possível conectar ao servidor.' };
   }
   if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  return {};
+}
+
+/** Atualiza dados clínicos + anamnese completa da consulta */
+export async function updateConsulta(
+  id: number,
+  data: Record<string, string | number | undefined>,
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/consultas', {
+      method: 'PUT',
+      body: JSON.stringify({ id, filial: FILIAL, ...data }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  revalidatePath(`/consultas/${id}`);
   return {};
 }
 
@@ -166,6 +185,64 @@ export async function deleteVacina(
     res = await apiFetch<ApiWrite>('/api/petshop/animais/vacinas-aplicadas', {
       method: 'DELETE',
       body: JSON.stringify({ id: vacinaId, filial: FILIAL }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  revalidatePath(`/consultas/${consultaId}`);
+  return {};
+}
+
+// ─── Anexos de exames (PDF / imagem / documento) ──────────────────────────────
+
+/** Lista os anexos de exame de uma consulta (metadados, sem o arquivo) */
+export async function listarAnexos(consultaId: number): Promise<AnexoExame[]> {
+  const res = await apiFetch<AnexoExameResponse>(
+    `/api/petshop/exames/anexos${qs({ consulta_id: consultaId, filial: FILIAL })}`,
+  ).catch(() => ({ dados: [] as AnexoExame[], Count: 0 }));
+  return res.dados ?? [];
+}
+
+/** Faz upload de um anexo de exame (arquivo já convertido em base64) */
+export async function uploadAnexo(
+  consultaId: number,
+  nome:       string,
+  tipo:       string,   // extensão: .pdf, .jpg...
+  arquivoBase64: string,
+  obs = '',
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/exames/anexos', {
+      method: 'POST',
+      body: JSON.stringify({
+        consulta_id:    consultaId,
+        filial:         FILIAL,
+        nome,
+        tipo_arquivo:   tipo,
+        arquivo_base64: arquivoBase64,
+        obs,
+      }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  revalidatePath(`/consultas/${consultaId}`);
+  return {};
+}
+
+/** Remove um anexo de exame */
+export async function deleteAnexo(
+  consultaId: number,
+  anexoId: number,
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/exames/anexos', {
+      method: 'DELETE',
+      body: JSON.stringify({ id: anexoId, filial: FILIAL }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
