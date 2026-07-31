@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createElement } from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ConsultaDetalhe, ConsultaResponse, AnimalResponse, ClienteResponse, Animal, Cliente } from '@/types/petshop';
 import ProntuarioPDF from '@/components/petshop/consultas/ProntuarioPDF';
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const dataIni    = sp.get('data_ini') || '';
   const dataFim    = sp.get('data_fim') || '';
   const tipo       = (sp.get('tipo') || 'resumido') as 'completo' | 'resumido';
-  const filial     = sp.get('filial') || String(FILIAL);
+  const filial     = sp.get('filial') || String(getFilial());
 
   if (!animalId) {
     return NextResponse.json({ error: 'animal_id é obrigatório' }, { status: 400 });

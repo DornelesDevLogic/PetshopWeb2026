@@ -42,12 +42,17 @@ export interface AgendaItem {
   pago?: string;           // 'S' = pago
   data_previsao?: string;  // "DD/MM/YYYY HH:MM:SS" - início previsto
   data_entrega?: string;   // "DD/MM/YYYY HH:MM:SS" - término previsto
+  // Discriminador de tipo de registro retornado pelo backend (campo TIPO_SERVICO na ORCA)
+  tipo_servico?: string;   // 'TOSA', 'VACINACAO', 'Tele Entrega', etc.
 }
 
 export type AgendaResponse = ApiList<AgendaItem>;
 
 /** Retorno de GET /api/petshop/agenda/detalhe */
 export interface AgendaDetalhe extends AgendaItem {
+  cliente_filial?: number;
+  animal_filial?:  number;
+  prof_filial?:    number;
   situacao:        string;
   data_agendamento:string;
   tipo_ocorrencia: number;
@@ -164,6 +169,7 @@ export interface Cliente {
   status_ativo: number;   // 0 = ativo, 1 = inativo
   saldo_disponivel: number;
   data_ult_compra: string;
+  pets_resumo?: string;    // preenchido só na busca de /clientes: nomes dos pets do cliente
 }
 
 export type ClienteResponse = ApiList<Cliente>;
@@ -222,6 +228,25 @@ export interface Servico {
 }
 
 export type ServicoResponse = ApiList<Servico>;
+
+// ---------------------------------------------------------------------------
+// Categoria de Serviço — Raça + Serviço -> Produto automático na Agenda
+// ---------------------------------------------------------------------------
+
+export interface CategoriaServico {
+  id:              number;
+  filial:          number;
+  dadospro_id:     number;
+  filial_dadospro: number;
+  cod_prod:        string;
+  produto:         string;
+  raca_id:         number;  // 0 = regra genérica, sem raça (fallback)
+  raca:            string;
+  servico_id:      number;
+  servico:         string;
+}
+
+export type CategoriaServicoResponse = ApiList<CategoriaServico>;
 
 // ---------------------------------------------------------------------------
 // Consultas clínicas
@@ -358,6 +383,7 @@ export interface Prontuario {
 
 export interface ProntuarioResponse {
   consulta_id: number;
+  animal_id?:  number;  // presente quando a busca é por animal_id (histórico do animal)
   dados:       Prontuario[];
   Count:       number;
   StartsAt:    string;
@@ -391,10 +417,13 @@ export interface Exame {
   id:          number;
   consulta_id: number;
   tipo_exame:  string;
+  data?:       string;  // presente quando a busca é por animal_id (data da consulta vinculada)
+  animal?:     string;  // idem
 }
 
 export interface ExameResponse {
   consulta_id: number;
+  animal_id?:  number;  // presente quando a busca é por animal_id (histórico do animal)
   dados:       Exame[];
   Count:       number;
   StartsAt:    string;

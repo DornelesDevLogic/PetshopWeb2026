@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Loader2, ChevronDown, ChevronUp, Package, ShoppingBag, TrendingUp, Clock, MapPin, CreditCard, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {

@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ConsultaResponse, ProfissionalResponse } from '@/types/petshop';
 import ConsultasView from '@/components/petshop/consultas/ConsultasView';
 
@@ -29,7 +29,7 @@ export default async function ConsultasPage({ searchParams }: { searchParams: Se
   const [consultasRes, profsRes] = await Promise.all([
     apiFetch<ConsultaResponse>(
       `/api/petshop/consultas${qs({
-        filial:       FILIAL,
+        filial:       getFilial(),
         data_ini:     dataDe,
         data_fim:     dataAte,
         status:       status || undefined,
@@ -43,7 +43,7 @@ export default async function ConsultasPage({ searchParams }: { searchParams: Se
     ).catch(() => emptyList),
 
     apiFetch<ProfissionalResponse>(
-      `/api/petshop/profissionais${qs({ filial: FILIAL, limit: 100 })}`,
+      `/api/petshop/profissionais${qs({ filial: getFilial(), limit: 100 })}`,
     ).catch(() => emptyList),
   ]);
 

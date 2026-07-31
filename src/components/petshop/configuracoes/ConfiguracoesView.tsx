@@ -7,13 +7,16 @@ import {
   type ConfiguracoesData,
 } from '@/app/(petshop)/configuracoes/actions';
 import { GRUPOS, type ParamDef, type Tabela } from './definicoes';
+import IntegracoesPanel from './IntegracoesPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   SlidersHorizontal, Loader2, AlertCircle, CheckCircle2, ShieldAlert,
-  Search, X,
+  Search, X, Plug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const ABA_INTEGRACOES = 'integracoes';
 
 interface Props {
   dados: ConfiguracoesData | null;
@@ -201,13 +204,16 @@ export default function ConfiguracoesView({ dados }: Props) {
     }
   }
 
-  const grupo = GRUPOS.find((g) => g.id === aba)!;
+  const naIntegracoes = aba === ABA_INTEGRACOES;
+  const grupo = GRUPOS.find((g) => g.id === aba);
 
   // Busca global: pesquisa em todas as abas por label, coluna ou texto de ajuda
   const termo = normalizar(buscaCfg.trim());
-  const buscando = termo.length >= 2;
+  const buscando = !naIntegracoes && termo.length >= 2;
 
-  const paramsVisiveis: { p: ParamDef; grupoTitulo?: string }[] = buscando
+  const paramsVisiveis: { p: ParamDef; grupoTitulo?: string }[] = naIntegracoes
+    ? []
+    : buscando
     ? GRUPOS.flatMap((g) =>
         g.params
           .filter(existe)
@@ -218,9 +224,9 @@ export default function ConfiguracoesView({ dados }: Props) {
           )
           .map((p) => ({ p, grupoTitulo: g.titulo })),
       )
-    : grupo.params.filter(existe).map((p) => ({ p }));
+    : (grupo?.params ?? []).filter(existe).map((p) => ({ p }));
 
-  const paramsFaltando = buscando ? 0 : grupo.params.length - paramsVisiveis.length;
+  const paramsFaltando = naIntegracoes || buscando ? 0 : (grupo?.params.length ?? 0) - paramsVisiveis.length;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
@@ -290,6 +296,17 @@ export default function ConfiguracoesView({ dados }: Props) {
               {g.titulo}
             </button>
           ))}
+          <button
+            onClick={() => setAba(ABA_INTEGRACOES)}
+            className={cn(
+              'flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+              naIntegracoes
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'text-muted-foreground hover:bg-muted/50',
+            )}
+          >
+            <Plug className="h-3 w-3" /> Integrações
+          </button>
         </div>
       )}
 
@@ -300,7 +317,10 @@ export default function ConfiguracoesView({ dados }: Props) {
         </p>
       )}
 
-      {/* Parâmetros do grupo ativo */}
+      {/* Aba Integrações — não é data-driven pelas 4 tabelas de config */}
+      {naIntegracoes ? (
+        <IntegracoesPanel />
+      ) : (
       <div className="rounded-xl border bg-card divide-y">
         {paramsVisiveis.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-10">
@@ -342,6 +362,7 @@ export default function ConfiguracoesView({ dados }: Props) {
           })
         )}
       </div>
+      )}
 
       {paramsFaltando > 0 && (
         <p className="text-xs text-muted-foreground">

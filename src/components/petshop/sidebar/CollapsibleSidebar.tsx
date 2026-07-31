@@ -1,18 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   PawPrint, LogOut, UserCircle2,
-  CalendarDays, Users, Stethoscope, ShoppingCart, Wallet,
+  Home, CalendarDays, Users, Stethoscope, Wallet,
   BarChart3, Settings, BellRing, SlidersHorizontal, Package,
-  Truck, ClipboardList, ChevronLeft,
+  Truck, ClipboardList, ChevronLeft, ChevronDown, ChevronRight, LayoutDashboard, Menu,
+  Sparkles,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
-const links = [
+interface SubmenuItem { href: string; label: string; }
+
+const RELATORIOS_SUBMENU: SubmenuItem[] = [
+  { href: '/relatorios/comissoes',            label: 'Comissões' },
+  { href: '/relatorios/comissao-profissional', label: 'Comissão por Profissional' },
+  { href: '/relatorios/vendas-secao',         label: 'Vendas por Seção' },
+  { href: '/relatorios/atendimentos',         label: 'Agendas / Atendimentos' },
+  { href: '/relatorios/espelho-cupons',       label: 'Espelho de Cupons' },
+  { href: '/relatorios/vales',                label: 'Vales de Clientes' },
+];
+
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  submenu?: SubmenuItem[];
+}
+
+const links: NavLink[] = [
+  { href: '/home',          label: 'Início',        icon: Home          },
   { href: '/agenda',        label: 'Agenda',        icon: CalendarDays  },
   { href: '/clientes',      label: 'Clientes',      icon: Users         },
   { href: '/animais',       label: 'Animais',       icon: PawPrint      },
@@ -21,16 +41,18 @@ const links = [
   { href: '/tele-entregas', label: 'Tele-entregas', icon: Truck         },
   { href: '/prevendas',     label: 'Pré-vendas',    icon: ClipboardList },
   { href: '/produtos',      label: 'Produtos',      icon: Package       },
-  { href: '/vendas',        label: 'Vendas',        icon: ShoppingCart  },
   { href: '/financeiro',    label: 'Financeiro',    icon: Wallet        },
-  { href: '/relatorios',    label: 'Relatórios',    icon: BarChart3     },
+  { href: '/relatorios',    label: 'Relatórios',    icon: BarChart3, submenu: RELATORIOS_SUBMENU },
+  { href: '/dashboards',    label: 'Dashboards',    icon: LayoutDashboard },
   { href: '/cadastros',     label: 'Cadastros',     icon: Settings      },
+  { href: '/sobre',         label: 'Sobre',         icon: Sparkles      },
 ];
 
-const linkConfig = { href: '/configuracoes', label: 'Configurações', icon: SlidersHorizontal };
+const linkConfig: NavLink = { href: '/configuracoes', label: 'Configurações', icon: SlidersHorizontal };
 
 interface Props {
   filial:     number;
+  filialNome?: string;
   supervisor: boolean;
   user:       { codigo: number; nome: string; tipo: string; empresa: number } | null;
   logoutAction: () => Promise<void>;
@@ -41,17 +63,47 @@ const TIPO_LABEL: Record<string, string> = {
   S: 'Supervisor', G: 'Gerente', F: 'Ger. Especial', O: 'Operador',
 };
 
-export default function CollapsibleSidebar({ filial, supervisor, user, logoutAction, backendVersion }: Props) {
+export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction, backendVersion }: Props) {
   const pathname  = usePathname();
   const [open, setOpen] = useState(true);
   const todos = supervisor ? [...links, linkConfig] : links;
+  const [relatoriosAberto, setRelatoriosAberto] = useState(pathname.startsWith('/relatorios'));
+
+  // Se navegar para dentro de Relatórios por outro caminho (ex: link direto), expande sozinho.
+  useEffect(() => {
+    if (pathname.startsWith('/relatorios')) setRelatoriosAberto(true);
+  }, [pathname]);
+
+  // Ao entrar na Agenda, recolhe o menu automaticamente (mais espaço para o grid).
+  // Em outras telas não força nada — o usuário mantém o estado que preferir.
+  useEffect(() => {
+    if (pathname.startsWith('/agenda')) setOpen(false);
+  }, [pathname]);
+
+  // Recolhido → o menu some por completo (mais área de tela) e fica só um
+  // botão flutuante (☰) que reabre. Somente desktop (mobile usa o MobileHeader).
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        title="Abrir menu"
+        className={cn(
+          'hidden md:flex fixed top-2.5 left-2.5 z-40 h-9 w-9 items-center justify-center',
+          'rounded-lg border bg-background shadow-md',
+          'text-foreground hover:bg-muted transition-colors',
+        )}
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+    );
+  }
 
   return (
     <aside
       className={cn(
         'hidden md:flex flex-col border-r bg-background relative',
         'transition-[width] duration-300 ease-in-out overflow-hidden',
-        open ? 'w-56' : 'w-[64px]',
+        'w-56',
       )}
     >
       {/* ── Brand ─────────────────────────────────────────────────────────── */}
@@ -67,8 +119,11 @@ export default function CollapsibleSidebar({ filial, supervisor, user, logoutAct
           open ? 'opacity-100 max-w-[160px] ml-0' : 'opacity-0 max-w-0 ml-0',
         )}>
           <span className="font-semibold text-base leading-none">PetShop</span>
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            Filial {filial}
+          <span
+            title={filialNome || undefined}
+            className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate max-w-[110px]"
+          >
+            {filialNome ? `${filial} · ${filialNome}` : `Filial ${filial}`}
           </span>
         </div>
       </div>
@@ -80,8 +135,64 @@ export default function CollapsibleSidebar({ filial, supervisor, user, logoutAct
         open ? 'px-3' : 'px-2',
       )}>
         <div className="flex flex-col gap-1">
-          {todos.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href);
+          {todos.map(({ href, label, icon: Icon, submenu }) => {
+            const active = pathname.startsWith(href) && (!submenu || pathname === href);
+
+            if (submenu) {
+              return (
+                <div key={href}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!open) { setOpen(true); setRelatoriosAberto(true); return; }
+                      setRelatoriosAberto((v) => !v);
+                    }}
+                    title={!open ? label : undefined}
+                    className={cn(
+                      'flex w-full items-center rounded-md text-sm font-medium transition-colors',
+                      'overflow-hidden whitespace-nowrap',
+                      open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
+                      pathname.startsWith(href)
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className={cn(
+                      'flex-1 text-left transition-all duration-300 overflow-hidden',
+                      open ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0',
+                    )}>
+                      {label}
+                    </span>
+                    {open && (relatoriosAberto
+                      ? <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 shrink-0" />)}
+                  </button>
+                  {open && relatoriosAberto && (
+                    <div className="mt-0.5 ml-4 flex flex-col gap-0.5 border-l pl-3">
+                      {submenu.map((s) => {
+                        const subAtivo = pathname === s.href;
+                        return (
+                          <Link
+                            key={s.href}
+                            href={s.href}
+                            className={cn(
+                              'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors truncate',
+                              subAtivo
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                            )}
+                          >
+                            {s.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={href}

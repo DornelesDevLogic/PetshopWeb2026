@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Truck, Search, X, Plus, Trash2, MapPin, Package, UserPlus, Bell, History, ShoppingBag, ChevronDown, ChevronUp, Sparkles, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,10 @@ import {
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
-import { FILIAL } from '@/lib/filial';
+import { getFilialClient } from '@/lib/filial';
 import { buscarUltimasComprasCliente, type CompraHistItem } from '@/app/(petshop)/clientes/historico-actions';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 // ---------- types ----------
 
@@ -41,30 +42,6 @@ function fmtMoeda(n: number) {
 
 function dataHoje() {
   return new Date().toISOString().split('T')[0];
-}
-
-/** Quebra a query em termos: converte * e % em espaço, remove acentos, lowercase */
-function normalizarTermos(q: string): string[] {
-  return q
-    .replace(/[*%]+/g, ' ')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(t => t.length > 0);
-}
-
-/** Filtra produtos garantindo que TODOS os termos estão presentes no nome/código */
-function filtrarPorTermos<T extends { descricao: string; cod_pro: string }>(
-  produtos: T[],
-  termos: string[],
-): T[] {
-  if (termos.length === 0) return produtos;
-  return produtos.filter(p => {
-    const texto = (p.descricao + ' ' + p.cod_pro)
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .toLowerCase();
-    return termos.every(t => texto.includes(t));
-  });
 }
 
 // ---------- component ----------
@@ -187,18 +164,18 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
 
   function aoNovoClienteCriado(c: ClienteCriado) {
     setShowNovoCliente(false);
-    selecionarCliente({ id: c.id, filial: FILIAL, nome: c.nome, telefone: c.telefone, celular: c.celular });
+    selecionarCliente({ id: c.id, filial: getFilialClient(), nome: c.nome, telefone: c.telefone, celular: c.celular });
   }
 
   // ---------- busca produto ----------
 
   useEffect(() => {
     if (prodDebRef.current) clearTimeout(prodDebRef.current);
-    const termos = normalizarTermos(prodQuery);
+    const termos = normalizarTermosBusca(prodQuery);
     if (!termos.some(t => t.length >= 2)) { setProdOpcoes([]); setProdAberto(false); return; }
     prodDebRef.current = setTimeout(async () => {
-      const r = await buscarProdutosTele(termos.join(' '));
-      const filtrados = filtrarPorTermos(r, termos);
+      const r = await buscarProdutosTele(termoPrincipal(termos));
+      const filtrados = filtrarProdutosPorTermos(r, termos, p => p.descricao + ' ' + p.cod_pro);
       setProdOpcoes(filtrados);
       setProdAberto(filtrados.length > 0);
       setProdFocusIdx(-1);
@@ -321,10 +298,10 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
       if (item.regra && (item.dias ?? 0) > 0) {
         await criarEstimativa({
           clienteId:     clienteSel.id,
-          clienteFilial: FILIAL,
+          clienteFilial: getFilialClient(),
           clienteNome:   clienteSel.nome,
           animalId:      0,
-          animalFilial:  FILIAL,
+          animalFilial:  getFilialClient(),
           animalNome:    animal,
           dadosproId:    item.id_dadospro,
           descPro:       item.produto,
@@ -332,7 +309,7 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
           dataCompra:    dataHoje(),
           dias:          item.dias!,
           orcaId,
-          orcaFilial:    FILIAL,
+          orcaFilial:    getFilialClient(),
         }).catch(() => null);
       }
     }

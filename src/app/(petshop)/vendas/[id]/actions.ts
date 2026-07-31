@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ApiWrite, ProdutoResponse, Produto } from '@/types/petshop';
 
 async function postAction(
@@ -23,7 +23,7 @@ async function postAction(
 
 /** Confirma a pré-venda (STATUS 1 → 2) */
 export async function confirmarPrevenda(id: number): Promise<{ error?: string }> {
-  const r = await postAction('/api/petshop/prevendas/confirmar', { id, filial: FILIAL });
+  const r = await postAction('/api/petshop/prevendas/confirmar', { id, filial: getFilial() });
   if (!r.error) { revalidatePath(`/vendas/${id}`); revalidatePath('/vendas'); }
   return r;
 }
@@ -33,7 +33,7 @@ export async function cancelarPrevenda(
   id: number,
   justificativa: string,
 ): Promise<{ error?: string }> {
-  const r = await postAction('/api/petshop/prevendas/cancelar', { id, filial: FILIAL, justificativa });
+  const r = await postAction('/api/petshop/prevendas/cancelar', { id, filial: getFilial(), justificativa });
   if (!r.error) { revalidatePath(`/vendas/${id}`); revalidatePath('/vendas'); }
   return r;
 }
@@ -42,7 +42,7 @@ export async function cancelarPrevenda(
 export async function buscarProdutos(q: string): Promise<Produto[]> {
   if (!q.trim()) return [];
   const res = await apiFetch<ProdutoResponse>(
-    `/api/petshop/produtos${qs({ filial: FILIAL, busca: q.trim(), limit: 15 })}`,
+    `/api/petshop/produtos${qs({ filial: getFilial(), busca: q.trim(), limit: 15 })}`,
   ).catch(() => ({ dados: [] as Produto[], Count: 0, StartsAt: '', EndsAt: '' }));
   return res.dados;
 }
@@ -58,7 +58,7 @@ export async function addItem(
   const valorliq = qtd * valor - desconto;
   const body = {
     id_orca:       id,
-    filial:        FILIAL,
+    filial:        getFilial(),
     fk_id_dadospro:produto.id_dadospro,
     fk_cod_filial: produto.cod_filial,
     cod_prod:      String(produto.id_dadospro),
@@ -85,7 +85,7 @@ export async function deleteItem(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/prevendas/itens', {
       method: 'DELETE',
-      body: JSON.stringify({ id: idProdorca, filial: FILIAL }),
+      body: JSON.stringify({ id: idProdorca, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };

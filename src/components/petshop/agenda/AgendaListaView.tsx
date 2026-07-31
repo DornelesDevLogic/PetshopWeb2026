@@ -23,18 +23,23 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  List, CalendarDays, Search, X, Plus,
+  List, CalendarDays, Search, X, Plus, ArrowUpDown, History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import HistoricoAnimalModal from '@/components/petshop/agenda/HistoricoAnimalModal';
 
-interface Filtros {
-  dataDe:  string;
-  dataAte: string;
-  status:  string;
-  profId:  string;
-  servId:  string;
-  busca:   string;
-  numero:  string;
+export interface Filtros {
+  dataDe:   string;
+  dataAte:  string;
+  prevDe:   string;   // Data previsão (data_entrega) De
+  prevAte:  string;   // Data previsão (data_entrega) Até
+  status:   string;
+  profId:   string;
+  servId:   string;
+  busca:    string;
+  animal:   string;
+  numero:   string;
+  orderBy:  string;   // 'abertura' | 'previsao'
 }
 
 interface Props {
@@ -63,24 +68,39 @@ function fmtData(d: string): string {
   return `${dd}/${m}/${y}`;
 }
 
+// Grupos de status compatíveis com os radio buttons do legado
+type GrupoStatus = 'todos' | 'abertos' | 'efetivadas' | 'canceladas';
+
+function grupoDeStatus(status: string): GrupoStatus {
+  if (status === '3') return 'efetivadas';
+  if (status === '4') return 'canceladas';
+  if (status === '1' || status === '2') return 'abertos';
+  return 'todos';
+}
+
 export default function AgendaListaView({ items, profissionais, servicos, filtros }: Props) {
   const router = useRouter();
   const [busca,  setBusca]  = useState(filtros.busca);
+  const [animal, setAnimal] = useState(filtros.animal);
   const [numero, setNumero] = useState(filtros.numero);
+  const [historicoDe, setHistoricoDe] = useState<AgendaItem | null>(null);
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
 
   function navegar(mudancas: Partial<Filtros>) {
-    const f = { ...filtros, busca, numero, ...mudancas };
+    const f = { ...filtros, busca, animal, numero, ...mudancas };
     const sp = new URLSearchParams();
-    sp.set('data_de',  f.dataDe);
-    sp.set('data_ate', f.dataAte);
-    sp.set('status',   f.status);
-    // 'todos' fica explícito na URL para não reativar o padrão do profissional logado
+    if (f.dataDe)  sp.set('data_de',  f.dataDe);
+    if (f.dataAte) sp.set('data_ate', f.dataAte);
+    if (f.prevDe)  sp.set('prev_de',  f.prevDe);
+    if (f.prevAte) sp.set('prev_ate', f.prevAte);
+    sp.set('status', f.status);
     sp.set('profissional_id', f.profId || 'todos');
     if (f.servId) sp.set('servico_id', f.servId);
     if (f.busca)  sp.set('busca', f.busca);
+    if (f.animal) sp.set('animal', f.animal);
     if (f.numero) sp.set('numero', f.numero);
+    if (f.orderBy && f.orderBy !== 'abertura') sp.set('order_by', f.orderBy);
     router.push(`/agenda/lista?${sp.toString()}`);
   }
 
@@ -107,8 +127,10 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
   const totalGeral  = tot.abertas + tot.efetivadas + tot.canceladas;
   const vTotalGeral = tot.vAbertas + tot.vEfetivadas + tot.vCanceladas;
 
+  const grupoAtual = grupoDeStatus(filtros.status);
+
   return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-[1500px] mx-auto">
+    <div className="p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto">
 
       {/* ── Cabeçalho ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -133,10 +155,14 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
       </div>
 
       {/* ── Filtros ── */}
-      <div className="rounded-xl border bg-card p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="rounded-xl border bg-card p-4 space-y-3">
+
+        {/* Linha 1: Datas */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Data de</label>
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Datas Abertura
+            </label>
             <Input
               type="date"
               value={filtros.dataDe}
@@ -145,7 +171,7 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Data até</label>
+            <label className="text-[11px] text-muted-foreground">até</label>
             <Input
               type="date"
               value={filtros.dataAte}
@@ -154,39 +180,33 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Status</label>
-            <Select
-              value={filtros.status}
-              onValueChange={(v) => v && navegar({ status: v })}
-              items={[
-                { value: 'todos', label: 'Todos' },
-                { value: '1', label: 'Agendado' },
-                { value: '2', label: 'Em atendimento' },
-                { value: '3', label: 'Finalizado' },
-                { value: '4', label: 'Cancelado' },
-              ]}
-            >
-              <SelectTrigger className="h-8 text-xs w-full">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="1">Agendado</SelectItem>
-                <SelectItem value="2">Em atendimento</SelectItem>
-                <SelectItem value="3">Finalizado</SelectItem>
-                <SelectItem value="4">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Datas Previsão
+            </label>
+            <Input
+              type="date"
+              value={filtros.prevDe}
+              onChange={(e) => navegar({ prevDe: e.target.value })}
+              className="h-8 text-xs"
+              placeholder="Qualquer"
+            />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Profissional</label>
+            <label className="text-[11px] text-muted-foreground">até</label>
+            <Input
+              type="date"
+              value={filtros.prevAte}
+              onChange={(e) => navegar({ prevAte: e.target.value })}
+              className="h-8 text-xs"
+              placeholder="Qualquer"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground">Profissional</label>
             <Select
               value={filtros.profId || 'todos'}
               onValueChange={(v) => v && navegar({ profId: v === 'todos' ? 'todos' : v })}
-              items={[
-                { value: 'todos', label: 'Todos' },
-                ...(profissionais ?? []).map((p) => ({ value: String(p.id), label: p.nome })),
-              ]}
             >
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue placeholder="Todos" />
@@ -199,15 +219,12 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Serviço</label>
+            <label className="text-[11px] text-muted-foreground">Serviço</label>
             <Select
               value={filtros.servId || 'todos'}
               onValueChange={(v) => v && navegar({ servId: v === 'todos' ? '' : v })}
-              items={[
-                { value: 'todos', label: 'Todos' },
-                ...(servicos ?? []).map((s) => ({ value: String(s.id), label: s.descricao })),
-              ]}
             >
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue placeholder="Todos" />
@@ -220,14 +237,48 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Cliente / Animal / Prof.</label>
+            <label className="text-[11px] text-muted-foreground">Nº Agenda</label>
+            <Input
+              value={numero}
+              onChange={(e) => { setNumero(e.target.value); navegarDebounced({ numero: e.target.value }); }}
+              placeholder="Ex: 283500"
+              inputMode="numeric"
+              className="h-8 text-xs font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3" />
+              Ordenar por
+            </label>
+            <Select
+              value={filtros.orderBy || 'abertura'}
+              onValueChange={(v) => v && navegar({ orderBy: v })}
+            >
+              <SelectTrigger className="h-8 text-xs w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="abertura">Dt. abertura</SelectItem>
+                <SelectItem value="previsao">Dt. previsão</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Linha 2: Busca textual + Animal */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground">Cliente / Profissional</label>
             <div className="flex items-center gap-1.5 rounded-md border border-input px-2 h-8">
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
                 value={busca}
                 onChange={(e) => { setBusca(e.target.value); navegarDebounced({ busca: e.target.value }); }}
-                placeholder="Buscar..."
+                placeholder="Buscar por cliente ou profissional..."
                 className="flex-1 min-w-0 text-xs bg-transparent outline-none"
               />
               {busca && (
@@ -238,15 +289,77 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Nº da agenda</label>
-            <Input
-              value={numero}
-              onChange={(e) => { setNumero(e.target.value); navegarDebounced({ numero: e.target.value }); }}
-              placeholder="Ex: 283500"
-              inputMode="numeric"
-              className="h-8 text-xs font-mono"
-            />
+            <label className="text-[11px] text-muted-foreground">Animal</label>
+            <div className="flex items-center gap-1.5 rounded-md border border-input px-2 h-8">
+              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <input
+                value={animal}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAnimal(v);
+                  // só busca a partir da 3ª letra (ou ao limpar o campo)
+                  if (v.trim().length === 0 || v.trim().length >= 3) {
+                    navegarDebounced({ animal: v });
+                  }
+                }}
+                placeholder="Buscar por nome do animal... (mín. 3 letras)"
+                className="flex-1 min-w-0 text-xs bg-transparent outline-none"
+              />
+              {animal && (
+                <button onClick={() => { setAnimal(''); navegar({ animal: '' }); }}>
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* Linha 3: Situação (radio buttons como no legado) */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[11px] text-muted-foreground mr-1">Situação:</span>
+          {[
+            { key: 'todos',      label: 'Todos',       statusValue: 'todos' },
+            { key: 'abertos',    label: 'Em aberto',   statusValue: '1'     },
+            { key: 'efetivadas', label: 'Efetivadas',  statusValue: '3'     },
+            { key: 'canceladas', label: 'Canceladas',  statusValue: '4'     },
+          ].map(({ key, label, statusValue }) => (
+            <button
+              key={key}
+              onClick={() => navegar({ status: statusValue })}
+              className={cn(
+                'h-7 px-3 rounded-full text-xs font-medium border transition-colors',
+                grupoAtual === key
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted',
+              )}
+            >
+              {label}
+              {key !== 'todos' && (
+                <span className={cn(
+                  'ml-1.5 font-mono',
+                  grupoAtual === key ? 'text-primary-foreground/70' : 'text-muted-foreground/60',
+                )}>
+                  {key === 'abertos' ? tot.abertas : key === 'efetivadas' ? tot.efetivadas : tot.canceladas}
+                </span>
+              )}
+            </button>
+          ))}
+
+          {/* Limpar filtros */}
+          {(filtros.prevDe || filtros.prevAte || filtros.busca || filtros.animal || filtros.numero || filtros.servId || (filtros.profId && filtros.profId !== 'todos')) && (
+            <button
+              onClick={() => {
+                setBusca('');
+                setAnimal('');
+                setNumero('');
+                navegar({ prevDe: '', prevAte: '', busca: '', animal: '', numero: '', servId: '', profId: 'todos', status: 'todos' });
+              }}
+              className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+              Limpar filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -286,7 +399,21 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
                     <TableCell className="font-mono text-xs text-muted-foreground px-2">#{i.id}</TableCell>
                     <TableCell className="text-center text-xs font-mono px-1 whitespace-nowrap">{fmtData(i.data)}</TableCell>
                     <TableCell className="text-center text-xs font-mono px-1">{i.hora?.slice(0, 5) || '—'}</TableCell>
-                    <TableCell className="text-sm font-medium">{i.cliente || '—'}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <span className="flex items-center gap-1.5">
+                        {i.cliente || '—'}
+                        {i.animal_id > 0 && (
+                          <button
+                            type="button"
+                            title="Histórico do animal"
+                            onClick={(e) => { e.stopPropagation(); setHistoricoDe(i); }}
+                            className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                          >
+                            <History className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm px-2">{i.animal || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground px-2">{i.raca || '—'}</TableCell>
                     <TableCell className="text-sm px-2">
@@ -313,33 +440,42 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
       )}
 
       {/* ── Totalizadores (como no legado) ── */}
-      {(items ?? []).length > 0 && (
-        <div className="rounded-xl border bg-card px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground">Em aberto</p>
-            <p className="font-semibold text-blue-600">
-              {tot.abertas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vAbertas)}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Efetivadas</p>
-            <p className="font-semibold text-green-600">
-              {tot.efetivadas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vEfetivadas)}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Canceladas</p>
-            <p className="font-semibold text-red-500">
-              {tot.canceladas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vCanceladas)}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total geral</p>
-            <p className="font-bold text-primary">
-              {totalGeral} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(vTotalGeral)}</span>
-            </p>
-          </div>
+      <div className="rounded-xl border bg-card px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground">Em aberto</p>
+          <p className="font-semibold text-blue-600">
+            {tot.abertas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vAbertas)}</span>
+          </p>
         </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Efetivadas</p>
+          <p className="font-semibold text-green-600">
+            {tot.efetivadas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vEfetivadas)}</span>
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Canceladas</p>
+          <p className="font-semibold text-red-500">
+            {tot.canceladas} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(tot.vCanceladas)}</span>
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Total geral</p>
+          <p className="font-bold text-primary">
+            {totalGeral} <span className="font-mono font-normal text-xs">· R$ {fmtMoeda(vTotalGeral)}</span>
+          </p>
+        </div>
+      </div>
+
+      {historicoDe && (
+        <HistoricoAnimalModal
+          animalId={historicoDe.animal_id}
+          animalNome={historicoDe.animal || 'Pet'}
+          clienteId={historicoDe.cliente_id}
+          clienteNome={historicoDe.cliente || '—'}
+          filial={historicoDe.filial}
+          onClose={() => setHistoricoDe(null)}
+        />
       )}
     </div>
   );

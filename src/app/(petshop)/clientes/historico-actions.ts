@@ -1,6 +1,6 @@
-﻿'use server';
+'use server';
 
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ export async function buscarHistoricoCliente(
   clienteId: number,
   filial?: number,
 ): Promise<HistoricoCliente> {
-  const fil = filial ?? FILIAL;
+  const fil = filial ?? getFilial();
 
   const [comprasRes, agendasRes, prevendasRes, teleRes, consultasRes] = await Promise.all([
     // Compras via NF (historico do animal filtrado por cliente)
@@ -154,7 +154,7 @@ export async function buscarUltimasComprasCliente(
   clienteId: number,
   filial?: number,
 ): Promise<CompraHistItem[]> {
-  const fil = filial ?? FILIAL;
+  const fil = filial ?? getFilial();
   const res = await apiFetch<any>(
     `/api/petshop/animais/historico${qs({ filial: fil, cliente_id: clienteId, limit: 50 })}`,
   ).catch(() => ({ dados: [] }));

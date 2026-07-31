@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Truck, Search, X, Plus, CheckCircle, XCircle, Clock,
+  Truck, Search, X, Plus, CheckCircle, XCircle, Pencil,
   MapPin, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -191,7 +191,7 @@ export default function TeleEntregasView({ entregas, total, filtros }: Props) {
           <p className="text-sm">Nenhuma tele-entrega encontrada.</p>
         </div>
       ) : (
-        <div className="rounded-md border overflow-x-auto">
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -248,8 +248,8 @@ export default function TeleEntregasView({ entregas, total, filtros }: Props) {
                   <TableCell className="px-1 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Link href={`/tele-entregas/${e.id}`}>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver / Editar">
-                          <Clock className="h-3.5 w-3.5" />
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar">
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </Link>
                       {e.status === 1 && (

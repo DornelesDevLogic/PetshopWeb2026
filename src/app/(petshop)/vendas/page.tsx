@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { PrevendaResponse } from '@/types/petshop';
 import VendasView from '@/components/petshop/vendas/VendasView';
 
@@ -18,7 +18,7 @@ export default async function VendasPage({ searchParams }: { searchParams: Searc
 
   const res = await apiFetch<PrevendaResponse>(
     `/api/petshop/prevendas${qs({
-      filial:   FILIAL,
+      filial:   getFilial(),
       data_de:  dataDe,
       data_ate: dataAte,
       status:   status || undefined,

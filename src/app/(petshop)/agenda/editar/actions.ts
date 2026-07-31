@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
+import { agendaHub } from '@/lib/agenda-events';
 import { ApiWrite } from '@/types/petshop';
 
 interface EditarAgendaParams {
@@ -26,7 +27,7 @@ export async function editarAgenda(
 ): Promise<{ error?: string }> {
   const body: Record<string, unknown> = {
     id:     params.id,
-    filial: params.filial ?? FILIAL,
+    filial: params.filial ?? getFilial(),
   };
 
   if (params.prof_id)       body.prof_id       = params.prof_id;
@@ -56,5 +57,6 @@ export async function editarAgenda(
 
   if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
   revalidatePath('/agenda');
+  agendaHub.publish({ tipo: 'AGENDA_ALTERADA', acao: 'UPDATE', idAgenda: params.id, filial: params.filial ?? getFilial() });
   return {};
 }

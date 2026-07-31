@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   AnimalResponse,
   AnimalHistoricoResponse,
@@ -21,25 +21,25 @@ export default async function AnimalDetalhePage({ params }: Props) {
 
   const [animalRes, historicoRes, especiesRes, racasRes, pelosRes] = await Promise.all([
     apiFetch<AnimalResponse>(
-      `/api/petshop/animais${qs({ filial: FILIAL, limit: 1, filter1: `a.PET_ID=${id}` })}`,
+      `/api/petshop/animais${qs({ filial: getFilial(), limit: 1, filter1: `a.PET_ID=${id}` })}`,
     ).catch(() => empty),
 
     apiFetch<AnimalHistoricoResponse>(
-      `/api/petshop/animais/historico${qs({ filial: FILIAL, animal_id: id })}`,
+      `/api/petshop/animais/historico${qs({ filial: getFilial(), animal_id: id })}`,
     ).catch(() => ({
       animal_id: id, cliente_id: 0, dados: [], Count: 0, StartsAt: '', EndsAt: '',
     })),
 
     apiFetch<EspecieResponse>(
-      `/api/petshop/especies${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/especies${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
 
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: FILIAL, limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
     ).catch(() => empty),
 
     apiFetch<TipoPeloResponse>(
-      `/api/petshop/tipos-pelo${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/tipos-pelo${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
   ]);
 

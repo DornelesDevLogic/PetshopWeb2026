@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import PwaRegister from '@/components/pwa-register';
+import PwaInstallBanner from '@/components/pwa-install-banner';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
     template: '%s · PetShop',
   },
   description: 'Sistema interno de gestão para PetShop: agenda, tele-entregas, clientes e mais.',
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest.json',
 
   // iOS / Safari
   appleWebApp: {
@@ -52,11 +53,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-touch-fullscreen" content="yes" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        {/* Tema padrão claro (branco). A escolha do usuário é persistida pelo
+            next-themes no localStorage do navegador. enableSystem=false para não
+            seguir o tema do sistema — o padrão é sempre claro até o usuário trocar. */}
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           {children}
           <Toaster richColors position="top-right" />
         </ThemeProvider>
         <PwaRegister />
+          <PwaInstallBanner />
       </body>
     </html>
   );

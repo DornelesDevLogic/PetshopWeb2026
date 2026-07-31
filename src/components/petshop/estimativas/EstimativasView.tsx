@@ -38,6 +38,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -119,10 +120,13 @@ function RegraDialog({ regra, onSalvo, onClose }: RegraDialogProps) {
     setBuscaProd(v);
     if (debRef.current) clearTimeout(debRef.current);
     debRef.current = setTimeout(async () => {
-      if (v.trim().length < 3) { setResProd([]); return; }
+      const termos = normalizarTermosBusca(v);
+      if (!termos.some(t => t.length >= 3)) { setResProd([]); return; }
       setBuscando(true);
-      try { setResProd(await buscarProdutos(v)); }
-      finally { setBuscando(false); }
+      try {
+        const lista = await buscarProdutos(termoPrincipal(termos));
+        setResProd(filtrarProdutosPorTermos(lista, termos, p => p.nome_produto + ' ' + p.cod_pro));
+      } finally { setBuscando(false); }
     }, 300);
   }
 

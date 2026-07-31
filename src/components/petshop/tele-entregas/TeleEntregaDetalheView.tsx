@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Truck, ArrowLeft, CheckCircle, XCircle, Save,
-  MapPin, Package, Plus, Trash2, Search, X, Bell, Printer, History,
+  MapPin, Package, Plus, Trash2, Search, X, Bell, Printer, History, Pencil,
 } from 'lucide-react';
 import HistoricoClienteModal from '@/components/petshop/tele-entregas/HistoricoClienteModal';
 import { Button } from '@/components/ui/button';
@@ -14,16 +14,20 @@ import { cn } from '@/lib/utils';
 import {
   type TeleEntregaDetalhe, type ItemEntrega,
   atualizarTeleEntrega, confirmarTeleEntrega, cancelarTeleEntrega,
-  adicionarItemEntrega, removerItemEntrega,
+  adicionarItemEntrega, removerItemEntrega, atualizarItemEntrega,
   buscarProdutosTele, type ProdutoBuscaItem,
+  buscarClientesTele, buscarClienteDetalhe, type ClienteBuscaItem,
 } from '@/app/(petshop)/tele-entregas/actions';
+import { buscarVendedores, type Vendedor } from '@/app/(petshop)/vendedores/actions';
 import {
   verificarRegrasProdutos, criarEstimativa,
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
-import { FILIAL } from '@/lib/filial';
+import { getFilialClient } from '@/lib/filial';
 import { printWindow } from '@/lib/printWindow';
 import { gerarComandaTeleEntrega } from '@/components/petshop/print/comandaTeleEntrega';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import { DadosEmpresa } from '@/types/petshop';
 
 // ---------- helpers ----------
 
@@ -61,42 +65,28 @@ const STATUS_CLS: Record<number, string> = {
   4: 'bg-red-100 text-red-700',
 };
 
-/** Quebra a query em termos: converte * e % em espaço, remove acentos, lowercase */
-function normalizarTermos(q: string): string[] {
-  return q
-    .replace(/[*%]+/g, ' ')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(t => t.length > 0);
-}
-
-/** Filtra produtos garantindo que TODOS os termos estão presentes no nome/código */
-function filtrarPorTermos<T extends { descricao: string; cod_pro: string }>(
-  produtos: T[],
-  termos: string[],
-): T[] {
-  if (termos.length === 0) return produtos;
-  return produtos.filter(p => {
-    const texto = (p.descricao + ' ' + p.cod_pro)
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .toLowerCase();
-    return termos.every(t => texto.includes(t));
-  });
-}
-
 // ---------- component ----------
 
 interface Props {
   detalhe: TeleEntregaDetalhe;
   itens:   ItemEntrega[];
+  empresa: DadosEmpresa | null;
 }
 
-export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Props) {
+export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empresa }: Props) {
   const router = useRouter();
-  const canEdit = detalhe.status === 1;
+  const canEdit = Number(detalhe.status) === 1;
 
-  // campos editáveis
+  // campos editáveis — info geral
+  const [clienteId,   setClienteId]   = useState(detalhe.cliente_id);
+  const [clienteNome, setClienteNome] = useState(detalhe.cliente);
+  const [animal,      setAnimal]      = useState(detalhe.animal ?? '');
+  const [vendedorId,  setVendedorId]  = useState('');
+  const [dataPedido,  setDataPedido]  = useState(toDateInput(detalhe.data));
+  const [horaPedido,  setHoraPedido]  = useState(detalhe.hora?.slice(0, 5) ?? '');
+  const [vendedores,  setVendedores]  = useState<Vendedor[]>([]);
+
+  // campos editáveis — endereço / entrega
   const [endereco,    setEndereco]    = useState(detalhe.endereco);
   const [nroEndereco, setNroEndereco] = useState(detalhe.nro_endereco);
   const [bairro,      setBairro]      = useState(detalhe.bairro);
@@ -107,6 +97,19 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
   const [condpgto,    setCondpgto]    = useState(detalhe.condpgto);
   const [frete,       setFrete]       = useState(String(detalhe.valor_frete || 0));
   const [obs,         setObs]         = useState(detalhe.dados);
+
+  // busca cliente
+  const [clienteQuery,  setClienteQuery]  = useState('');
+  const [clienteOpcoes, setClienteOpcoes] = useState<ClienteBuscaItem[]>([]);
+  const [clienteAberto, setClienteAberto] = useState(false);
+  const [alterandoCliente, setAlterandoCliente] = useState(false);
+  const clienteDebRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // editar item existente
+  const [editItemDlg, setEditItemDlg] = useState<ItemEntrega | null>(null);
+  const [editQtd,     setEditQtd]     = useState('');
+  const [editValor,   setEditValor]   = useState('');
+  const [editErro,    setEditErro]    = useState('');
 
   // itens
   const [itens, setItens] = useState<ItemEntrega[]>(itensInit);
@@ -139,15 +142,76 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
   // modal histórico
   const [showHistorico, setShowHistorico] = useState(false);
 
+  // ---------- efeitos de inicialização ----------
+
+  useEffect(() => {
+    buscarVendedores().then(setVendedores).catch(() => {});
+  }, []);
+
+  // ---------- busca cliente ----------
+
+  useEffect(() => {
+    if (clienteDebRef.current) clearTimeout(clienteDebRef.current);
+    if (clienteQuery.trim().length < 2) { setClienteOpcoes([]); setClienteAberto(false); return; }
+    clienteDebRef.current = setTimeout(async () => {
+      const r = await buscarClientesTele(clienteQuery);
+      setClienteOpcoes(r);
+      setClienteAberto(r.length > 0);
+    }, 300);
+    return () => { if (clienteDebRef.current) clearTimeout(clienteDebRef.current); };
+  }, [clienteQuery]);
+
+  function selecionarCliente(c: ClienteBuscaItem) {
+    setClienteId(c.id);
+    setClienteNome(c.nome);
+    setClienteQuery('');
+    setClienteOpcoes([]);
+    setClienteAberto(false);
+    setAlterandoCliente(false);
+    buscarClienteDetalhe(c.id).then(det => {
+      if (!det) return;
+      if (!endereco) setEndereco(det.endereco);
+      if (!nroEndereco) setNroEndereco(det.numero);
+      if (!bairro) setBairro(det.bairro);
+      if (!cep) setCep(det.cep);
+    }).catch(() => {});
+  }
+
+  // ---------- editar item ----------
+
+  function abrirEdicaoItem(item: ItemEntrega) {
+    setEditItemDlg(item);
+    setEditQtd(String(item.qtd));
+    setEditValor(String(item.valor));
+    setEditErro('');
+  }
+
+  async function handleEditarItem() {
+    if (!editItemDlg) return;
+    const qtd   = Number(editQtd)   || 0;
+    const valor = Number(editValor) || 0;
+    if (qtd <= 0)   { setEditErro('Quantidade inválida'); return; }
+    if (valor <= 0) { setEditErro('Valor inválido'); return; }
+    setSalvando(true);
+    const r = await atualizarItemEntrega({ id_item: editItemDlg.id_item, qtd, valor });
+    setSalvando(false);
+    if (r.CodStatus === 1) {
+      setItens(prev => prev.map(i => i.id_item === editItemDlg.id_item ? { ...i, qtd, valor } : i));
+      setEditItemDlg(null);
+    } else {
+      setEditErro(r.DescricaoStatus);
+    }
+  }
+
   // ---------- busca produto ----------
 
   useEffect(() => {
     if (prodDebRef.current) clearTimeout(prodDebRef.current);
-    const termos = normalizarTermos(prodQuery);
+    const termos = normalizarTermosBusca(prodQuery);
     if (!termos.some(t => t.length >= 2)) { setProdOpcoes([]); setProdAberto(false); return; }
     prodDebRef.current = setTimeout(async () => {
-      const r = await buscarProdutos(termos.join(' '));
-      const filtrados = filtrarPorTermos(r, termos);
+      const r = await buscarProdutos(termoPrincipal(termos));
+      const filtrados = filtrarProdutosPorTermos(r, termos, p => p.descricao + ' ' + p.cod_pro);
       setProdOpcoes(filtrados);
       setProdAberto(filtrados.length > 0);
       setProdFocusIdx(-1);
@@ -198,10 +262,10 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
     if (r.CodStatus === 1 && dlgRegra && (dlgDias ?? 0) > 0) {
       await criarEstimativa({
         clienteId:     detalhe.cliente_id,
-        clienteFilial: FILIAL,
+        clienteFilial: getFilialClient(),
         clienteNome:   detalhe.cliente,
         animalId:      0,
-        animalFilial:  FILIAL,
+        animalFilial:  getFilialClient(),
         animalNome:    detalhe.animal ?? '',
         dadosproId:    prodDlg.id_dadospro,
         descPro:       prodDlg.descricao,
@@ -209,7 +273,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
         dataCompra:    new Date().toISOString().split('T')[0],
         dias:          dlgDias!,
         orcaId:        detalhe.id,
-        orcaFilial:    FILIAL,
+        orcaFilial:    getFilialClient(),
       }).catch(() => null);
     }
     setSalvando(false);
@@ -234,19 +298,32 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
 
   // ---------- salvar edição ----------
 
-  async function salvarEdicao() {
+  async function salvarEdicao(depoisImprimir = false) {
     setSalvando(true); setErro(''); setSucesso('');
-    const r = await atualizarTeleEntrega({
-      id: detalhe.id,
+    const body: Record<string, unknown> = {
+      id:           detalhe.id,
+      cliente_id:   clienteId,
+      cliente:      clienteNome,
+      animal,
+      data:         dataPedido,
+      hora:         horaPedido,
       endereco, bairro, cep, nro_endereco: nroEndereco,
       formapgto, condpgto, dados: obs,
-      valor_frete: Number(frete) || 0,
+      valor_frete:  Number(frete) || 0,
       data_entrega: dataEntrega,
       hora_entrega: horaEntrega,
-    });
+    };
+    if (vendedorId) {
+      const vend = vendedores.find(v => String(v.id) === vendedorId);
+      body.codvend      = Number(vendedorId);
+      body.vend_filial  = vend?.filial ?? 1;
+      body.profissional = vend?.nome ?? '';
+    }
+    const r = await atualizarTeleEntrega(body);
     setSalvando(false);
-    if (r.CodStatus === 1) setSucesso('Salvo com sucesso!');
-    else setErro(r.DescricaoStatus);
+    if (r.CodStatus !== 1) { setErro(r.DescricaoStatus); return; }
+    if (depoisImprimir) handlePrint();
+    router.push('/tele-entregas');
   }
 
   // ---------- confirmar entrega ----------
@@ -292,6 +369,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
       valor_frete:  Number(frete) || 0,
       desconto:     detalhe.desconto || 0,
       itens:        itens.map(i => ({ produto: i.produto, qtd: i.qtd, valor: i.valor, cod_pro: i.cod_pro })),
+      empresa,
     });
     printWindow(html);
   }
@@ -334,13 +412,77 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
       {sucesso && <p className="text-sm text-green-600 bg-green-50 rounded-md px-3 py-2">{sucesso}</p>}
 
       {/* ── Info geral ── */}
-      <div className="rounded-xl border bg-card p-4 space-y-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <div><p className="text-xs text-muted-foreground">Data pedido</p><p className="font-medium">{fmtData(detalhe.data)}</p></div>
-          <div><p className="text-xs text-muted-foreground">Hora</p><p className="font-medium">{detalhe.hora?.slice(0,5) || '—'}</p></div>
-          <div className="col-span-2 sm:col-span-1"><p className="text-xs text-muted-foreground">Animal</p><p className="font-medium">{detalhe.animal || '—'}</p></div>
-          <div className="col-span-2 sm:col-span-1"><p className="text-xs text-muted-foreground">Profissional</p><p className="font-medium">{detalhe.profissional || '—'}</p></div>
-        </div>
+      <div className="rounded-xl border bg-card p-4 space-y-3">
+        {canEdit ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* cliente */}
+            <div className="sm:col-span-2 space-y-1">
+              <label className="text-xs text-muted-foreground">Cliente</label>
+              {alterandoCliente ? (
+                <div className="relative">
+                  <div className="flex items-center gap-1.5 rounded-md border border-input px-2 h-9">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      autoFocus
+                      value={clienteQuery}
+                      onChange={(e) => setClienteQuery(e.target.value)}
+                      onBlur={() => { if (!clienteOpcoes.length) { setAlterandoCliente(false); setClienteQuery(''); } }}
+                      placeholder="Buscar cliente..."
+                      className="flex-1 min-w-0 text-sm bg-transparent outline-none"
+                    />
+                    <button onClick={() => { setAlterandoCliente(false); setClienteQuery(''); setClienteOpcoes([]); setClienteAberto(false); }}>
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                  {clienteAberto && clienteOpcoes.length > 0 && (
+                    <ul className="absolute z-30 mt-1 w-full rounded-md border bg-card shadow-lg max-h-48 overflow-y-auto text-sm">
+                      {clienteOpcoes.map(c => (
+                        <li key={c.id} onMouseDown={() => selecionarCliente(c)} className="px-3 py-2 cursor-pointer hover:bg-muted">
+                          <p className="font-medium">{c.nome}</p>
+                          <p className="text-xs text-muted-foreground">{c.telefone || c.celular}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-md border border-input px-3 h-9">
+                  <span className="text-sm font-medium">{clienteNome}</span>
+                  <button onClick={() => setAlterandoCliente(true)} className="text-xs text-primary hover:underline">Alterar</button>
+                </div>
+              )}
+            </div>
+            {/* data e hora pedido */}
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Data pedido</label>
+              <Input type="date" value={dataPedido} onChange={(e) => setDataPedido(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Hora pedido</label>
+              <Input type="time" value={horaPedido} onChange={(e) => setHoraPedido(e.target.value)} className="h-9 text-sm" />
+            </div>
+            {/* animal */}
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Animal</label>
+              <Input value={animal} onChange={(e) => setAnimal(e.target.value)} className="h-9 text-sm" />
+            </div>
+            {/* vendedor */}
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Vendedor / Profissional</label>
+              <select value={vendedorId} onChange={(e) => setVendedorId(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+                <option value="">— {detalhe.profissional || 'selecione'} —</option>
+                {vendedores.map(v => <option key={v.id} value={String(v.id)}>{v.nome}</option>)}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div><p className="text-xs text-muted-foreground">Data pedido</p><p className="font-medium">{fmtData(detalhe.data)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Hora</p><p className="font-medium">{detalhe.hora?.slice(0,5) || '—'}</p></div>
+            <div className="col-span-2 sm:col-span-1"><p className="text-xs text-muted-foreground">Animal</p><p className="font-medium">{detalhe.animal || '—'}</p></div>
+            <div className="col-span-2 sm:col-span-1"><p className="text-xs text-muted-foreground">Profissional</p><p className="font-medium">{detalhe.profissional || '—'}</p></div>
+          </div>
+        )}
       </div>
 
       {/* ── Endereço de entrega ── */}
@@ -494,7 +636,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
                   <th className="text-center px-2 py-1.5 w-14">Qtd</th>
                   <th className="text-right px-2 py-1.5 w-20">Valor</th>
                   <th className="text-right px-2 py-1.5 w-20">Total</th>
-                  {canEdit && <th className="w-8"></th>}
+                  {canEdit && <th className="w-16"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -512,9 +654,14 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
                     </td>
                     {canEdit && (
                       <td className="px-1">
-                        <button onClick={() => handleRemoverItem(item.id_item)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          <button onClick={() => abrirEdicaoItem(item)} className="text-muted-foreground hover:text-primary" title="Editar qtd/valor">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleRemoverItem(item.id_item)} className="text-muted-foreground hover:text-destructive" title="Remover">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -554,8 +701,11 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
           <Button variant="outline" className="text-green-600 border-green-200 hover:bg-green-50 justify-center" onClick={handleConfirmar} disabled={salvando}>
             <CheckCircle className="h-4 w-4 mr-1.5" /> Confirmar Entregue
           </Button>
-          <Button onClick={salvarEdicao} disabled={salvando} className="gap-1.5 justify-center">
-            <Save className="h-4 w-4" /> {salvando ? 'Salvando...' : 'Salvar Alterações'}
+          <Button variant="outline" onClick={() => salvarEdicao(true)} disabled={salvando} className="gap-1.5 justify-center">
+            <Printer className="h-4 w-4" /> {salvando ? 'Salvando...' : 'Gravar e Imprimir'}
+          </Button>
+          <Button onClick={() => salvarEdicao(false)} disabled={salvando} className="gap-1.5 justify-center">
+            <Save className="h-4 w-4" /> {salvando ? 'Salvando...' : 'Gravar'}
           </Button>
         </div>
       )}
@@ -651,6 +801,43 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit }: Pr
               <Button variant="outline" size="sm" onClick={() => setProdDlg(null)}>Cancelar</Button>
               <Button size="sm" onClick={confirmarProduto} disabled={salvando || (dlgRegra !== null && dlgDias === null)} className="gap-1">
                 <Plus className="h-3.5 w-3.5" /> Adicionar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Diálogo editar item ── */}
+      {editItemDlg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-card rounded-xl shadow-xl p-5 w-full max-w-xs space-y-4">
+            <h2 className="font-semibold text-sm">{editItemDlg.produto}</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Quantidade</label>
+                <Input
+                  type="number" min="0.001" step="0.001"
+                  value={editQtd}
+                  onChange={(e) => setEditQtd(e.target.value)}
+                  autoFocus
+                  className="h-10 text-sm text-right font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Valor (R$)</label>
+                <Input
+                  type="number" min="0.01" step="0.01"
+                  value={editValor}
+                  onChange={(e) => setEditValor(e.target.value)}
+                  className="h-10 text-sm text-right font-mono"
+                />
+              </div>
+            </div>
+            {editErro && <p className="text-xs text-destructive">{editErro}</p>}
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setEditItemDlg(null)}>Cancelar</Button>
+              <Button size="sm" onClick={handleEditarItem} disabled={salvando} className="gap-1">
+                <Save className="h-3.5 w-3.5" /> Salvar
               </Button>
             </div>
           </div>

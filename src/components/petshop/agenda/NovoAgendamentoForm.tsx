@@ -9,8 +9,12 @@ import {
   buscarCombinado,
   buscarAnimais,
   buscarProdutos,
+  buscarProdutoPorCategoria,
   adicionarItemNaAgenda,
   createAgenda,
+  carregarListasFormAgenda,
+  sugerirRetornoAgenda,
+  criarRetornoAgenda,
   type AnimalBuscaItem,
   type ProdutoResultado,
 } from '@/app/(petshop)/agenda/nova/actions';
@@ -21,6 +25,9 @@ import {
 } from '@/app/(petshop)/estimativas/actions';
 import { Cliente, Animal, Profissional, Servico, Especie, Raca, TipoPelo, Vendedor, AgendaDetalhe } from '@/types/petshop';
 import { editarAgenda } from '@/app/(petshop)/agenda/editar/actions';
+import { excluirItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
+import { updateCliente, buscarCep, buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
+import { updateAnimal } from '@/app/(petshop)/animais/[id]/actions';
 import NovoClienteDialog from '@/components/petshop/clientes/NovoClienteDialog';
 import NovoAnimalDialog from '@/components/petshop/animais/NovoAnimalDialog';
 import { Button } from '@/components/ui/button';
@@ -34,6 +41,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ArrowLeft,
   Loader2,
   AlertCircle,
@@ -44,12 +57,26 @@ import {
   PackageSearch,
   Trash2,
   Plus,
+  Pencil,
+  Check,
+  AlertTriangle,
 } from 'lucide-react';
 // Label e Select ainda usados nos dialogs de produto inline
 
 import { cn } from '@/lib/utils';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 interface ProdutoPendente extends ProdutoResultado {
+  qtd:      number;
+  valor:    number;
+  desconto: number;
+}
+
+export interface ItemSalvo {
+  id_item:  number;
+  cod_pro:  string;
+  produto:  string;
+  unidade:  string;
   qtd:      number;
   valor:    number;
   desconto: number;
@@ -68,40 +95,155 @@ interface Props {
   racas:          Raca[];
   pelos:          TipoPelo[];
   vendedores:     Vendedor[];
+  carregarListas?: boolean;   // carregamento progressivo: form busca as listas em background
+  profInicial?:   number;     // profissional pré-selecionado (ao clicar na coluna dele na agenda)
   dataInicial?:   string;
   horaInicial?:   string;
   filial:         number;
+  filialHome?:    number;   // filial da sessão do usuário — se != filial, é inserção "fora da filial padrão"
   proximoNumero?: number;
   modo?:          'criar' | 'editar';
   agendaId?:      number;
   agendaInicial?: AgendaDetalhe;
+  itensIniciais?: ItemSalvo[];
 }
 
 type ResultadoBusca =
   | { tipo: 'cliente'; cliente: Cliente }
   | { tipo: 'pet';    animal: AnimalBuscaItem };
 
-export default function NovoAgendamentoForm({ profissionais, servicos, especies, racas, pelos, vendedores, dataInicial, horaInicial, filial, proximoNumero, modo = 'criar', agendaId, agendaInicial }: Props) {
+const OBS_CHECKLIST = [
+  'Verão', 'Hig Bar/Bumbum', 'Hig Completa', 'Pata Redonda', 'Pata Tradicional', 'Rosto Redondo',
+  'Hidratação', 'Medicinal', 'Sem perfume', 'Fuco Redondo', 'Fuco Tradicional', 'Idoso/cuidado',
+  'Tosa alta', 'Tosa baixa', 'Tosa geral', 'Tosa padrão', 'Alisamento lâmina',
+];
+
+export default function NovoAgendamentoForm({
+  profissionais: profissionaisIniciais,
+  servicos:      servicosIniciais,
+  especies:      especiesIniciais,
+  racas:         racasIniciais,
+  pelos:         pelosIniciais,
+  vendedores:    vendedoresIniciais,
+  carregarListas = false,
+  profInicial,
+  dataInicial, horaInicial, filial, filialHome,
+  proximoNumero: proximoNumeroInicial,
+  modo = 'criar', agendaId, agendaInicial, itensIniciais,
+}: Props) {
   const router = useRouter();
 
-  // â"€â"€ Busca unificada â"€â"€
+  // Inserção em filial diferente da filial padrão do usuário (só relevante ao criar)
+  const outraFilial = modo !== 'editar' && !!filialHome && filial !== filialHome;
+  const [confirmFilialOpen, setConfirmFilialOpen] = useState(false);
+  const pendingSubmit = useRef<(() => void) | null>(null);
+
+  // ── Listas de referência (carregamento progressivo) ──
+  // Começam com o que veio do servidor; se `carregarListas`, o form busca em
+  // segundo plano e preenche depois — o formulário abre instantaneamente.
+  const [profissionais, setProfissionais] = useState(profissionaisIniciais);
+  const [servicos,      setServicos]      = useState(servicosIniciais);
+  const [especies,      setEspecies]      = useState(especiesIniciais);
+  const [racas,         setRacas]         = useState(racasIniciais);
+  const [pelos,         setPelos]         = useState(pelosIniciais);
+  const [vendedores,    setVendedores]    = useState(vendedoresIniciais);
+  const [proximoNumero, setProximoNumero] = useState(proximoNumeroInicial);
+  const [listasCarregando, setListasCarregando] = useState(carregarListas);
+
+  useEffect(() => {
+    if (!carregarListas) return;
+    let ativo = true;
+    carregarListasFormAgenda(filial)
+      .then((d) => {
+        if (!ativo) return;
+        setProfissionais(d.profissionais);
+        setServicos(d.servicos);
+        setEspecies(d.especies);
+        setRacas(d.racas);
+        setPelos(d.pelos);
+        setVendedores(d.vendedores);
+        setProximoNumero(d.proximoNumero ?? undefined);
+        // Pré-seleciona o profissional (quando veio de um clique na coluna dele)
+        if (profInicial) {
+          const p = d.profissionais.find((x) => x.id === profInicial);
+          if (p) { setProfId(String(p.id)); setProfNome(p.nome); setProfFilial(String(p.filial)); }
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (ativo) setListasCarregando(false); });
+    return () => { ativo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carregarListas]);
+
+  // ── Busca unificada ──
   const [q, setQ]                          = useState('');
   const [resultados, setResultados]        = useState<ResultadoBusca[]>([]);
   const [isBuscando, setIsBuscando]        = useState(false);
   const [dropdownAberto, setDropdownAberto] = useState(false);
-  const [idxCli, setIdxCli]                = useState(0);   // navegaÃ§Ã£o por teclado
+  const [idxCli, setIdxCli]                = useState(0);   // navegação por teclado
   const debounceRef                        = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef                           = useRef<HTMLInputElement>(null);
   const dropdownRef                        = useRef<HTMLDivElement>(null);
 
-  // â"€â"€ Cliente / Animal selecionados â"€â"€
+  // ── Cliente / Animal selecionados ──
   const [clienteSel, setClienteSel]        = useState<Cliente | null>(null);
   const [animais, setAnimais]              = useState<Animal[]>([]);
   const [animalSel, setAnimalSel]          = useState<Animal | null>(null);
   const [isLoadingAnimais, setIsLoadingAnimais] = useState(false);
   const [pesoInput, setPesoInput]          = useState('');
 
-  // â"€â"€ Carrega animais de um cliente â"€â"€
+  // ── Edição inline de cliente / animal ──
+  const [editClienteOpen, setEditClienteOpen] = useState(false);
+  const [editAnimalOpen,  setEditAnimalOpen]  = useState(false);
+  const [salvandoCli,     setSalvandoCli]     = useState(false);
+  const [salvandoAni,     setSalvandoAni]     = useState(false);
+  const [erroCli,         setErroCli]         = useState('');
+  const [erroAni,         setErroAni]         = useState('');
+
+  // Campos controlados do painel de edição do cliente
+  const [cliNome,     setCliNome]     = useState('');
+  const [cliCelular,  setCliCelular]  = useState('');
+  const [cliTelefone, setCliTelefone] = useState('');
+  const [cliEmail,    setCliEmail]    = useState('');
+  const [cliCpf,      setCliCpf]      = useState('');
+  const [cliCep,      setCliCep]      = useState('');
+  const [cliEndereco,     setCliEndereco]     = useState('');
+  const [cliNumero,       setCliNumero]       = useState('');
+  const [cliComplemento,  setCliComplemento]  = useState('');
+  const [cliBairro,       setCliBairro]       = useState('');
+  const [cliCidade,       setCliCidade]       = useState('');
+  const [cliUf,           setCliUf]           = useState('');
+  const [cliCepLoading,    setCliCepLoading]    = useState(false);
+  const [cliCepMsg,        setCliCepMsg]        = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
+  const [cliPanelLoading,  setCliPanelLoading]  = useState(false);
+
+  async function handleCliCepBlur() {
+    const limpo = cliCep.replace(/\D/g, '');
+    if (limpo.length !== 8) return;
+    setCliCepLoading(true);
+    setCliCepMsg(null);
+    const r = await buscarCep(limpo);
+    setCliCepLoading(false);
+    if (r) {
+      setCliEndereco(r.logradouro);
+      setCliBairro(r.bairro);
+      setCliCidade(r.cidade);
+      setCliUf(r.uf);
+      setCliCepMsg({ tipo: 'ok', texto: 'Endereço preenchido automaticamente.' });
+    } else {
+      setCliCepMsg({ tipo: 'erro', texto: 'CEP não encontrado. Preencha manualmente.' });
+    }
+  }
+
+  // Campos controlados do painel de edição do animal
+  const [aniNome,      setAniNome]      = useState('');
+  const [aniSexo,      setAniSexo]      = useState('');
+  const [aniCastrado,  setAniCastrado]  = useState('0');
+  const [aniNasc,      setAniNasc]      = useState('');
+  const [aniCor,       setAniCor]       = useState('');
+  const [aniObs,       setAniObs]       = useState('');
+
+  // ── Carrega animais de um cliente ──
   const carregarAnimais = useCallback(async (
     clienteId: number,
     preSelId?: number,
@@ -109,7 +251,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
   ) => {
     setIsLoadingAnimais(true);
     try {
-      const lista = (await buscarAnimais(clienteId)).filter((a) => a.obito !== 1);
+      const lista = (await buscarAnimais(clienteId, filial)).filter((a) => a.obito !== 1);
       setAnimais(lista);
       if (preSelId !== undefined) {
         const encontrado = lista.find((a) => a.id === preSelId) ?? preSelAnimal ?? null;
@@ -122,7 +264,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     }
   }, []);
 
-  // â"€â"€ SeleÃ§Ãµes controladas â"€â"€
+  // ── Seleções controladas ──
   const [profId, setProfId]               = useState('');
   const [profNome, setProfNome]           = useState('');
   const [profFilial, setProfFilial]       = useState('');
@@ -132,21 +274,22 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
   const [servicoNome, setServicoNome]     = useState('');
   const [servicoFilial, setServicoFilial] = useState('');
 
-  // â"€â"€ Data/hora de previsÃ£o â"€â"€
+  // ── Data/hora de previsão ──
   const [dataPrevisao, setDataPrevisao] = useState(() => {
     const dp = dataInicial || new Date().toISOString().split('T')[0];
     const hp = horaInicial || '07:00';
     return dp + 'T' + hp;
   });
-  const [dataEntrega, setDataEntrega] = useState('');
+  // já nasce com a mesma data/hora do início — evita o usuário ter que digitar a data de novo
+  const [dataEntrega, setDataEntrega] = useState(dataPrevisao);
 
-  // â"€â"€ Produtos pendentes â"€â"€
+  // ── Produtos pendentes ──
   const [produtos,       setProdutos]       = useState<ProdutoPendente[]>([]);
   const [buscaProd,      setBuscaProd]      = useState('');
   const [resProd,        setResProd]        = useState<ProdutoResultado[]>([]);
   const [buscandoProd,   setBuscandoProd]   = useState(false);
   const [dropProdAberto, setDropProdAberto] = useState(false);
-  const [idxProd,        setIdxProd]        = useState(0);  // navegaÃ§Ã£o por teclado
+  const [idxProd,        setIdxProd]        = useState(0);  // navegação por teclado
   const [descPercent,    setDescPercent]    = useState('0'); // desconto total %
   const [prodDialog,     setProdDialog]     = useState<ProdutoResultado | null>(null);
   // dialog para configurar qtd/valor/desconto antes de adicionar
@@ -157,6 +300,10 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
   const debProdRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputProdRef = useRef<HTMLInputElement>(null);
   const dropProdRef  = useRef<HTMLDivElement>(null);
+
+  // ── Itens já salvos no banco (modo editar) ──
+  const [itensSalvos,   setItensSalvos]   = useState<ItemSalvo[]>(itensIniciais ?? []);
+  const [removendoItem, setRemovendoItem] = useState<number | null>(null);
 
   const parseFlt = (v: string) => parseFloat(v.replace(',', '.')) || 0;
   const fmtMoeda = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -172,7 +319,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // MantÃ©m o item destacado visÃ­vel ao navegar com â†'/â†" (rola o dropdown)
+  // Mantém o item destacado visível ao navegar com ↑/↓ (rola o dropdown)
   useEffect(() => {
     const el = dropProdRef.current?.children[idxProd] as HTMLElement | undefined;
     el?.scrollIntoView({ block: 'nearest' });
@@ -188,20 +335,22 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     setBuscaProd(v);
     if (debProdRef.current) clearTimeout(debProdRef.current);
     debProdRef.current = setTimeout(async () => {
-      if (v.trim().length < 3) { setResProd([]); setDropProdAberto(false); return; }
+      const termos = normalizarTermosBusca(v);
+      if (!termos.some(t => t.length >= 3)) { setResProd([]); setDropProdAberto(false); return; }
       setBuscandoProd(true);
       try {
-        const lista = await buscarProdutos(v);
-        setResProd(lista);
+        const lista = await buscarProdutos(termoPrincipal(termos), filial);
+        const filtrados = filtrarProdutosPorTermos(lista, termos, p => p.nome_produto + ' ' + p.cod_pro);
+        setResProd(filtrados);
         setIdxProd(0);
-        setDropProdAberto(lista.length > 0);
+        setDropProdAberto(filtrados.length > 0);
       } finally {
         setBuscandoProd(false);
       }
     }, 300);
   }
 
-  /** Teclado na busca de produtos: â†'/â†" navega, Enter seleciona, Esc fecha */
+  /** Teclado na busca de produtos: ↑/↓ navega, Enter seleciona, Esc fecha */
   function handleProdKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!dropProdAberto || resProd.length === 0) {
       if (e.key === 'Enter') e.preventDefault();
@@ -236,9 +385,9 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
   function confirmarAdicionarProduto() {
     if (!prodDialog) return;
     const valor = parseFlt(pdValor);
-    // Regra: nÃ£o Ã© permitido inserir produto com preÃ§o R$ 0,00
+    // Regra: não é permitido inserir produto com preço R$ 0,00
     if (valor <= 0) {
-      setPdErro('NÃ£o Ã© permitido inserir produto com preÃ§o R$ 0,00. Informe o valor.');
+      setPdErro('Não é permitido inserir produto com preço R$ 0,00. Informe o valor.');
       return;
     }
     const novo: ProdutoPendente = {
@@ -249,7 +398,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     };
     setProdutos((prev) => [...prev, novo]);
     setProdDialog(null);
-    // LanÃ§amento sequencial: volta o foco para a busca de produtos
+    // Lançamento sequencial: volta o foco para a busca de produtos
     setTimeout(() => inputProdRef.current?.focus(), 0);
   }
 
@@ -257,21 +406,53 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     setProdutos((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  async function removerItemSalvo(idItem: number) {
+    if (!agendaId) return;
+    setRemovendoItem(idItem);
+    const res = await excluirItemAgenda(agendaId, idItem, filial);
+    if (!res.error) {
+      setItensSalvos((prev) => prev.filter((i) => i.id_item !== idItem));
+    }
+    setRemovendoItem(null);
+  }
+
   const totalProdutos = produtos.reduce(
     (acc, p) => acc + Math.max(0, (p.valor - p.desconto) * p.qtd), 0,
   );
 
-  // â"€â"€ Desconto total (%) sobre os produtos â"€â"€
+  // ── Desconto total (%) sobre os produtos ──
   const descPct            = Math.min(100, Math.max(0, parseFlt(descPercent)));
   const descontoTotalValor = totalProdutos * descPct / 100;
   const totalFinal         = Math.max(0, totalProdutos - descontoTotalValor);
 
-  // â"€â"€ Controle de abertura dos dialogs reaproveitados â"€â"€
+  // ── Controle de abertura dos dialogs reaproveitados ──
   const [novoCliOpen,    setNovoCliOpen]    = useState(false);
   const [novoAnimalOpen, setNovoAnimalOpen] = useState(false);
 
-  // â"€â"€ Pre-preenchimento no modo editar â"€â"€
-  const [obsEditar, setObsEditar] = useState('');
+  // ── Pre-preenchimento no modo editar ──
+
+  /**
+   * Converte qualquer formato de data/hora para YYYY-MM-DDTHH:MM (datetime-local).
+   * Aceita: "DD/MM/YYYY HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD HH:MM:SS".
+   */
+  function toDateTimeLocal(s?: string | null): string {
+    if (!s) return '';
+    const t = s.trim();
+    // Já está em formato ISO com T
+    if (/^\d{4}-\d{2}-\d{2}T/.test(t)) return t.slice(0, 16);
+    // Formato YYYY-MM-DD HH:MM
+    if (/^\d{4}-\d{2}-\d{2} /.test(t)) return t.slice(0, 10) + 'T' + t.slice(11, 16);
+    // Formato DD/MM/YYYY HH:MM
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(t)) {
+      const [datePart, timePart = '00:00'] = t.split(' ');
+      const [d, m, y] = datePart.split('/');
+      return `${y}-${m}-${d}T${timePart.slice(0, 5)}`;
+    }
+    return '';
+  }
+
+  const [obsTexto, setObsTexto] = useState('');
+  const [obsFlags, setObsFlags] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (modo !== 'editar' || !agendaInicial) return;
 
@@ -295,11 +476,15 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       const v = vendedores.find(x => x.id === agendaInicial.vend_id);
       setVendFilial(String(v?.filial ?? agendaInicial.vend_filial ?? agendaInicial.filial));
     }
-    const dtInicio = agendaInicial.data_previsao || (agendaInicial.data ? agendaInicial.data.slice(0,10) + 'T' + (agendaInicial.hora ?? '07:00') : '');
-    if (dtInicio) setDataPrevisao(dtInicio.slice(0, 16));
-    if (agendaInicial.data_entrega) setDataEntrega(agendaInicial.data_entrega.slice(0, 16));
+    const dtInicio = agendaInicial.data_previsao ||
+      (agendaInicial.data ? agendaInicial.data + ' ' + (agendaInicial.hora ?? '07:00') : '');
+    if (dtInicio) setDataPrevisao(toDateTimeLocal(dtInicio));
+    if (agendaInicial.data_entrega) setDataEntrega(toDateTimeLocal(agendaInicial.data_entrega));
     // Observações
-    setObsEditar(agendaInicial.obs ?? '');
+    const obsCarregado = agendaInicial.obs ?? '';
+    setObsTexto(obsCarregado);
+    const linhas = obsCarregado.split('\n').map((l) => l.trim());
+    setObsFlags(Object.fromEntries(OBS_CHECKLIST.map((opt) => [opt, linhas.includes(opt)])));
     // Cliente e animal
     const clienteParcial: Cliente = {
       id:              agendaInicial.cliente_id ?? 0,
@@ -363,14 +548,51 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modo, agendaInicial]);
 
-  // â"€â"€ Submit â"€â"€
+  // ── Submit ──
   const [isPending, startSubmit]          = useTransition();
   const [errorMsg, setErrorMsg]           = useState('');
 
-  // â"€â"€ Estimativas (produtos com regra: pergunta prazo mÃ­nimo ou mÃ¡ximo) â"€â"€
+  // ── Estimativas (produtos com regra: pergunta prazo mínimo ou máximo) ──
   const [estPendente,  setEstPendente]  = useState<EstimativaPendente | null>(null);
   const [salvandoEst,  setSalvandoEst]  = useState(false);
   const [erroEst,      setErroEst]      = useState('');
+
+  // ── Agendar retorno (equivalente ao "Agendar retorno" do sistema antigo) ──
+  const [agendarRetorno, setAgendarRetorno] = useState(false);
+  const [retornoDialog,  setRetornoDialog]  = useState<{ agendaId: number } | null>(null);
+  const [retornoData,      setRetornoData]      = useState('');
+  const [retornoIntervalo, setRetornoIntervalo]  = useState(30);
+  const [retornoQtd,       setRetornoQtd]        = useState(1);
+  const [salvandoRetorno,  setSalvandoRetorno]   = useState(false);
+  const [erroRetorno,      setErroRetorno]       = useState('');
+
+  // Após criar a agenda: se "Agendar retorno" estiver marcado, busca a
+  // sugestão de data/intervalo (regra por produto, ou 30 dias) e abre o
+  // diálogo de confirmação; senão navega direto para a agenda criada.
+  async function finalizarCriacao(idAgenda: number) {
+    if (!agendarRetorno) {
+      router.push(`/agenda/${idAgenda}`);
+      return;
+    }
+    const sug = await sugerirRetornoAgenda(idAgenda, filial);
+    setRetornoData(sug.dataBase);
+    setRetornoIntervalo(sug.intervaloDias);
+    setRetornoQtd(1);
+    setErroRetorno('');
+    setRetornoDialog({ agendaId: idAgenda });
+  }
+
+  async function confirmarRetorno() {
+    if (!retornoDialog) return;
+    setSalvandoRetorno(true);
+    setErroRetorno('');
+    const res = await criarRetornoAgenda(retornoDialog.agendaId, filial, retornoQtd, retornoIntervalo, retornoData);
+    setSalvandoRetorno(false);
+    if (res.error) { setErroRetorno(res.error); return; }
+    const idOriginal = retornoDialog.agendaId;
+    setRetornoDialog(null);
+    router.push(`/agenda/${idOriginal}`);
+  }
 
   async function confirmarEstimativas() {
     if (!estPendente || !clienteSel) return;
@@ -406,8 +628,12 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     }
   }
   const formRef = useRef<HTMLFormElement>(null);
+  const vendRef = useRef<HTMLDivElement>(null);
+  const [vendPiscando, setVendPiscando] = useState(false);
+  const servicoRef = useRef<HTMLDivElement>(null);
+  const [servicoPiscando, setServicoPiscando] = useState(false);
 
-  // â"€â"€ Fecha dropdown ao clicar fora â"€â"€
+  // ── Fecha dropdown ao clicar fora ──
   useEffect(() => {
     function handleClickFora(e: MouseEvent) {
       if (
@@ -421,7 +647,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     return () => document.removeEventListener('mousedown', handleClickFora);
   }, []);
 
-  // â"€â"€ Auto-busca com debounce a partir de 3 caracteres â"€â"€
+  // ── Auto-busca com debounce a partir de 3 caracteres ──
   const executarBusca = useCallback(async (texto: string) => {
     const textoTrim = texto.trim();
 
@@ -437,7 +663,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       }
       setIsBuscando(true);
       try {
-        const pets = await buscarCombinado(parteA, parteB);
+        const pets = await buscarCombinado(parteA, parteB, filial);
         const lista: ResultadoBusca[] = pets.map((a): ResultadoBusca => ({ tipo: 'pet', animal: a }));
         setResultados(lista);
         setIdxCli(0);
@@ -448,7 +674,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       return;
     }
 
-    // Busca simples: mÃ­nimo 3 caracteres
+    // Busca simples: mínimo 3 caracteres
     if (textoTrim.length < 3) {
       setResultados([]);
       setDropdownAberto(false);
@@ -458,8 +684,8 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     try {
       // Busca em paralelo: clientes e pets
       const [clientes, pets] = await Promise.all([
-        buscarClientes(textoTrim),
-        buscarPorPet(textoTrim),
+        buscarClientes(textoTrim, filial),
+        buscarPorPet(textoTrim, filial),
       ]);
       const lista: ResultadoBusca[] = [
         ...clientes.slice(0, 6).map((c): ResultadoBusca => ({ tipo: 'cliente', cliente: c })),
@@ -480,7 +706,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     debounceRef.current = setTimeout(() => executarBusca(valor), 300);
   }
 
-  /** Teclado na busca de clientes: â†'/â†" navega, Enter seleciona e avanÃ§a o foco */
+  /** Teclado na busca de clientes: ↑/↓ navega, Enter seleciona e avança o foco */
   function handleCliKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!dropdownAberto || resultados.length === 0) {
       if (e.key === 'Enter') e.preventDefault();
@@ -498,7 +724,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       if (r) {
         if (r.tipo === 'cliente') selecionarCliente(r.cliente);
         else selecionarPet(r.animal);
-        // AvanÃ§a o foco para o prÃ³ximo campo do formulÃ¡rio (Data)
+        // Avança o foco para o próximo campo do formulário (Data)
         setTimeout(() => document.getElementById('data')?.focus(), 0);
       }
     } else if (e.key === 'Escape') {
@@ -506,13 +732,13 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     }
   }
 
-  /** Enter avanÃ§a para o prÃ³ximo campo (comportamento desktop/Delphi).
-      Textareas e botÃµes mantÃªm o comportamento padrÃ£o. */
+  /** Enter avança para o próximo campo (comportamento desktop/Delphi).
+      Textareas e botões mantêm o comportamento padrão. */
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key !== 'Enter') return;
     const t = e.target as HTMLElement;
     if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
-    // As buscas tÃªm tratamento prÃ³prio (seleÃ§Ã£o via Enter)
+    // As buscas têm tratamento próprio (seleção via Enter)
     if (t === inputRef.current || t === inputProdRef.current) return;
     e.preventDefault();
     const focusables = Array.from(
@@ -524,7 +750,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     if (i >= 0 && i < focusables.length - 1) focusables[i + 1].focus();
   }
 
-  // â"€â"€ Selecionar cliente direto â"€â"€
+  // ── Selecionar cliente direto ──
   function selecionarCliente(c: Cliente, animalPreSel?: Animal) {
     setClienteSel(c);
     setResultados([]);
@@ -535,7 +761,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     carregarAnimais(c.id, animalPreSel?.id, animalPreSel);
   }
 
-  // â"€â"€ Selecionar via resultado de pet â"€â"€
+  // ── Selecionar via resultado de pet ──
   function selecionarPet(item: AnimalBuscaItem) {
     // Monta cliente parcial para exibir enquanto carrega os dados completos
     const clienteParcial: Cliente = {
@@ -568,7 +794,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       saldo_disponivel: 0,
       data_ult_compra: '',
     };
-    // Animal parcial para prÃ©-selecionar
+    // Animal parcial para pré-selecionar
     const animalParcial = {
       id:           item.id,
       filial:       item.filial,
@@ -582,7 +808,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
       castrado:     0,
       id_cliente:   item.id_cliente,
       nome_cliente: item.nome_cliente,
-      // campos nÃ£o disponÃ­veis na busca rÃ¡pida
+      // campos não disponíveis na busca rápida
       data_nascimento: '',
       peso:          '',
       id_especie:    0,
@@ -621,28 +847,62 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     setServicoId(val);
     setServicoNome(s?.descricao ?? '');
     setServicoFilial(String(s?.filial ?? ''));
-    // Auto-calcula data_entrega a partir da duraÃ§Ã£o do serviÃ§o
-    const duracaoMin = parseInt(s?.duracao ?? '0', 10);
+    // Auto-calcula data_entrega a partir da duração do serviço
+    // duracao pode vir como "HH:MM:SS" ou como string numérica de minutos
+    const duracaoMin = (() => {
+      const d = s?.duracao ?? '0';
+      if (d.includes(':')) {
+        const [h, m] = d.split(':').map(Number);
+        return (h ?? 0) * 60 + (m ?? 0);
+      }
+      return parseInt(d, 10);
+    })();
     if (duracaoMin > 0 && dataPrevisao) {
-      const dt = new Date(dataPrevisao);
-      dt.setMinutes(dt.getMinutes() + duracaoMin);
-      setDataEntrega(dt.toISOString().slice(0, 16));
+      // Parseia como horário LOCAL somando os minutos sem conversão UTC
+      const [datePart, timePart = '00:00'] = dataPrevisao.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      const totalMin = hours * 60 + minutes + duracaoMin;
+      const hFim = Math.floor(totalMin / 60) % 24;
+      const mFim = totalMin % 60;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const resultado = `${year}-${pad(month)}-${pad(day)}T${pad(hFim)}:${pad(mFim)}`;
+      setDataEntrega(resultado);
+    }
+
+    // Categoria de Serviço: se houver regra cadastrada para a raça do animal
+    // (ou regra genérica sem raça) para este serviço, insere o produto
+    // correspondente automaticamente e sem aviso. Sem regra, nada acontece —
+    // o atendente segue o fluxo manual normal de adicionar produto/serviço.
+    const servicoIdNum = Number(val) || 0;
+    if (servicoIdNum > 0) {
+      buscarProdutoPorCategoria(animalSel?.id_raca ?? 0, servicoIdNum).then((produtoAuto) => {
+        if (produtoAuto && produtoAuto.preco > 0) {
+          setProdutos((prev) => [...prev, { ...produtoAuto, qtd: 1, valor: produtoAuto.preco, desconto: 0 }]);
+        }
+      });
     }
   }
 
   function handleDataPrevisaoChange(val: string) {
     setDataPrevisao(val);
-    // Recalcula data_entrega mantendo a duraÃ§Ã£o atual
+    // Recalcula data_entrega mantendo a duração atual (sem conversão UTC)
     if (dataEntrega && val) {
-      const inicioAntes = new Date(dataPrevisao);
-      const fimAntes    = new Date(dataEntrega);
-      const durMin = isNaN(inicioAntes.getTime()) || isNaN(fimAntes.getTime())
-        ? 0
-        : (fimAntes.getTime() - inicioAntes.getTime()) / 60000;
-      if (durMin > 0) {
-        const novoFim = new Date(val);
-        novoFim.setMinutes(novoFim.getMinutes() + durMin);
-        setDataEntrega(novoFim.toISOString().slice(0, 16));
+      const toMin = (dt: string) => {
+        const [, t = '00:00'] = dt.split('T');
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const durMin = toMin(dataEntrega) - toMin(dataPrevisao);
+      if (durMin >= 0) {
+        const [datePart, timePart = '00:00'] = val.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = timePart.split(':').map(Number);
+        const totalMin = hours * 60 + minutes + durMin;
+        const hFim = Math.floor(totalMin / 60) % 24;
+        const mFim = totalMin % 60;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        setDataEntrega(`${year}-${pad(month)}-${pad(day)}T${pad(hFim)}:${pad(mFim)}`);
       }
     }
   }
@@ -651,9 +911,22 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     e.preventDefault();
     setErrorMsg('');
 
-    // Regra: vendedor obrigatório
+    // Regra: vendedor obrigatório — rola até o campo e destaca, senão o usuário
+    // não percebe a mensagem de erro lá embaixo
     if (!vendId) {
       setErrorMsg('Selecione o vendedor antes de gravar.');
+      vendRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setVendPiscando(true);
+      setTimeout(() => setVendPiscando(false), 1500);
+      return;
+    }
+
+    // Regra: tipo de serviço obrigatório
+    if (!servicoId) {
+      setErrorMsg('Selecione o tipo de serviço antes de gravar.');
+      servicoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setServicoPiscando(true);
+      setTimeout(() => setServicoPiscando(false), 1500);
       return;
     }
 
@@ -684,10 +957,13 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
     // Valor/desconto calculados a partir dos produtos + desconto total (%)
     formData.set('valor',          totalProdutos.toFixed(2));
     formData.set('desconto',       descontoTotalValor.toFixed(2));
+    formData.set('obs',            obsTexto);
+    // Filial de destino da agenda (pode ser diferente da filial da sessão)
+    formData.set('filial',         String(filial));
 
     const dataAgenda = dataPrevisao.split('T')[0] || new Date().toISOString().split('T')[0];
 
-    startSubmit(async () => {
+    const gravar = () => startSubmit(async () => {
       if (modo === 'editar' && agendaId) {
         const res = await editarAgenda({
           id:             agendaId,
@@ -702,18 +978,31 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           servico_nome:   servicoNome || undefined,
           vend_id:        Number(vendId) || undefined,
           vend_filial:    Number(vendFilial) || undefined,
-          obs:            obsEditar,
+          obs:            obsTexto,
           peso:           Number(pesoInput) > 0 ? Number(pesoInput) : undefined,
         });
         if (res.error) { setErrorMsg(res.error); return; }
-        router.push('/agenda');
+
+        // Adiciona novos produtos em modo editar (itens já salvos não são retransmitidos)
+        if (produtos.length > 0 && agendaId) {
+          for (const p of produtos) {
+            await adicionarItemNaAgenda(
+              agendaId, filial,
+              p.id_dadospro, p.cod_filial,
+              p.qtd, p.valor, p.desconto, p.nome_produto,
+              p.nome_produto, p.preco, p.cod_pro,
+            );
+          }
+        }
+
+        router.push(`/agenda/${agendaId}`);
         return;
       }
 
       const result = await createAgenda({}, formData);
       if (result.error) { setErrorMsg(result.error); return; }
 
-      // Adiciona produtos pendentes em sequÃªncia
+      // Adiciona produtos pendentes em sequência
       if (produtos.length > 0 && result.id) {
         const errosProdutos: string[] = [];
         for (const p of produtos) {
@@ -726,8 +1015,8 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           if (res.error) errosProdutos.push(`${p.nome_produto}: ${res.error}`);
         }
         if (errosProdutos.length > 0) {
-          // Mostra o erro real para diagnÃ³stico antes de navegar
-          setErrorMsg(`Agenda #${result.id} criada. Erro ao salvar produtos â€" ${errosProdutos.join(' | ')}`);
+          // Mostra o erro real para diagnóstico antes de navegar
+          setErrorMsg(`Agenda #${result.id} criada. Erro ao salvar produtos — ${errosProdutos.join(' | ')}`);
           return;
         }
 
@@ -740,19 +1029,27 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             regras: regras.map((r) => ({
               regra:   r,
               qtd:     produtos.find((p) => p.id_dadospro === r.dadospro_id)?.qtd ?? 1,
-              // padrÃ£o: prazo mÃ¡ximo (se nÃ£o houver mÃ­nimo cadastrado, sÃ³ hÃ¡ essa opÃ§Ã£o)
+              // padrão: prazo máximo (se não houver mínimo cadastrado, só há essa opção)
               escolha: 'max' as const,
             })),
           });
-          return; // nÃ£o navega â€" o dialog de estimativa decide
+          return; // não navega — o dialog de estimativa decide
         }
       }
-      router.push(`/agenda/${result.id}`);
+      if (result.id) await finalizarCriacao(result.id);
     });
+
+    // Inserindo em filial diferente da padrão → pede confirmação antes de gravar
+    if (outraFilial) {
+      pendingSubmit.current = gravar;
+      setConfirmFilialOpen(true);
+      return;
+    }
+    gravar();
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-3xl mx-auto p-6 pb-0 space-y-4">
 
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -774,10 +1071,18 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
         </div>
       </div>
 
-      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-5">
+      {/* Aviso: inserindo em filial diferente da padrão do usuário */}
+      {outraFilial && (
+        <div className="flex items-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Você está criando esta agenda na <strong>filial {filial}</strong> — diferente da sua filial padrão.
+        </div>
+      )}
 
-        {/* â"€â"€ Cliente â"€â"€ */}
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-3">
+
+        {/* ── Cliente ── */}
+        <div className="rounded-xl border bg-card p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <User className="h-3.5 w-3.5" />
@@ -792,17 +1097,175 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           </div>
 
           {clienteSel ? (
-            <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
-              <div>
-                <p className="font-medium">{clienteSel.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {clienteSel.celular || clienteSel.telefone || clienteSel.cpf_cnpj || 'â€"'}
-                </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="font-medium">{clienteSel.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {clienteSel.celular || clienteSel.telefone || clienteSel.cpf_cnpj || '—'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button" variant="ghost" size="icon"
+                    title="Editar cliente"
+                    onClick={async () => {
+                      if (editClienteOpen) { setEditClienteOpen(false); return; }
+                      setErroCli('');
+                      setCliPanelLoading(true);
+                      setEditClienteOpen(true);
+                      // Busca o cadastro completo para garantir endereço e demais campos
+                      const completo = await buscarClienteCompleto(clienteSel.id).catch(() => null);
+                      const c = completo ?? clienteSel;
+                      setCliNome(c.nome ?? '');
+                      setCliCelular(c.celular ?? '');
+                      setCliTelefone(c.telefone ?? '');
+                      setCliEmail(c.email ?? '');
+                      setCliCpf(c.cpf_cnpj ?? '');
+                      setCliCep(c.cep ?? '');
+                      setCliEndereco(c.endereco ?? '');
+                      setCliNumero(c.numero ?? '');
+                      setCliComplemento(c.complemento ?? '');
+                      setCliBairro(c.bairro ?? '');
+                      setCliCidade(c.cidade ?? '');
+                      setCliUf(c.uf ?? '');
+                      setCliCepMsg(null);
+                      setCliPanelLoading(false);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {modo !== 'editar' && (
+                    <Button type="button" variant="ghost" size="icon" onClick={limparCliente}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              {modo !== 'editar' && (
-                <Button type="button" variant="ghost" size="icon" onClick={limparCliente}>
-                  <X className="h-4 w-4" />
-                </Button>
+
+              {/* Painel inline de edição rápida do cliente */}
+              {editClienteOpen && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-2">
+                    Editar dados do cliente
+                    {cliPanelLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+                  </p>
+                  {erroCli && <p className="text-xs text-destructive">{erroCli}</p>}
+                  <div className={`grid grid-cols-2 gap-3 transition-opacity ${cliPanelLoading ? 'opacity-40 pointer-events-none' : ''}`}>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Nome *</Label>
+                      <Input value={cliNome} onChange={e => setCliNome(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Celular</Label>
+                      <Input value={cliCelular} onChange={e => setCliCelular(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone</Label>
+                      <Input value={cliTelefone} onChange={e => setCliTelefone(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">E-mail</Label>
+                      <Input type="email" value={cliEmail} onChange={e => setCliEmail(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CPF / CNPJ</Label>
+                      <Input value={cliCpf} onChange={e => setCliCpf(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP</Label>
+                      <div className="relative">
+                        <Input
+                          value={cliCep}
+                          onChange={e => { setCliCep(e.target.value); setCliCepMsg(null); }}
+                          onBlur={handleCliCepBlur}
+                          placeholder="00000-000"
+                          maxLength={9}
+                          className="h-8 text-sm pr-7"
+                        />
+                        {cliCepLoading && (
+                          <Loader2 className="absolute right-2 top-1.5 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      {cliCepMsg && (
+                        <p className={`text-[11px] ${cliCepMsg.tipo === 'ok' ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {cliCepMsg.texto}
+                        </p>
+                      )}
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Endereço</Label>
+                      <Input value={cliEndereco} onChange={e => setCliEndereco(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número</Label>
+                      <Input value={cliNumero} onChange={e => setCliNumero(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Complemento</Label>
+                      <Input value={cliComplemento} onChange={e => setCliComplemento(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bairro</Label>
+                      <Input value={cliBairro} onChange={e => setCliBairro(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input value={cliCidade} onChange={e => setCliCidade(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">UF</Label>
+                      <Input value={cliUf} onChange={e => setCliUf(e.target.value)} maxLength={2} className="h-8 text-sm uppercase" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEditClienteOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={salvandoCli || !cliNome.trim()}
+                      onClick={async () => {
+                        setSalvandoCli(true); setErroCli('');
+                        const fd = new FormData();
+                        fd.set('nome',            cliNome);
+                        fd.set('celular',         cliCelular);
+                        fd.set('telefone',        cliTelefone);
+                        fd.set('email',           cliEmail);
+                        fd.set('cpf_cnpj',        cliCpf);
+                        fd.set('cep',             cliCep);
+                        fd.set('endereco',        cliEndereco);
+                        fd.set('numero',          cliNumero);
+                        fd.set('complemento',     cliComplemento);
+                        fd.set('bairro',          cliBairro);
+                        fd.set('cidade',          cliCidade);
+                        fd.set('uf',              cliUf);
+                        fd.set('pessoa',          clienteSel.pessoa        ?? 'F');
+                        fd.set('status_ativo',    String(clienteSel.status_ativo ?? 0));
+                        fd.set('ibge',            '');
+                        fd.set('ie',              clienteSel.ie            ?? '');
+                        fd.set('data_nascimento', clienteSel.data_nascimento ?? '');
+                        fd.set('comentario',      clienteSel.comentario    ?? '');
+                        fd.set('nome_fantasia',   clienteSel.nome_fantasia ?? '');
+                        const res = await updateCliente(clienteSel.id, fd);
+                        setSalvandoCli(false);
+                        if (res.error) { setErroCli(res.error); return; }
+                        setClienteSel(prev => prev ? {
+                          ...prev,
+                          nome: cliNome, celular: cliCelular, telefone: cliTelefone,
+                          email: cliEmail, cpf_cnpj: cliCpf, cep: cliCep,
+                          endereco: cliEndereco, numero: cliNumero, complemento: cliComplemento,
+                          bairro: cliBairro, cidade: cliCidade, uf: cliUf,
+                        } : prev);
+                        setEditClienteOpen(false);
+                      }}
+                    >
+                      {salvandoCli ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -834,7 +1297,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                 )}
               </div>
 
-              {/* Indicador de mÃ­nimo de caracteres */}
+              {/* Indicador de mínimo de caracteres */}
               {q.length > 0 && (() => {
                 if (q.includes('/')) {
                   const [a, b] = q.split('/').map((s) => s.trim());
@@ -901,8 +1364,8 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                             )}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {[r.animal.especie, r.animal.raca].filter(Boolean).join(' Â· ')}
-                            {' â€" '}
+                            {[r.animal.especie, r.animal.raca].filter(Boolean).join(' · ')}
+                            {' — '}
                             <span className="font-medium text-foreground/70">{r.animal.nome_cliente}</span>
                           </p>
                         </div>
@@ -915,8 +1378,8 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           )}
         </div>
 
-        {/* â"€â"€ Animal â"€â"€ */}
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        {/* ── Animal ── */}
+        <div className="rounded-xl border bg-card p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <PawPrint className="h-3.5 w-3.5" />
@@ -944,70 +1407,191 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
               </button>
             </p>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-2">
-              {animais.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => {
-                    const next = animalSel?.id === a.id ? null : a;
-                    setAnimalSel(next);
-                    setPesoInput(next?.peso ? String(next.peso) : '');
-                  }}
-                  className={cn(
-                    'text-left rounded-lg border px-3 py-2.5 transition-colors',
-                    animalSel?.id === a.id
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'hover:bg-muted/40',
-                  )}
-                >
-                  <p className="font-medium text-sm">{a.nome}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {[a.especie, a.raca, a.sexo === 'M' ? 'Macho' : a.sexo === 'F' ? 'FÃªmea' : '']
-                      .filter(Boolean).join(' Â· ')}
+            <div className="space-y-2">
+              <div className="grid sm:grid-cols-2 gap-2">
+                {animais.map((a) => (
+                  <div key={a.id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = animalSel?.id === a.id ? null : a;
+                        setAnimalSel(next);
+                        setPesoInput(next?.peso ? String(next.peso) : '');
+                        if (editAnimalOpen && animalSel?.id !== a.id) setEditAnimalOpen(false);
+                      }}
+                      className={cn(
+                        'w-full text-left rounded-lg border px-3 py-2.5 transition-colors pr-8',
+                        animalSel?.id === a.id
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <p className="font-medium text-sm">{a.nome}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {[a.especie, a.raca, a.sexo === 'M' ? 'Macho' : a.sexo === 'F' ? 'Fêmea' : '']
+                          .filter(Boolean).join(' · ')}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar animal"
+                      onClick={() => {
+                        setAnimalSel(a);
+                        setPesoInput(a.peso ? String(a.peso) : '');
+                        const abrindo = animalSel?.id !== a.id || !editAnimalOpen;
+                        if (abrindo) {
+                          setAniNome(a.nome ?? '');
+                          setAniSexo(a.sexo ?? '');
+                          setAniCastrado(String(a.castrado ?? 0));
+                          setAniNasc(a.data_nascimento?.slice(0, 10) ?? '');
+                          setAniCor(a.cor ?? '');
+                          setAniObs(a.obs ?? '');
+                        }
+                        setEditAnimalOpen(abrindo);
+                        setErroAni('');
+                      }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 hover:bg-muted"
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Painel inline de edição rápida do animal */}
+              {editAnimalOpen && animalSel && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                    Editar dados de {animalSel.nome}
                   </p>
-                </button>
-              ))}
+                  {erroAni && <p className="text-xs text-destructive">{erroAni}</p>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Nome *</Label>
+                      <Input value={aniNome} onChange={e => setAniNome(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Sexo</Label>
+                      <select value={aniSexo} onChange={e => setAniSexo(e.target.value)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="">—</option>
+                        <option value="M">Macho</option>
+                        <option value="F">Fêmea</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Castrado</Label>
+                      <select value={aniCastrado} onChange={e => setAniCastrado(e.target.value)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="0">Não</option>
+                        <option value="1">Sim</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Data de Nascimento</Label>
+                      <Input type="date" value={aniNasc} onChange={e => setAniNasc(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cor</Label>
+                      <Input value={aniCor} onChange={e => setAniCor(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Observações</Label>
+                      <Input value={aniObs} onChange={e => setAniObs(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEditAnimalOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={salvandoAni || !aniNome.trim()}
+                      onClick={async () => {
+                        setSalvandoAni(true); setErroAni('');
+                        const fd = new FormData();
+                        fd.set('nome',            aniNome);
+                        fd.set('sexo',            aniSexo);
+                        fd.set('castrado',        aniCastrado);
+                        fd.set('data_nascimento', aniNasc);
+                        fd.set('cor',             aniCor);
+                        fd.set('obs',             aniObs);
+                        fd.set('apelido',         animalSel.apelido       ?? '');
+                        fd.set('peso',            animalSel.peso          ?? '');
+                        fd.set('tipo_animal',     animalSel.tipo_animal   ?? '');
+                        fd.set('id_especie',      String(animalSel.id_especie ?? 0));
+                        fd.set('especie',         animalSel.especie       ?? '');
+                        fd.set('id_raca',         String(animalSel.id_raca   ?? 0));
+                        fd.set('raca',            animalSel.raca          ?? '');
+                        fd.set('id_pelo',         String(animalSel.id_pelo   ?? 0));
+                        fd.set('pelo',            animalSel.pelo          ?? '');
+                        fd.set('controla_racao',  '0');
+                        fd.set('obito',           String(animalSel.obito  ?? 0));
+                        // Convenção do legado: ATIVO=1 significa INATIVO — default seguro é 0 (ativo)
+                        fd.set('ativo',           String(animalSel.ativo  ?? 0));
+                        const res = await updateAnimal(animalSel.id, animalSel.id_cliente, {}, fd);
+                        setSalvandoAni(false);
+                        if (res.error) { setErroAni(res.error); return; }
+                        const updated: Animal = {
+                          ...animalSel,
+                          nome: aniNome, sexo: aniSexo,
+                          castrado: aniCastrado === '1' ? 1 : 0,
+                          data_nascimento: aniNasc, cor: aniCor, obs: aniObs,
+                        };
+                        setAnimais(prev => prev.map(a => a.id === animalSel.id ? updated : a));
+                        setAnimalSel(updated);
+                        setEditAnimalOpen(false);
+                      }}
+                    >
+                      {salvandoAni ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* â"€â"€ Data / Hora / Profissional / ServiÃ§o â"€â"€ */}
-        <div className="rounded-xl border bg-card p-5 space-y-4">
+        {/* ── Data / Hora / Profissional / Serviço ── */}
+        <div className="rounded-xl border bg-card p-4 space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Detalhes do Agendamento
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="data_previsao">InÃ­cio Previsto *</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="data_previsao" className="text-xs">Início Previsto *</Label>
               <Input
                 id="data_previsao"
                 name="data_previsao"
                 type="datetime-local"
+                className="h-8 text-sm"
                 value={dataPrevisao}
                 onChange={(e) => handleDataPrevisaoChange(e.target.value)}
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="data_entrega">TÃ©rmino Previsto</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="data_entrega" className="text-xs">Término Previsto</Label>
               <Input
                 id="data_entrega"
                 name="data_entrega"
                 type="datetime-local"
+                className="h-8 text-sm"
                 value={dataEntrega}
                 onChange={(e) => setDataEntrega(e.target.value)}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Auto-calculado ao selecionar o serviÃ§o
-              </p>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-1.5">
+            Término pré-preenchido com o início · auto-calculado ao selecionar o serviço
+          </p>
 
           {/* Peso do animal */}
           {animalSel && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label htmlFor="peso_animal" className="flex items-center gap-1.5">
                 Peso do Animal
                 {animalSel.peso && Number(animalSel.peso) > 0 && (
@@ -1045,7 +1629,13 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           )}
 
           {/* Vendedor (obrigatório) */}
-          <div className="space-y-1.5">
+          <div
+            ref={vendRef}
+            className={cn(
+              'space-y-1 rounded-md transition-shadow',
+              vendPiscando && 'ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse',
+            )}
+          >
             <Label>
               Vendedor <span className="text-destructive">*</span>
             </Label>
@@ -1071,16 +1661,34 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Profissional</Label>
+          {modo !== 'editar' && (
+            <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer select-none hover:bg-muted/40">
+              <input
+                type="checkbox"
+                checked={agendarRetorno}
+                onChange={(e) => setAgendarRetorno(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              Agendar retorno
+              <span className="text-xs text-muted-foreground">
+                — ao gravar, pergunta a data e cria a próxima agenda automaticamente
+              </span>
+            </label>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1.5">
+                Profissional
+                {listasCarregando && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </Label>
               <Select
                 value={profId}
                 onValueChange={(v) => { if (v) handleProfChange(v); }}
                 items={(profissionais ?? []).map((p) => ({ value: String(p.id), label: p.nome }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
+                  <SelectValue placeholder={listasCarregando ? 'Carregando...' : 'Selecione...'} />
                 </SelectTrigger>
                 <SelectContent>
                   {(profissionais ?? []).map((p) => (
@@ -1092,15 +1700,24 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Serviço</Label>
+            <div
+              ref={servicoRef}
+              className={cn(
+                'space-y-1 rounded-md transition-shadow',
+                servicoPiscando && 'ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse',
+              )}
+            >
+              <Label className="flex items-center gap-1.5">
+                Serviço <span className="text-destructive">*</span>
+                {listasCarregando && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </Label>
               <Select
                 value={servicoId}
                 onValueChange={(v) => { if (v) handleServicoChange(v); }}
                 items={(servicos ?? []).map((s) => ({ value: String(s.id), label: s.descricao }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
+                <SelectTrigger className={!servicoId ? 'border-destructive/50' : ''}>
+                  <SelectValue placeholder={listasCarregando ? 'Carregando...' : 'Selecione...'} />
                 </SelectTrigger>
                 <SelectContent>
                   {(servicos ?? []).map((s) => (
@@ -1115,11 +1732,11 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
 
         </div>
 
-        {/* â"€â"€ Produtos â"€â"€ */}
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        {/* ── Produtos ── */}
+        <div className="rounded-xl border bg-card p-4 space-y-2.5">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <PackageSearch className="h-3.5 w-3.5" />
-            Produtos / ServiÃ§os
+            Produtos / Serviços
             {produtos.length > 0 && (
               <span className="ml-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold">
                 {produtos.length}
@@ -1139,7 +1756,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                 onChange={handleBuscaProdChange}
                 onKeyDown={handleProdKeyDown}
                 onFocus={() => resProd.length > 0 && setDropProdAberto(true)}
-                placeholder="Buscar por nome ou cÃ³digo... (mÃ­n. 3 caracteres)"
+                placeholder="Buscar por nome ou código... (mín. 3 caracteres)"
                 className="flex-1 py-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                 autoComplete="off"
               />
@@ -1171,7 +1788,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                       <p className="font-medium text-sm truncate">{p.nome_produto}</p>
                       <p className="text-xs text-muted-foreground">
                         {p.cod_pro && <span className="font-mono mr-1.5">{p.cod_pro}</span>}
-                        {[p.secao, p.grupo, p.unidade].filter(Boolean).join(' Â· ')}
+                        {[p.secao, p.grupo, p.unidade].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
@@ -1191,8 +1808,8 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             )}
           </div>
 
-          {/* Lista de produtos adicionados */}
-          {produtos.length > 0 && (
+          {/* Lista de produtos — itens salvos (DB) + novos (pendentes) */}
+          {(itensSalvos.length > 0 || produtos.length > 0) && (
             <div className="rounded-md border overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-muted/30 text-xs text-muted-foreground">
@@ -1206,18 +1823,54 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                   </tr>
                 </thead>
                 <tbody className="divide-y">
+                  {/* Itens já salvos no banco */}
+                  {itensSalvos.map((it) => {
+                    const total = Math.max(0, (it.valor - it.desconto) * it.qtd);
+                    return (
+                      <tr key={`salvo-${it.id_item}`} className="hover:bg-muted/40">
+                        <td className="px-3 py-2">
+                          <p className="font-medium truncate max-w-[180px]">{it.produto}</p>
+                          <p className="text-xs text-muted-foreground">{[it.cod_pro, it.unidade].filter(Boolean).join(' · ')}</p>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">{it.qtd}</td>
+                        <td className="px-3 py-2 text-right font-mono">R$ {fmtMoeda(it.valor)}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {it.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(it.desconto)}</span> : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
+                        <td className="px-2 py-2">
+                          <button
+                            type="button"
+                            onClick={() => removerItemSalvo(it.id_item)}
+                            disabled={removendoItem === it.id_item}
+                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                          >
+                            {removendoItem === it.id_item
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Trash2 className="h-3.5 w-3.5" />
+                            }
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Novos itens (ainda não salvos) */}
                   {produtos.map((p, i) => {
                     const total = Math.max(0, (p.valor - p.desconto) * p.qtd);
                     return (
-                      <tr key={i} className="hover:bg-muted/40">
+                      <tr key={`novo-${i}`} className="hover:bg-muted/40 bg-primary/[0.02]">
                         <td className="px-3 py-2">
                           <p className="font-medium truncate max-w-[180px]">{p.nome_produto}</p>
-                          {p.unidade && <p className="text-xs text-muted-foreground">{p.unidade}</p>}
+                          <p className="text-xs text-muted-foreground">
+                            {p.cod_pro && <span className="font-mono mr-1.5">{p.cod_pro}</span>}
+                            {p.unidade}
+                            <span className="ml-1.5 text-primary text-[10px] font-semibold">NOVO</span>
+                          </p>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">{p.qtd}</td>
                         <td className="px-3 py-2 text-right font-mono">R$ {fmtMoeda(p.valor)}</td>
                         <td className="px-3 py-2 text-right font-mono">
-                          {p.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(p.desconto)}</span> : 'â€"'}
+                          {p.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(p.desconto)}</span> : '—'}
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
                         <td className="px-2 py-2">
@@ -1234,13 +1887,13 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             </div>
           )}
 
-          {produtos.length === 0 && (
+          {itensSalvos.length === 0 && produtos.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">
               Nenhum produto adicionado. Use a busca acima para incluir.
             </p>
           )}
 
-          {/* â"€â"€ Desconto total (%) e resumo de valores â"€â"€ */}
+          {/* ── Desconto total (%) e resumo de valores ── */}
           {produtos.length > 0 && (
             <div className="rounded-md border bg-muted/20 px-4 py-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -1277,16 +1930,52 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             </div>
           )}
 
-          {/* â"€â"€ ObservaÃ§Ãµes (abaixo da lista de produtos) â"€â"€ */}
+          {/* ── Checklist Banho e Tosa (tags — clique alterna cor e insere/remove texto na observação) ── */}
           <div className="space-y-1.5">
-            <Label htmlFor="obs">ObservaÃ§Ãµes</Label>
+            <Label className="text-xs text-muted-foreground">Banho e tosa</Label>
+            <div className="rounded-md border p-2 flex flex-wrap gap-1">
+              {OBS_CHECKLIST.map((opt) => {
+                const ativo = !!obsFlags[opt];
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      const marcado = !ativo;
+                      setObsFlags((prev) => ({ ...prev, [opt]: marcado }));
+                      setObsTexto((prev) => {
+                        const linhas = prev.split('\n').filter((l) => l.trim() !== '');
+                        if (marcado) {
+                          if (linhas.includes(opt)) return prev;
+                          return [...linhas, opt].join('\n');
+                        }
+                        return linhas.filter((l) => l !== opt).join('\n');
+                      });
+                    }}
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium border transition-colors select-none',
+                      ativo
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-input hover:bg-muted',
+                    )}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Observações (abaixo da lista de produtos) ── */}
+          <div className="space-y-1.5">
+            <Label htmlFor="obs">Observações</Label>
             <textarea
               id="obs"
               name="obs"
-              rows={2}
-              placeholder="InformaÃ§Ãµes adicionais..."
-              value={modo === 'editar' ? obsEditar : undefined}
-              onChange={modo === 'editar' ? (e) => setObsEditar(e.target.value) : undefined}
+              rows={3}
+              placeholder="Informações adicionais..."
+              value={obsTexto}
+              onChange={(e) => setObsTexto(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
             />
           </div>
@@ -1298,7 +1987,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
             <div
               className="bg-card rounded-xl shadow-xl p-5 w-full max-w-sm mx-4 space-y-4"
               onKeyDown={(e) => {
-                // Enter confirma, Esc cancela â€" sem propagar para o form
+                // Enter confirma, Esc cancela — sem propagar para o form
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1321,7 +2010,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
               <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
                 <p className="font-semibold">{prodDialog.nome_produto}</p>
                 <p className="text-xs text-muted-foreground">
-                  {[prodDialog.secao, prodDialog.grupo, prodDialog.unidade].filter(Boolean).join(' Â· ')}
+                  {[prodDialog.secao, prodDialog.grupo, prodDialog.unidade].filter(Boolean).join(' · ')}
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -1359,33 +2048,140 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
           </div>
         )}
 
-        {errorMsg && (
-          <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {errorMsg}
-          </div>
-        )}
+        {/* Barra de ações fixa embaixo — sempre visível, mesmo rolando a tela */}
+        <div className="sticky bottom-0 z-10 pb-4 -mx-6 px-6">
+        <div className="rounded-xl border bg-card shadow-lg px-5 py-3 space-y-2.5">
+          {errorMsg && (
+            <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {errorMsg}
+            </div>
+          )}
 
-        <div className="flex justify-end gap-3">
-          <Link href="/agenda">
-            <Button type="button" variant="outline">Cancelar</Button>
-          </Link>
-          <Button type="submit" disabled={isPending || !clienteSel}>
-            {isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {modo === 'editar' ? 'Salvando...' : produtos.length > 0 ? 'Salvando agenda e produtos...' : 'Salvando...'}
-              </>
-            ) : modo === 'editar' ? (
-              'Salvar Alterações'
-            ) : (
-              `Criar Agendamento${produtos.length > 0 ? ` (+ ${produtos.length} produto${produtos.length > 1 ? 's' : ''})` : ''}`
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3">
+            <Link href="/agenda" className="sm:order-1">
+              <Button type="button" variant="outline" className="w-full sm:w-auto">Cancelar</Button>
+            </Link>
+            <Button type="submit" disabled={isPending || !clienteSel} className="w-full sm:w-auto h-auto min-h-8 py-2 whitespace-normal text-center leading-snug">
+              {isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />
+                  {modo === 'editar' ? 'Salvando...' : produtos.length > 0 ? 'Salvando agenda e produtos...' : 'Salvando...'}
+                </>
+              ) : modo === 'editar' ? (
+                'Salvar Alterações'
+              ) : produtos.length > 0 ? (
+                <>Criar Agendamento<span className="hidden sm:inline">{` (+ ${produtos.length} produto${produtos.length > 1 ? 's' : ''})`}</span></>
+              ) : (
+                'Criar Agendamento'
+              )}
+            </Button>
+          </div>
+        </div>
         </div>
 
       </form>
 
-      {/* â"€â"€ Dialogs FORA do <form> para evitar submit acidental â"€â"€ */}
+      {/* ── Dialogs FORA do <form> para evitar submit acidental ── */}
+
+      {/* Confirmação: gravar agenda em filial diferente da padrão */}
+      <Dialog open={confirmFilialOpen} onOpenChange={(v: boolean) => { if (!v) { setConfirmFilialOpen(false); pendingSubmit.current = null; } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Atenção — outra filial
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Você está inserindo esta agenda na <strong className="text-foreground">filial {filial}</strong>,
+            diferente da sua filial padrão. Deseja seguir mesmo assim?
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button
+              variant="outline"
+              onClick={() => { setConfirmFilialOpen(false); pendingSubmit.current = null; }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmFilialOpen(false);
+                pendingSubmit.current?.();
+                pendingSubmit.current = null;
+              }}
+            >
+              Sim, continuar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Agendar retorno: confirma data/intervalo/quantidade após criar a agenda */}
+      <Dialog open={!!retornoDialog} onOpenChange={(v: boolean) => { if (!v) setRetornoDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Agendar retorno</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Agenda criada com sucesso. Confirme os dados do retorno automático:
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Data do retorno</Label>
+              <Input
+                type="date"
+                value={retornoData}
+                onChange={(e) => setRetornoData(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Intervalo (dias)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={retornoIntervalo}
+                  onChange={(e) => setRetornoIntervalo(Number(e.target.value) || 1)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Quantidade de retornos</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={retornoQtd}
+                  onChange={(e) => setRetornoQtd(Number(e.target.value) || 1)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Cria {retornoQtd} nova{retornoQtd > 1 ? 's' : ''} agenda{retornoQtd > 1 ? 's' : ''}, a partir de{' '}
+              {retornoData.split('-').reverse().join('/')}, espaçada{retornoQtd > 1 ? 's' : ''} por {retornoIntervalo} dias.
+            </p>
+          </div>
+          {erroRetorno && (
+            <p className="text-sm text-destructive">{erroRetorno}</p>
+          )}
+          <div className="flex justify-end gap-2 mt-2">
+            <Button
+              variant="outline"
+              disabled={salvandoRetorno}
+              onClick={() => {
+                const idOriginal = retornoDialog?.agendaId;
+                setRetornoDialog(null);
+                if (idOriginal) router.push(`/agenda/${idOriginal}`);
+              }}
+            >
+              Não agendar
+            </Button>
+            <Button onClick={confirmarRetorno} disabled={salvandoRetorno}>
+              {salvandoRetorno ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar retorno'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <NovoClienteDialog
         open={novoCliOpen}
         onOpenChange={setNovoCliOpen}
@@ -1413,7 +2209,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
         />
       )}
 
-      {/* â"€â"€ Dialog de estimativa: pergunta prazo mÃ­nimo ou mÃ¡ximo â"€â"€ */}
+      {/* ── Dialog de estimativa: pergunta prazo mínimo ou máximo ── */}
       {estPendente && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-card rounded-xl shadow-xl p-5 w-full max-w-md mx-4 space-y-4">
@@ -1421,7 +2217,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
               <h3 className="font-semibold">Criar Estimativas de Retorno</h3>
               <p className="text-xs text-muted-foreground mt-1">
                 Agenda #{estPendente.agendaId} salva. Os produtos abaixo possuem regra de
-                estimativa â€" escolha o prazo para o retorno do cliente.
+                estimativa — escolha o prazo para o retorno do cliente.
               </p>
             </div>
 
@@ -1444,7 +2240,7 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                             : 'text-muted-foreground hover:bg-muted/40',
                         )}
                       >
-                        MÃ­nimo â€" {item.regra.dias_min} dias
+                        Mínimo — {item.regra.dias_min} dias
                       </button>
                     )}
                     <button
@@ -1460,12 +2256,12 @@ export default function NovoAgendamentoForm({ profissionais, servicos, especies,
                           : 'text-muted-foreground hover:bg-muted/40',
                       )}
                     >
-                      MÃ¡ximo â€" {item.regra.dias_max} dias
+                      Máximo — {item.regra.dias_max} dias
                     </button>
                   </div>
                   {item.qtd > 1 && (
                     <p className="text-[11px] text-muted-foreground">
-                      Quantidade {item.qtd}: prazo multiplicado ({item.qtd} Ã— {item.escolha === 'min' && item.regra.dias_min > 0 ? item.regra.dias_min : item.regra.dias_max} dias)
+                      Quantidade {item.qtd}: prazo multiplicado ({item.qtd} × {item.escolha === 'min' && item.regra.dias_min > 0 ? item.regra.dias_min : item.regra.dias_max} dias)
                     </p>
                   )}
                 </div>

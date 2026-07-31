@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -53,19 +53,21 @@ export type FiltroStatus =
 // ─── Listagem ────────────────────────────────────────────────────────────────
 
 export async function buscarEstimativas(params: {
-  status?:  FiltroStatus;
-  busca?:   string;
-  dataDe?:  string;
-  dataAte?: string;
+  status?:   FiltroStatus;
+  busca?:    string;
+  dataDe?:   string;
+  dataAte?:  string;
+  animalId?: number;
 }): Promise<Estimativa[]> {
   const res = await apiFetch<{ dados: Estimativa[]; Count: number }>(
     `/api/petshop/estimativas${qs({
-      filial:   FILIAL,
-      status:   params.status && params.status !== 'todas' ? params.status : undefined,
-      busca:    params.busca || undefined,
-      data_de:  params.dataDe || undefined,
-      data_ate: params.dataAte || undefined,
-      limit:    300,
+      filial:    getFilial(),
+      status:    params.status && params.status !== 'todas' ? params.status : undefined,
+      busca:     params.busca || undefined,
+      data_de:   params.dataDe || undefined,
+      data_ate:  params.dataAte || undefined,
+      animal_id: params.animalId || undefined,
+      limit:     300,
     })}`,
   ).catch(() => ({ dados: [] as Estimativa[], Count: 0 }));
   return res.dados ?? [];
@@ -78,7 +80,7 @@ export async function atualizarStatusEstimativa(
   try {
     const res = await apiFetch<ApiWrite>('/api/petshop/estimativas/status', {
       method: 'POST',
-      body: JSON.stringify({ id, filial: FILIAL, status }),
+      body: JSON.stringify({ id, filial: getFilial(), status }),
     });
     if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
     revalidatePath('/estimativas');
@@ -92,7 +94,7 @@ export async function atualizarStatusEstimativa(
 
 export async function buscarRegras(busca?: string): Promise<RegraEstimativa[]> {
   const res = await apiFetch<{ dados: RegraEstimativa[]; Count: number }>(
-    `/api/petshop/estimativas/regras${qs({ filial: FILIAL, busca: busca || undefined })}`,
+    `/api/petshop/estimativas/regras${qs({ filial: getFilial(), busca: busca || undefined })}`,
   ).catch(() => ({ dados: [] as RegraEstimativa[], Count: 0 }));
   return res.dados ?? [];
 }
@@ -109,7 +111,7 @@ export async function criarRegra(dados: {
     const res = await apiFetch<ApiWrite>('/api/petshop/estimativas/regras', {
       method: 'POST',
       body: JSON.stringify({
-        filial:        FILIAL,
+        filial:        getFilial(),
         dadospro_id:   dados.dadosproId,
         cod_prod:      dados.codProd,
         desc_pro:      dados.descPro,
@@ -134,7 +136,7 @@ export async function atualizarRegra(
     const res = await apiFetch<ApiWrite>('/api/petshop/estimativas/regras', {
       method: 'PUT',
       body: JSON.stringify({
-        id, filial: FILIAL,
+        id, filial: getFilial(),
         dias_min:      dados.diasMin,
         dias_max:      dados.diasMax,
         dias_lembrete: dados.diasLembrete,
@@ -152,7 +154,7 @@ export async function excluirRegra(id: number): Promise<{ error?: string }> {
   try {
     const res = await apiFetch<ApiWrite>('/api/petshop/estimativas/regras', {
       method: 'DELETE',
-      body: JSON.stringify({ id, filial: FILIAL }),
+      body: JSON.stringify({ id, filial: getFilial() }),
     });
     if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
     revalidatePath('/estimativas');
@@ -171,7 +173,7 @@ export async function verificarRegrasProdutos(
   if (dadosproIds.length === 0) return [];
   const res = await apiFetch<{ dados: RegraProduto[]; Count: number }>(
     `/api/petshop/estimativas/regras-por-produtos${qs({
-      filial: FILIAL,
+      filial: getFilial(),
       ids:    dadosproIds.join(','),
     })}`,
   ).catch(() => ({ dados: [] as RegraProduto[], Count: 0 }));
@@ -198,7 +200,7 @@ export async function criarEstimativa(dados: {
     const res = await apiFetch<ApiWrite>('/api/petshop/estimativas', {
       method: 'POST',
       body: JSON.stringify({
-        filial:         FILIAL,
+        filial:         getFilial(),
         cliente_id:     dados.clienteId,
         cliente_filial: dados.clienteFilial,
         cliente_nome:   dados.clienteNome,

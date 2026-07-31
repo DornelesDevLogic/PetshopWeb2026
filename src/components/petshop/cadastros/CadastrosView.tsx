@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Especie, Raca, TipoPelo, Servico, Profissional,
-  VacinaCatalogo, Medicamento,
+  VacinaCatalogo, Medicamento, CategoriaServico,
 } from '@/types/petshop';
 import {
   createServico, deleteServico, updateServico,
@@ -14,7 +14,10 @@ import {
   createTipoPelo, deleteTipoPelo,
   createVacinaCatalogo, deleteVacinaCatalogo,
   createMedicamento,
+  criarCategoriaServico, atualizarCategoriaServico, excluirCategoriaServico,
 } from '@/app/(petshop)/cadastros/actions';
+import { buscarProdutos, type ProdutoResultado } from '@/app/(petshop)/agenda/nova/actions';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,28 +28,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Settings, Loader2, AlertCircle, Plus, Trash2, X, Search, Pencil } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Settings, Loader2, AlertCircle, Plus, Trash2, X, Search, Pencil, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { corServicoCss } from '@/lib/cores';
 
 interface Props {
-  especies:     Especie[];
-  racas:        Raca[];
-  pelos:        TipoPelo[];
-  servicos:     Servico[];
-  profissionais:Profissional[];
-  vacinas:      VacinaCatalogo[];
-  medicamentos: Medicamento[];
+  especies:         Especie[];
+  racas:            Raca[];
+  pelos:            TipoPelo[];
+  servicos:         Servico[];
+  profissionais:    Profissional[];
+  vacinas:          VacinaCatalogo[];
+  medicamentos:     Medicamento[];
+  categoriasServico: CategoriaServico[];
 }
 
 const TABS = [
-  { id: 'servicos',       label: 'Serviços' },
-  { id: 'profissionais',  label: 'Profissionais' },
-  { id: 'especies',       label: 'Espécies' },
-  { id: 'racas',          label: 'Raças' },
-  { id: 'pelos',          label: 'Tipos de Pelo' },
-  { id: 'vacinas',        label: 'Vacinas' },
-  { id: 'medicamentos',   label: 'Medicamentos' },
+  { id: 'servicos',          label: 'Serviços' },
+  { id: 'categoria_servico', label: 'Categoria de Serviço' },
+  { id: 'profissionais',     label: 'Profissionais' },
+  { id: 'especies',          label: 'Espécies' },
+  { id: 'racas',             label: 'Raças' },
+  { id: 'pelos',             label: 'Tipos de Pelo' },
+  { id: 'vacinas',           label: 'Vacinas' },
+  { id: 'medicamentos',      label: 'Medicamentos' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -174,10 +186,191 @@ function TabSection({ count, total, onAdd, busca, onBusca, children }: {
   );
 }
 
+// ── Dialog de Categoria de Serviço (criar/editar) ─────────────────────────────
+
+interface CategoriaServicoDialogProps {
+  categoria: CategoriaServico | null; // null = nova
+  racas:     Raca[];
+  servicos:  Servico[];
+  onSalvo:   () => void;
+  onClose:   () => void;
+}
+
+function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }: CategoriaServicoDialogProps) {
+  const [servicoId,  setServicoId]  = useState(categoria ? String(categoria.servico_id) : '');
+  const [racaId,     setRacaId]     = useState(categoria ? String(categoria.raca_id || 0) : '0');
+  const [produtoSel, setProdutoSel] = useState<ProdutoResultado | null>(null);
+  const [buscaProd,  setBuscaProd]  = useState('');
+  const [resProd,    setResProd]    = useState<ProdutoResultado[]>([]);
+  const [buscando,   setBuscando]   = useState(false);
+  const [error,      setError]      = useState('');
+  const [isPending,  startT]        = useTransition();
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleBusca(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    setBuscaProd(v);
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(async () => {
+      const termos = normalizarTermosBusca(v);
+      if (!termos.some(t => t.length >= 3)) { setResProd([]); return; }
+      setBuscando(true);
+      try {
+        const lista = await buscarProdutos(termoPrincipal(termos));
+        setResProd(filtrarProdutosPorTermos(lista, termos, p => p.nome_produto + ' ' + p.cod_pro));
+      } finally { setBuscando(false); }
+    }, 300);
+  }
+
+  function salvar() {
+    setError('');
+    if (!categoria && !servicoId) { setError('Selecione o serviço.'); return; }
+    if (!categoria && !produtoSel) { setError('Selecione o produto.'); return; }
+
+    startT(async () => {
+      const res = categoria
+        ? await atualizarCategoriaServico(categoria.id, {
+            dadosproId:     produtoSel!.id_dadospro,
+            filialDadospro: produtoSel!.cod_filial,
+            codProd:        produtoSel!.cod_pro,
+            descPro:        produtoSel!.nome_produto,
+          })
+        : await criarCategoriaServico({
+            servicoId:      Number(servicoId),
+            descServico:    servicos.find(s => s.id === Number(servicoId))?.descricao ?? '',
+            racaId:         Number(racaId) || 0,
+            descRaca:       racas.find(r => r.id === Number(racaId))?.descricao ?? '',
+            dadosproId:     produtoSel!.id_dadospro,
+            filialDadospro: produtoSel!.cod_filial,
+            codProd:        produtoSel!.cod_pro,
+            descPro:        produtoSel!.nome_produto,
+          });
+      if (res.error) { setError(res.error); return; }
+      onSalvo();
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v && !isPending) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Tags className="h-4 w-4 text-primary" />
+            {categoria ? 'Editar Categoria de Serviço' : 'Nova Categoria de Serviço'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          {categoria ? (
+            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              <p className="font-semibold">{categoria.servico}</p>
+              <p className="text-xs text-muted-foreground">
+                Raça: {categoria.raca_id ? categoria.raca : 'Todas (regra genérica)'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Serviço *</label>
+                <Select value={servicoId} onValueChange={(v) => { if (v) setServicoId(v); }}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {servicos.map(s => (
+                      <SelectItem key={s.id} value={String(s.id)}>{s.descricao}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Raça</label>
+                <Select value={racaId} onValueChange={(v) => { if (v) setRacaId(v); }}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Todas (regra genérica)</SelectItem>
+                    {racas.map(r => (
+                      <SelectItem key={r.id} value={String(r.id)}>{r.descricao}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {produtoSel ? (
+            <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              <div>
+                <p className="font-semibold">{produtoSel.nome_produto}</p>
+                <p className="text-xs text-muted-foreground">
+                  {[produtoSel.secao, produtoSel.grupo].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+              <button type="button" onClick={() => setProdutoSel(null)}>
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Produto {categoria ? '(novo produto para esta regra)' : '*'}</label>
+              <div className="flex items-center gap-2 rounded-md border border-input px-3">
+                {buscando
+                  ? <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                  : <Search className="h-4 w-4 text-muted-foreground" />}
+                <input
+                  value={buscaProd}
+                  onChange={handleBusca}
+                  placeholder="Buscar por nome ou código... (mín. 3 caracteres)"
+                  className="flex-1 py-2 text-sm bg-transparent outline-none"
+                  autoComplete="off"
+                />
+              </div>
+              {resProd.length > 0 && (
+                <div className="rounded-md border max-h-44 overflow-y-auto divide-y">
+                  {resProd.map((p) => (
+                    <button
+                      key={p.id_dadospro}
+                      type="button"
+                      onClick={() => { setProdutoSel(p); setResProd([]); setBuscaProd(''); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50"
+                    >
+                      {p.nome_produto}
+                      {p.cod_pro && (
+                        <span className="ml-1.5 text-xs font-mono text-muted-foreground">{p.cod_pro}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Ao selecionar este serviço na Agenda para um pet dessa raça, o sistema
+            insere automaticamente este produto — sem precisar escolher manualmente.
+            Sem regra cadastrada, o fluxo continua manual normalmente.
+          </p>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancelar</Button>
+          <Button onClick={salvar} disabled={isPending}>
+            {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Salvando...</> : 'Salvar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CadastrosView({
-  especies, racas, pelos, servicos, profissionais, vacinas, medicamentos,
+  especies, racas, pelos, servicos, profissionais, vacinas, medicamentos, categoriasServico,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<TabId>('servicos');
@@ -196,6 +389,10 @@ export default function CadastrosView({
   // Filtro de pesquisa (compartilhado — reseta ao trocar de aba)
   const [busca, setBusca] = useState('');
 
+  // Categoria de Serviço — dialog de criar/editar + confirmação de exclusão
+  const [catServDialog,    setCatServDialog]    = useState<CategoriaServico | 'nova' | null>(null);
+  const [catServExcluindo, setCatServExcluindo] = useState<CategoriaServico | null>(null);
+
   function switchTab(t: TabId) {
     setTab(t);
     setShowForm(false);
@@ -206,6 +403,8 @@ export default function CadastrosView({
     setRacaPorte('');
     setPeloEspecie('');
     setVacinaEspecie('');
+    setCatServDialog(null);
+    setCatServExcluindo(null);
   }
 
   function handleAction(
@@ -363,6 +562,44 @@ export default function CadastrosView({
                       <p className="font-medium text-sm">{s.descricao}</p>
                       {s.duracao && <p className="text-xs text-muted-foreground">{s.duracao} min</p>}
                     </div>
+                  </div>
+                </Row>
+              ))}
+            </div>
+          </TabSection>
+          );
+        })()}
+
+        {/* ── Categoria de Serviço ── */}
+        {tab === 'categoria_servico' && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = (categoriasServico ?? []).filter((c) =>
+            !q || c.servico.toLowerCase().includes(q) || c.raca.toLowerCase().includes(q) || c.produto.toLowerCase().includes(q)
+          );
+          return (
+          <TabSection count={lista.length} total={(categoriasServico ?? []).length} onAdd={() => setCatServDialog('nova')} busca={busca} onBusca={setBusca}>
+            <p className="text-xs text-muted-foreground -mt-1 mb-2">
+              Ao escolher o serviço na Agenda para um pet de determinada raça, o produto
+              cadastrado aqui é inserido automaticamente — sem regra, o fluxo continua manual.
+            </p>
+            <div className="rounded-md border overflow-hidden">
+              {lista.length === 0 && (
+                <p className="text-sm text-muted-foreground px-4 py-3">{q ? 'Nenhuma categoria encontrada.' : 'Nenhuma categoria de serviço cadastrada.'}</p>
+              )}
+              {lista.map((c) => (
+                <Row
+                  key={c.id}
+                  onEdit={() => setCatServDialog(c)}
+                  onDelete={() => setCatServExcluindo(c)}
+                  isPending={isPending}
+                >
+                  <div>
+                    <p className="font-medium text-sm">
+                      {c.servico} <span className="text-muted-foreground font-normal">· {c.raca_id ? c.raca : 'Todas as raças'}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      → {c.produto}{c.cod_prod ? ` (${c.cod_prod})` : ''}
+                    </p>
                   </div>
                 </Row>
               ))}
@@ -660,6 +897,55 @@ export default function CadastrosView({
         })()}
 
       </div>
+
+      {/* Dialog Categoria de Serviço (criar/editar) */}
+      {catServDialog !== null && (
+        <CategoriaServicoDialog
+          categoria={catServDialog === 'nova' ? null : catServDialog}
+          racas={racas ?? []}
+          servicos={servicos ?? []}
+          onSalvo={() => { setCatServDialog(null); router.refresh(); }}
+          onClose={() => setCatServDialog(null)}
+        />
+      )}
+
+      {/* Dialog confirmar exclusão de Categoria de Serviço */}
+      {catServExcluindo && (
+        <Dialog open onOpenChange={(v) => { if (!v && !isPending) setCatServExcluindo(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-4 w-4" />
+                Excluir Categoria de Serviço
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground py-1">
+              Remover a categoria de <strong className="text-foreground">{catServExcluindo.servico}</strong>
+              {' '}· <strong className="text-foreground">{catServExcluindo.raca_id ? catServExcluindo.raca : 'Todas as raças'}</strong>?
+            </p>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" disabled={isPending} onClick={() => setCatServExcluindo(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isPending}
+                onClick={() => {
+                  setFormError('');
+                  startTransition(async () => {
+                    const res = await excluirCategoriaServico(catServExcluindo.id);
+                    if (res.error) { setFormError(res.error); return; }
+                    setCatServExcluindo(null);
+                    router.refresh();
+                  });
+                }}
+              >
+                {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Excluindo...</> : 'Excluir'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

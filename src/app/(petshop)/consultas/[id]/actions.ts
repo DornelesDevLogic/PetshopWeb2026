@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ApiWrite, AnexoExame, AnexoExameResponse } from '@/types/petshop';
 
 async function postAction(
@@ -30,7 +30,7 @@ export async function updateConsulta(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/consultas', {
       method: 'PUT',
-      body: JSON.stringify({ id, filial: FILIAL, ...data }),
+      body: JSON.stringify({ id, filial: getFilial(), ...data }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
@@ -42,14 +42,14 @@ export async function updateConsulta(
 
 /** Fecha a consulta (status → FECHADO) */
 export async function fecharConsulta(id: number): Promise<{ error?: string }> {
-  const r = await postAction('/api/petshop/consultas/fechar', { id, filial: FILIAL });
+  const r = await postAction('/api/petshop/consultas/fechar', { id, filial: getFilial() });
   if (!r.error) { revalidatePath(`/consultas/${id}`); revalidatePath('/consultas'); }
   return r;
 }
 
 /** Reabre a consulta (status → ABERTO) */
 export async function reabrirConsulta(id: number): Promise<{ error?: string }> {
-  const r = await postAction('/api/petshop/consultas/reabrir', { id, filial: FILIAL });
+  const r = await postAction('/api/petshop/consultas/reabrir', { id, filial: getFilial() });
   if (!r.error) { revalidatePath(`/consultas/${id}`); revalidatePath('/consultas'); }
   return r;
 }
@@ -66,13 +66,13 @@ export async function addProntuario(
 ): Promise<{ error?: string }> {
   const body = {
     consulta_id:     consultaId,
-    consulta_filial: FILIAL,
+    consulta_filial: getFilial(),
     animal_id:       animalId,
     cliente_id:      clienteId,
     animal_nome:     animalNome,
     cliente_nome:    clienteNome,
     vet_id:          vetId,
-    filial:          FILIAL,
+    filial:          getFilial(),
     data:            formData.get('data')     ?? '',
     hora:            formData.get('hora')     ?? '',
     box:             formData.get('box')      ?? '',
@@ -95,7 +95,7 @@ export async function deleteProntuario(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/prontuarios', {
       method: 'DELETE',
-      body: JSON.stringify({ id: prontuarioId, filial: FILIAL }),
+      body: JSON.stringify({ id: prontuarioId, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
@@ -114,9 +114,9 @@ export async function addExame(
   if (!tipoExame.trim()) return { error: 'Tipo de exame é obrigatório.' };
   const body = {
     consulta_id:     consultaId,
-    consulta_filial: FILIAL,
+    consulta_filial: getFilial(),
     animal_id:       animalId,
-    filial:          FILIAL,
+    filial:          getFilial(),
     tipo_exame:      tipoExame.trim(),
   };
   const r = await postAction('/api/petshop/exames', body);
@@ -133,7 +133,7 @@ export async function deleteExame(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/exames', {
       method: 'DELETE',
-      body: JSON.stringify({ id: exameId, filial: FILIAL }),
+      body: JSON.stringify({ id: exameId, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
@@ -158,7 +158,7 @@ export async function addVacina(
 
   const body = {
     animal_id:    animalId,
-    animal_filial:FILIAL,
+    animal_filial:getFilial(),
     animal_nome:  animalNome,
     vacina_id:    vacinaId,
     vacina_nome:  vacinaNome,
@@ -168,7 +168,7 @@ export async function addVacina(
     data_marcada: formData.get('data_marcada') ?? '',
     laboratorio:  formData.get('laboratorio')  ?? '',
     obs:          formData.get('obs')          ?? '',
-    filial:       FILIAL,
+    filial:       getFilial(),
   };
   const r = await postAction('/api/petshop/animais/vacinas-aplicadas', body);
   if (!r.error) revalidatePath(`/consultas/${consultaId}`);
@@ -184,7 +184,7 @@ export async function deleteVacina(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/animais/vacinas-aplicadas', {
       method: 'DELETE',
-      body: JSON.stringify({ id: vacinaId, filial: FILIAL }),
+      body: JSON.stringify({ id: vacinaId, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
@@ -199,7 +199,7 @@ export async function deleteVacina(
 /** Lista os anexos de exame de uma consulta (metadados, sem o arquivo) */
 export async function listarAnexos(consultaId: number): Promise<AnexoExame[]> {
   const res = await apiFetch<AnexoExameResponse>(
-    `/api/petshop/exames/anexos${qs({ consulta_id: consultaId, filial: FILIAL })}`,
+    `/api/petshop/exames/anexos${qs({ consulta_id: consultaId, filial: getFilial() })}`,
   ).catch(() => ({ dados: [] as AnexoExame[], Count: 0 }));
   return res.dados ?? [];
 }
@@ -218,7 +218,7 @@ export async function uploadAnexo(
       method: 'POST',
       body: JSON.stringify({
         consulta_id:    consultaId,
-        filial:         FILIAL,
+        filial:         getFilial(),
         nome,
         tipo_arquivo:   tipo,
         arquivo_base64: arquivoBase64,
@@ -242,7 +242,7 @@ export async function deleteAnexo(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/exames/anexos', {
       method: 'DELETE',
-      body: JSON.stringify({ id: anexoId, filial: FILIAL }),
+      body: JSON.stringify({ id: anexoId, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };

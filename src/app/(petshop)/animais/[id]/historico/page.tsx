@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { AnimalResponse } from '@/types/petshop';
 import { buscarHistoricoAnimal } from '../historico-actions';
 import AnimalHistoricoView from '@/components/petshop/animais/AnimalHistoricoView';
@@ -16,9 +16,9 @@ export default async function AnimalHistoricoPage({ params }: Props) {
 
   const [animalRes, historico] = await Promise.all([
     apiFetch<AnimalResponse>(
-      `/api/petshop/animais${qs({ filial: FILIAL, limit: 1, filter1: `a.PET_ID=${id}` })}`,
+      `/api/petshop/animais${qs({ filial: getFilial(), limit: 1, filter1: `a.PET_ID=${id}` })}`,
     ).catch(() => empty),
-    buscarHistoricoAnimal(id, FILIAL),
+    buscarHistoricoAnimal(id, getFilial()),
   ]);
 
   const animal = animalRes.dados[0];
@@ -30,7 +30,7 @@ export default async function AnimalHistoricoPage({ params }: Props) {
       agendas={historico.agendas}
       compras={historico.compras}
       consultas={historico.consultas}
-      filial={FILIAL}
+      filial={getFilial()}
     />
   );
 }

@@ -1,3 +1,5 @@
+import { DadosEmpresa } from '@/types/petshop';
+
 interface ComandaTeleEntregaData {
   id: number;
   cliente: string;
@@ -19,6 +21,7 @@ interface ComandaTeleEntregaData {
   valor_frete?: number;
   desconto?: number;
   itens: Array<{ produto: string; qtd: number; valor: number; cod_pro?: string; }>;
+  empresa?: DadosEmpresa | null;
 }
 
 function fmtMoeda(n: number): string {
@@ -34,23 +37,40 @@ function fmtData(s: string): string {
   return s;
 }
 
+function esc(s?: string): string {
+  if (!s) return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 const CSS = `
 @page { size: 80mm auto; margin: 2mm 3mm; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Courier New', Courier, monospace; font-size: 9pt; width: 72mm; color: #000; }
+body {
+  font-family: 'Arial', 'Segoe UI', sans-serif;
+  font-size: 9pt;
+  font-weight: 600;
+  width: 72mm;
+  color: #000;
+  line-height: 1.3;
+  -webkit-font-smoothing: none;
+}
 .center { text-align: center; }
-.bold { font-weight: bold; }
-.logo-area { width: 100%; height: 20mm; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; margin-bottom: 4mm; }
-hr.solid { border: none; border-top: 1px solid #000; margin: 2mm 0; }
-hr.dashed { border: none; border-top: 1px dashed #000; margin: 2mm 0; }
+.bold { font-weight: 700; }
+/* Logo desativado por enquanto (a pedido) — CSS mantido para reativar no futuro.
+.logo-area { width: 100%; max-height: 18mm; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5mm; }
+.logo-area img { max-width: 100%; max-height: 18mm; object-fit: contain; }
+*/
+hr.solid { border: none; border-top: 2px solid #000; margin: 2mm 0; }
+hr.dashed { border: none; border-top: 1.5px dashed #000; margin: 2mm 0; }
 .row { display: flex; justify-content: space-between; }
-.section-title { font-weight: bold; font-size: 8pt; text-transform: uppercase; margin: 2mm 0 1mm 0; }
-.item-desc { font-size: 8.5pt; }
-.item-detail { font-size: 8pt; color: #333; padding-left: 2mm; }
-.total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 10pt; margin-top: 1mm; }
+.section-title { font-weight: 700; font-size: 8pt; text-transform: uppercase; margin: 2mm 0 1mm 0; }
+.item-desc { font-size: 8.5pt; font-weight: 700; }
+.item-detail { font-size: 8pt; font-weight: 600; color: #000; padding-left: 2mm; }
+.total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 10pt; margin-top: 1mm; }
 `;
 
 export function gerarComandaTeleEntrega(d: ComandaTeleEntregaData): string {
+  const emp = d.empresa;
   const subtotal = d.itens.reduce((s, i) => s + i.qtd * i.valor, 0);
   const frete = d.valor_frete ?? 0;
   const desconto = d.desconto ?? 0;
@@ -96,8 +116,15 @@ export function gerarComandaTeleEntrega(d: ComandaTeleEntregaData): string {
 <style>${CSS}</style>
 </head>
 <body>
-  <div class="logo-area">Logotipo</div>
-  <p class="center bold">NOME DA EMPRESA</p>
+  <!-- Logo desativado por enquanto (a pedido) — reativar trocando o comentário abaixo pelo bloco de img.
+  ${emp?.logo_base64
+    ? `<div class="logo-area"><img src="data:${emp.logo_mime ?? 'image/png'};base64,${emp.logo_base64}" alt="logo"></div>`
+    : ''}
+  -->
+  <p class="center bold">${esc(emp?.fantasia || emp?.nome || 'PETSHOP')}</p>
+  ${emp?.endereco ? `<p class="center">Endereço: ${esc([emp.endereco, emp.numero, emp.bairro].filter(Boolean).join(', '))}</p>` : ''}
+  ${(emp?.cep || emp?.cidade) ? `<p class="center">CEP: ${esc(emp?.cep)}  Cidade: ${esc(emp?.cidade)}</p>` : ''}
+  ${emp?.fone ? `<p class="center">Fone: ${esc(emp.fone)}</p>` : ''}
   <hr class="solid">
   <p class="center bold" style="font-size:11pt;">TELE-ENTREGA</p>
   <p class="center">#${d.id}</p>

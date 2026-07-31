@@ -20,18 +20,18 @@ export default function MobileHeader({ filial, user }: Props) {
   return (
     <>
       {/* ── Top bar (mobile only) ─────────────────────────────────────────── */}
-      <header className="md:hidden flex items-center gap-3 border-b bg-background px-4 h-14 shrink-0 z-30 safe-top" style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top))' }}>
+      <header className="md:hidden flex items-center gap-2 border-b bg-background px-3 h-11 shrink-0 z-30 safe-top" style={{ paddingTop: 'max(0.125rem, env(safe-area-inset-top))' }}>
         <button
           onClick={() => setOpen(true)}
-          className="p-1.5 rounded-md text-muted-foreground hover:bg-accent transition-colors"
+          className="p-1 rounded-md text-muted-foreground hover:bg-accent transition-colors"
           aria-label="Abrir menu"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4.5 w-4.5" />
         </button>
-        <div className="flex items-center gap-2 flex-1">
-          <PawPrint className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-base leading-none">PetShop</span>
-          <span className="ml-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+        <div className="flex items-center gap-1.5 flex-1">
+          <PawPrint className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-sm leading-none">PetShop</span>
+          <span className="ml-0.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
             Filial {filial}
           </span>
         </div>

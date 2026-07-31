@@ -1,4 +1,4 @@
-﻿import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { EspecieResponse, RacaResponse, TipoPeloResponse } from '@/types/petshop';
 import NovoAnimalDialog from '@/components/petshop/animais/NovoAnimalDialog';
 
@@ -7,13 +7,13 @@ export default async function NovoAnimalPage() {
 
   const [especiesRes, racasRes, pelosRes] = await Promise.all([
     apiFetch<EspecieResponse>(
-      `/api/petshop/especies${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/especies${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: FILIAL, limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
     ).catch(() => empty),
     apiFetch<TipoPeloResponse>(
-      `/api/petshop/tipos-pelo${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/tipos-pelo${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
   ]);
 

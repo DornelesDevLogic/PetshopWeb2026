@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
 export async function baixarConta(
@@ -16,7 +16,7 @@ export async function baixarConta(
       body: JSON.stringify({
         nro_doc:    nroDoc,
         parcela,
-        filial:     FILIAL,
+        filial:     getFilial(),
         valor_pago: valorPago,
       }),
     });

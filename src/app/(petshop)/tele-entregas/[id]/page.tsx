@@ -1,5 +1,6 @@
-import { buscarTeleEntregaDetalhe, buscarItensTeleEntrega } from '../actions';
+import { buscarTeleEntregaDetalhe, buscarItensTeleEntrega, buscarDadosEmpresa } from '../actions';
 import TeleEntregaDetalheView from '@/components/petshop/tele-entregas/TeleEntregaDetalheView';
+import EdicaoLockGuard from '@/components/petshop/EdicaoLockGuard';
 import { notFound } from 'next/navigation';
 
 interface Props { params: { id: string } }
@@ -15,5 +16,11 @@ export default async function TeleEntregaDetalhePage({ params }: Props) {
 
   if (!detalhe || (detalhe as { CodStatus?: number }).CodStatus === -5) notFound();
 
-  return <TeleEntregaDetalheView detalhe={detalhe} itens={itensRes.dados ?? []} />;
+  const empresa = await buscarDadosEmpresa(detalhe.filial).catch(() => null);
+
+  return (
+    <EdicaoLockGuard idOrca={id} filial={detalhe.filial} voltarHref="/tele-entregas">
+      <TeleEntregaDetalheView detalhe={detalhe} itens={itensRes.dados ?? []} empresa={empresa} />
+    </EdicaoLockGuard>
+  );
 }

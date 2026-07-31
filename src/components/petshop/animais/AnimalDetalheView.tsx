@@ -24,10 +24,11 @@ import {
 } from '@/components/ui/table';
 import {
   ArrowLeft, Pencil, Trash2, Loader2, AlertCircle,
-  PawPrint, ShoppingBag, User, History,
+  PawPrint, ShoppingBag, User, History, Scale,
 } from 'lucide-react';
 import AnimalFotoUpload from '@/components/petshop/animais/AnimalFotoUpload';
 import EditarAnimalDialog from '@/components/petshop/animais/EditarAnimalDialog';
+import PesoHistorico from '@/components/petshop/animais/PesoHistorico';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -72,6 +73,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
   const [editOpen,    setEditOpen]    = useState(false);
   const [deactError,  setDeactError]  = useState('');
   const [confirmDeact, setConfirmDeact] = useState(false);
+  const [pesoHistOpen, setPesoHistOpen] = useState(false);
 
   function handleDeactivate() {
     setDeactError('');
@@ -167,7 +169,18 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
             </dd>
 
             <dt className="text-muted-foreground">Peso</dt>
-            <dd className="font-medium">{animal.peso ? `${animal.peso} kg` : '—'}</dd>
+            <dd className="font-medium flex items-center gap-2">
+              {animal.peso ? `${animal.peso} kg` : '—'}
+              <button
+                type="button"
+                onClick={() => setPesoHistOpen(true)}
+                title="Ver histórico de peso"
+                className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+              >
+                <Scale className="h-3 w-3" />
+                Histórico
+              </button>
+            </dd>
 
             <dt className="text-muted-foreground">Cor</dt>
             <dd className="font-medium">{animal.cor || '—'}</dd>
@@ -201,13 +214,14 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
             </div>
           </div>
           <div className="flex gap-2 mt-2">
+            {/* Convenção do legado: ATIVO=1 significa INATIVO (invertido) */}
             <span className={cn(
               'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold',
               animal.ativo === 1
-                ? 'bg-green-100 text-green-700 border-green-200'
-                : 'bg-red-100 text-red-700 border-red-200',
+                ? 'bg-red-100 text-red-700 border-red-200'
+                : 'bg-green-100 text-green-700 border-green-200',
             )}>
-              {animal.ativo === 1 ? 'Ativo' : 'Inativo'}
+              {animal.ativo === 1 ? 'Inativo' : 'Ativo'}
             </span>
             {animal.obito === 1 && (
               <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-muted text-muted-foreground border-border">
@@ -262,6 +276,19 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
           </Table>
         )}
       </div>
+
+      {/* ── Dialog Histórico de Peso ── */}
+      <Dialog open={pesoHistOpen} onOpenChange={setPesoHistOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-primary" />
+              Histórico de Peso — {animal.nome}
+            </DialogTitle>
+          </DialogHeader>
+          <PesoHistorico animalId={animal.id} filial={animal.filial} pesoAtual={Number(animal.peso) || undefined} />
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog Confirmar Desativação ── */}
       <Dialog open={confirmDeact} onOpenChange={setConfirmDeact}>

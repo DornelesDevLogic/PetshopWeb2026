@@ -1,7 +1,18 @@
 'use server';
 
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { revalidatePath } from 'next/cache';
+import { DadosEmpresa } from '@/types/petshop';
+
+interface FiliaisResponse { dados: DadosEmpresa[]; Count: number; StartsAt: string; EndsAt: string; }
+
+/** Dados da empresa (logo/endereço/contato) para o cupom impresso — mesma fonte usada na Agenda. */
+export async function buscarDadosEmpresa(filial: number = getFilial()): Promise<DadosEmpresa | null> {
+  const res = await apiFetch<FiliaisResponse>(
+    `/api/petshop/filiais${qs({ filial, limit: 1 })}`,
+  ).catch(() => ({ dados: [] as DadosEmpresa[], Count: 0, StartsAt: '', EndsAt: '' }));
+  return res.dados[0] ?? null;
+}
 
 export interface PreVenda {
   id:          number;
@@ -62,7 +73,7 @@ export async function buscarPrevendas(params: {
 }) {
   return apiFetch<{ dados: PreVenda[]; Count: number }>(
     `/api/petshop/prevendas${qs({
-      filial:   FILIAL,
+      filial:   getFilial(),
       status:   params.status || undefined,
       data_de:  params.data_de || undefined,
       data_ate: params.data_ate || undefined,
@@ -74,14 +85,16 @@ export async function buscarPrevendas(params: {
 
 export async function buscarPrevendaDetalhe(id: number) {
   return apiFetch<PreVendaDetalhe & { CodStatus?: number }>(
-    `/api/petshop/prevendas/detalhe?id=${id}&filial=${FILIAL}`,
+    `/api/petshop/prevendas/detalhe?id=${id}&filial=${getFilial()}`,
   );
 }
 
 export async function buscarItensPreVenda(id: number) {
   return apiFetch<{ dados: ItemPreVenda[]; Count: number }>(
-    `/api/petshop/prevendas/itens?id=${id}&filial=${FILIAL}`,
-  ).catch(() => ({ dados: [] as ItemPreVenda[], Count: 0 }));
+    `/api/petshop/prevendas/itens?id=${id}&filial=${getFilial()}`,
+  )
+    .then(res => ({ dados: Array.isArray(res.dados) ? res.dados : [], Count: res.Count ?? 0 }))
+    .catch(() => ({ dados: [] as ItemPreVenda[], Count: 0 }));
 }
 
 // ── Mutações ──
@@ -89,7 +102,7 @@ export async function buscarItensPreVenda(id: number) {
 export async function criarPreVenda(body: Record<string, unknown>) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string; id?: number }>(
     '/api/petshop/prevendas',
-    { method: 'POST', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'POST', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
   if (res.CodStatus === 1) revalidatePath('/prevendas');
   return res;
@@ -98,7 +111,7 @@ export async function criarPreVenda(body: Record<string, unknown>) {
 export async function atualizarPreVenda(body: Record<string, unknown>) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/prevendas',
-    { method: 'PUT', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
   if (res.CodStatus === 1) revalidatePath('/prevendas');
   return res;
@@ -107,7 +120,7 @@ export async function atualizarPreVenda(body: Record<string, unknown>) {
 export async function confirmarPreVenda(id: number) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/prevendas/confirmar',
-    { method: 'POST', body: JSON.stringify({ id, filial: FILIAL }) },
+    { method: 'POST', body: JSON.stringify({ id, filial: getFilial() }) },
   );
   if (res.CodStatus === 1) revalidatePath('/prevendas');
   return res;
@@ -116,7 +129,7 @@ export async function confirmarPreVenda(id: number) {
 export async function cancelarPreVenda(id: number, justificativa: string) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/prevendas/cancelar',
-    { method: 'POST', body: JSON.stringify({ id, filial: FILIAL, justificativa }) },
+    { method: 'POST', body: JSON.stringify({ id, filial: getFilial(), justificativa }) },
   );
   if (res.CodStatus === 1) revalidatePath('/prevendas');
   return res;
@@ -125,21 +138,21 @@ export async function cancelarPreVenda(id: number, justificativa: string) {
 export async function adicionarItemPreVenda(body: Record<string, unknown>) {
   return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_prodorca?: number }>(
     '/api/petshop/prevendas/itens',
-    { method: 'POST', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'POST', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
 }
 
 export async function editarItemPreVenda(body: Record<string, unknown>) {
   return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/prevendas/itens',
-    { method: 'PUT', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
 }
 
 export async function removerItemPreVenda(idProdorca: number) {
   return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/prevendas/itens',
-    { method: 'DELETE', body: JSON.stringify({ id_prodorca: idProdorca, filial: FILIAL }) },
+    { method: 'DELETE', body: JSON.stringify({ id_prodorca: idProdorca, filial: getFilial() }) },
   );
 }
 
@@ -156,7 +169,7 @@ export interface ClienteBuscaItem {
 export async function buscarClientesPrevenda(q: string): Promise<ClienteBuscaItem[]> {
   if (!q.trim() || q.trim().length < 2) return [];
   const res = await apiFetch<{ dados: ClienteBuscaItem[]; Count: number }>(
-    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: FILIAL })}`,
+    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: getFilial() })}`,
   ).catch(() => ({ dados: [] as ClienteBuscaItem[], Count: 0 }));
   return (res.dados ?? []).slice(0, 10);
 }
@@ -170,12 +183,35 @@ export interface ClienteDetalhe {
 export async function buscarClienteDetalhe(id: number): Promise<ClienteDetalhe | null> {
   try {
     const res = await apiFetch<{ dados?: ClienteDetalhe[] }>(
-      `/api/petshop/clientes?filial=${FILIAL}&filter1=${encodeURIComponent(`s.COD_CLI=${id}`)}&limit=1`,
+      `/api/petshop/clientes?filial=${getFilial()}&filter1=${encodeURIComponent(`s.COD_CLI=${id}`)}&limit=1`,
     );
     return (res.dados ?? [])[0] ?? null;
   } catch {
     return null;
   }
+}
+
+export interface AnimalPreVenda {
+  id:      number;
+  filial:  number;
+  nome:    string;
+  raca:    string;
+  especie: string;
+}
+
+interface AnimalApiRaw {
+  id: number; filial: number; nome: string; raca: string; especie: string;
+}
+
+/** Lista os pets de um cliente (seleção opcional na pré-venda, para vincular a estimativa) */
+export async function buscarAnimaisPrevenda(clienteId: number): Promise<AnimalPreVenda[]> {
+  if (!clienteId) return [];
+  const res = await apiFetch<{ dados: AnimalApiRaw[]; Count: number }>(
+    `/api/petshop/animais${qs({ filial: getFilial(), limit: 50, filter1: `a.PET_FK_ID_CLIENTE=${clienteId}` })}`,
+  ).catch(() => ({ dados: [] as AnimalApiRaw[], Count: 0 }));
+  return (res.dados ?? []).map(a => ({
+    id: a.id, filial: a.filial, nome: a.nome, raca: a.raca, especie: a.especie,
+  }));
 }
 
 export interface ProdutoBuscaItem {
@@ -196,7 +232,7 @@ interface ProdutoApiRaw {
 export async function buscarProdutosPrevenda(q: string): Promise<ProdutoBuscaItem[]> {
   if (!q.trim() || q.trim().length < 2) return [];
   const res = await apiFetch<{ dados: ProdutoApiRaw[]; Count: number }>(
-    `/api/petshop/produtos${qs({ filial: FILIAL, busca: q.trim(), limit: 50 })}`,
+    `/api/petshop/produtos${qs({ filial: getFilial(), busca: q.trim(), limit: 50 })}`,
   ).catch(() => ({ dados: [] as ProdutoApiRaw[], Count: 0 }));
   return (res.dados ?? []).map(p => ({
     id_dadospro: p.id_dadospro,

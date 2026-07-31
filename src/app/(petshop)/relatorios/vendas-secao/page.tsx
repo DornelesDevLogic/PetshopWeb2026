@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { RelatorioVendasSecaoResponse } from '@/types/petshop';
 import RelatorioVendasSecao from '@/components/petshop/relatorios/RelatorioVendasSecao';
 
@@ -27,7 +27,7 @@ export default async function RelatorioVendasSecaoPage({ searchParams }: { searc
   const dataFim = searchParams.data_fim || ultimoDiaMes();
 
   const res = await apiFetch<RelatorioVendasSecaoResponse>(
-    `/api/petshop/relatorios/vendas-secao${qs({ filial: FILIAL, data_ini: dataIni, data_fim: dataFim })}`,
+    `/api/petshop/relatorios/vendas-secao${qs({ filial: getFilial(), data_ini: dataIni, data_fim: dataFim })}`,
   ).catch(() => empty);
 
   return <RelatorioVendasSecao dados={res} dataIni={dataIni} dataFim={dataFim} />;

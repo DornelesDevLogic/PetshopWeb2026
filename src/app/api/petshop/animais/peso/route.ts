@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
 interface PesoHistItem {
@@ -13,7 +13,7 @@ interface PesoHistResponse { dados: PesoHistItem[]; Count: number; CodStatus: nu
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const animal_id = searchParams.get('animal_id');
-  const filial    = searchParams.get('filial') ?? String(FILIAL);
+  const filial    = searchParams.get('filial') ?? String(getFilial());
   const limit     = searchParams.get('limit') ?? '50';
 
   if (!animal_id) return NextResponse.json({ error: 'animal_id obrigatório' }, { status: 400 });

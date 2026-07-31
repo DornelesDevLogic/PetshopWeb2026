@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ClienteResponse } from '@/types/petshop';
 import ClientesView from '@/components/petshop/clientes/ClientesView';
 
@@ -50,7 +50,9 @@ function montarClienteParcial(a: AnimalBusca): ClienteResponse['dados'][number] 
     data_cadastro:   '',
     data_nascimento: '',
     situacao:        '',
-    status_ativo:    a.ativo === 1 ? 0 : 1,
+    // Animal.ativo e Cliente.status_ativo usam a mesma convenção do legado
+    // (1 = inativo) — repassa direto, sem inverter.
+    status_ativo:    a.ativo === 1 ? 1 : 0,
     pessoa:          'F',
     comentario:      '',
     ie:              '',
@@ -63,16 +65,34 @@ function montarClienteParcial(a: AnimalBusca): ClienteResponse['dados'][number] 
 
 async function buscarPorPet(termo: string): Promise<AnimalBusca[]> {
   const res = await apiFetch<AnimalBuscaResponse>(
-    `/api/petshop/animais/busca-rapida${qs({ q: termo, filial: FILIAL })}`,
+    `/api/petshop/animais/busca-rapida${qs({ q: termo, filial: getFilial() })}`,
   ).catch(() => ({ dados: [], Count: 0 }));
   return res.dados ?? [];
+}
+
+/** Nomes dos pets ativos do cliente, para exibir embaixo do nome nos resultados de busca */
+async function buscarNomesPetsDoCliente(clienteId: number, filial: number): Promise<string> {
+  const res = await apiFetch<AnimalBuscaResponse>(
+    `/api/petshop/animais${qs({ filial, limit: 20, filter1: `a.PET_FK_ID_CLIENTE=${clienteId} AND a.ATIVO<>1` })}`,
+  ).catch(() => ({ dados: [], Count: 0 }));
+  return (res.dados ?? []).map((a) => a.nome).filter(Boolean).join(', ');
+}
+
+/** Preenche pets_resumo em paralelo para uma lista de clientes já montada */
+async function anexarPetsResumo(clientes: ClienteResponse['dados']): Promise<void> {
+  await Promise.all(
+    clientes.map(async (c) => {
+      c.pets_resumo = await buscarNomesPetsDoCliente(c.id, c.filial);
+    }),
+  );
 }
 
 export default async function ClientesPage({ searchParams }: Props) {
   // qPet mantido para compatibilidade com URLs antigas; novo fluxo usa só q
   const q        = searchParams.q        ?? '';
   const qPet     = searchParams.qPet     ?? '';
-  const situacao = searchParams.situacao ?? 'A';
+  // situacao vazia = nenhum filtro aplicado ainda → tela abre sem listar
+  const situacao = searchParams.situacao ?? '';
   const skip     = Number(searchParams.skip ?? 0);
 
   let clientes: ClienteResponse['dados'] = [];
@@ -117,13 +137,14 @@ export default async function ClientesPage({ searchParams }: Props) {
         clientes.push(montarClienteParcial(a));
       }
       total = clientes.length;
+      await anexarPetsResumo(clientes);
     }
 
   } else if (termo) {
     // Campo unificado: busca em paralelo por nome do cliente E nome do pet
     const [cliRes, animais] = await Promise.all([
       apiFetch<ClienteResponse>(
-        `/api/petshop/clientes/busca-rapida${qs({ q: termo, filial: FILIAL })}`,
+        `/api/petshop/clientes/busca-rapida${qs({ q: termo, filial: getFilial() })}`,
       ).catch(() => ({ dados: [] as ClienteResponse['dados'], Count: 0, StartsAt: '', EndsAt: '' })),
       buscarPorPet(termo),
     ]);
@@ -143,14 +164,15 @@ export default async function ClientesPage({ searchParams }: Props) {
     }
 
     total = clientes.length;
+    await anexarPetsResumo(clientes);
 
-  } else {
-    // Listagem paginada com filtro de situação
+  } else if (situacao || skip > 0) {
+    // Listagem paginada — só executa quando o usuário aplicou algum filtro
     const filtroStatus =
-      situacao === 'A' ? '&filter1=s.STATUS_ATIVO=0' :
-      situacao === 'I' ? '&filter1=s.STATUS_ATIVO=1' : '';
+      situacao === 'I' ? '&filter1=s.STATUS_ATIVO=1' :
+      situacao === 'todos' ? '' : '&filter1=s.STATUS_ATIVO=0';
     const endpoint =
-      `/api/petshop/clientes${qs({ filial: FILIAL, limit: LIMIT, skip })}` +
+      `/api/petshop/clientes${qs({ filial: getFilial(), limit: LIMIT, skip })}` +
       filtroStatus;
     const res = await apiFetch<ClienteResponse>(endpoint).catch(() => ({
       dados: [], Count: 0, StartsAt: '', EndsAt: '',
@@ -158,6 +180,7 @@ export default async function ClientesPage({ searchParams }: Props) {
     clientes = res.dados ?? [];
     total    = res.Count ?? 0;
   }
+  // sem termo e sem filtro → tela abre vazia
 
   return (
     <ClientesView

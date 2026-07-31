@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 
 interface AnexoResponse {
   nome:           string;
@@ -32,7 +32,7 @@ export async function GET(
   let data: AnexoResponse;
   try {
     data = await apiFetch<AnexoResponse>(
-      `/api/petshop/exames/anexos/arquivo?id=${id}&filial=${FILIAL}`,
+      `/api/petshop/exames/anexos/arquivo?id=${id}&filial=${getFilial()}`,
     );
   } catch {
     return new NextResponse(null, { status: 404 });

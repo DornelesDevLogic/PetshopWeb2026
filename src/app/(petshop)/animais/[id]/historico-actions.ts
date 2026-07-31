@@ -1,6 +1,6 @@
 'use server';
 
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   AgendaResponse,
   AgendaItem,
@@ -20,7 +20,7 @@ export async function buscarHistoricoAnimal(
   animalId: number,
   filial?: number,
 ): Promise<HistoricoAnimal> {
-  const fil = filial ?? FILIAL;
+  const fil = filial ?? getFilial();
 
   const [agendasRes, comprasRes, consultasRes] = await Promise.all([
     apiFetch<AgendaResponse>(

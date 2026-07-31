@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ContaReceberResponse, ContaReceberTotais } from '@/types/petshop';
 import FinanceiroView from '@/components/petshop/financeiro/FinanceiroView';
 
@@ -30,7 +30,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: S
   const emptyTot: ContaReceberTotais = { total: 0, total_valor: 0, total_saldo: 0 };
 
   const params = {
-    filial:    FILIAL,
+    filial:    getFilial(),
     data_de:   dataDe,
     data_ate:  dataAte,
     status:    status  || undefined,

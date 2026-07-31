@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Animal, AnimalAniversariante, Especie } from '@/types/petshop';
@@ -29,6 +29,7 @@ interface Props {
   aniversariantes: AnimalAniversariante[];
   especies:        Especie[];
   mes:             number;
+  buscaInicial?:   string;   // busca aplicada no servidor (vazio = nada carregado)
 }
 
 const MESES = [
@@ -65,23 +66,32 @@ function diaAniversario(dataNasc: string) {
   return String(d.getUTCDate()).padStart(2, '0');
 }
 
-export default function AnimaisView({ animais, aniversariantes, especies, mes }: Props) {
+export default function AnimaisView({ animais, aniversariantes, especies, mes, buscaInicial = '' }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<'lista' | 'aniversariantes'>('lista');
-  const [busca, setBusca] = useState('');
+  const [busca, setBusca] = useState(buscaInicial);
   const [especieId, setEspecieId] = useState('');
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function changeMes(m: string | null) {
     if (m) startTransition(() => router.push(`/animais?mes=${m}`));
   }
 
-  const filtrados = (animais ?? []).filter((a) => {
-    const q = busca.trim().toLowerCase();
-    if (q && !a.nome.toLowerCase().includes(q) && !a.nome_cliente.toLowerCase().includes(q)) return false;
-    if (especieId && String(a.id_especie) !== especieId) return false;
-    return true;
-  });
+  // Busca server-side (só carrega ao pesquisar). Debounce de 400ms.
+  function onBuscaChange(v: string) {
+    setBusca(v);
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(() => {
+      const q = v.trim();
+      startTransition(() => router.push(q ? `/animais?busca=${encodeURIComponent(q)}` : '/animais'));
+    }, 400);
+  }
+
+  const buscaAtiva = buscaInicial.trim().length >= 2;
+
+  // Filtro de espécie continua client-side (sobre o que o servidor retornou)
+  const filtrados = (animais ?? []).filter((a) => !especieId || String(a.id_especie) === especieId);
 
   return (
     <div className="flex flex-col h-full">
@@ -138,9 +148,9 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
             {/* Filtros */}
             <div className="flex items-center gap-3 flex-wrap">
               <Input
-                placeholder="Buscar por nome do animal ou dono..."
+                placeholder="Buscar por nome do animal ou dono... (mín. 2 letras)"
                 value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+                onChange={(e) => onBuscaChange(e.target.value)}
                 className="max-w-sm"
               />
               <Select
@@ -163,10 +173,16 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes }:
             </div>
 
             {/* Tabela */}
-            {filtrados.length === 0 ? (
+            {!buscaAtiva ? (
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border border-dashed bg-card">
+                <PawPrint className="h-12 w-12 mb-3 opacity-30" />
+                <p className="text-sm">Digite ao menos 2 letras para buscar animais.</p>
+                {isPending && <p className="text-xs mt-1">Buscando...</p>}
+              </div>
+            ) : filtrados.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground rounded-xl border bg-card">
                 <PawPrint className="h-12 w-12 mb-3 opacity-30" />
-                <p className="text-sm">Nenhum animal encontrado.</p>
+                <p className="text-sm">{isPending ? 'Buscando...' : 'Nenhum animal encontrado.'}</p>
               </div>
             ) : (
               <div className="rounded-md border bg-card">

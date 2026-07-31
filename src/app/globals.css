@@ -3,6 +3,25 @@
 @tailwind utilities;
 
 /* ============================================================
+   Transição suave de tema (estilo "liquid glass" da Apple):
+   um círculo revela o novo tema a partir do ponto clicado no
+   toggle. Desativa a animação padrão de crossfade da View
+   Transitions API — a animação real é feita via JS (ThemeToggle),
+   controlando o clip-path de ::view-transition-new(root).
+   ============================================================ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* ============================================================
    APPLE LIQUID GLASS — Design Tokens
    Tema escuro como padrão, claro como alternativa
    ============================================================ */
@@ -166,6 +185,13 @@
   /* Melhor controle de touch em listas roláveis */
   [data-scroll], .overflow-y-auto, .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Contenção de overscroll apenas por opt-in explícito:
+     aplicar em .overflow-* genérico cria "zonas mortas" de scroll —
+     elementos sem conteúdo excedente engolem a roda do mouse
+     e impedem a página de rolar (ex.: wrapper das tabelas). */
+  [data-scroll] {
     overscroll-behavior: contain;
   }
 }

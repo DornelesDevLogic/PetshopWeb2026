@@ -1,8 +1,21 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
-import { ApiWrite } from '@/types/petshop';
+import { apiFetch, qs, getFilial } from '@/lib/api';
+import { agendaHub } from '@/lib/agenda-events';
+import { ApiWrite, DadosEmpresa } from '@/types/petshop';
+
+// ─── Dados da empresa (cabeçalho de impressão) ──────────────────────────────
+
+interface FiliaisResponse { dados: DadosEmpresa[]; Count: number; StartsAt: string; EndsAt: string }
+
+/** Busca dados cadastrais da filial (nome, endereço, CEP, telefone) para cabeçalho de impressão */
+export async function buscarDadosEmpresa(filial: number = getFilial()): Promise<DadosEmpresa | null> {
+  const res = await apiFetch<FiliaisResponse>(
+    `/api/petshop/filiais${qs({ filial, limit: 1 })}`,
+  ).catch(() => ({ dados: [] as DadosEmpresa[], Count: 0, StartsAt: '', EndsAt: '' }));
+  return res.dados[0] ?? null;
+}
 
 // ─── Produtos / Itens ────────────────────────────────────────────────────────
 
@@ -24,7 +37,7 @@ interface ProdutosResponse { dados: ProdutoResultado[]; Count: number }
 export async function buscarProdutos(busca: string): Promise<ProdutoResultado[]> {
   if (busca.trim().length < 3) return [];
   const res = await apiFetch<ProdutosResponse>(
-    `/api/petshop/produtos?filial=${FILIAL}&busca=${encodeURIComponent(busca.trim())}&limit=50`,
+    `/api/petshop/produtos?filial=${getFilial()}&busca=${encodeURIComponent(busca.trim())}&limit=50`,
   ).catch(() => ({ dados: [], Count: 0 }));
   return res.dados;
 }
@@ -144,6 +157,7 @@ export async function reagendarHorario(
 
   revalidatePath('/agenda');
   revalidatePath(`/agenda/${id}`);
+  agendaHub.publish({ tipo: 'AGENDA_ALTERADA', acao: 'UPDATE', idAgenda: id, filial, dataAgenda: novaData });
   return {};
 }
 
@@ -161,7 +175,7 @@ export async function atualizarStatus(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/agenda/status', {
       method: 'POST',
-      body: JSON.stringify({ id, filial: FILIAL, status, obs: obs ?? '' }),
+      body: JSON.stringify({ id, filial: getFilial(), status, obs: obs ?? '' }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
@@ -171,5 +185,6 @@ export async function atualizarStatus(
 
   revalidatePath(`/agenda/${id}`);
   revalidatePath('/agenda');
+  agendaHub.publish({ tipo: 'AGENDA_ALTERADA', acao: 'UPDATE', idAgenda: id, filial: getFilial() });
   return {};
 }

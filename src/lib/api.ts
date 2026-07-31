@@ -1,7 +1,13 @@
 /**
  * Helper de acesso ao backend Delphi.
  * Todas as chamadas passam pelo servidor Next.js — nunca do browser.
- * As credenciais Basic Auth ficam APENAS em variáveis de ambiente server-side.
+ *
+ * Multi-tenant via giro360_backend: a URL do Delphi (backend_url) é resolvida
+ * por CNPJ (ver lib/empresa.ts — cookie ps_empresa, definido em /registro ou
+ * /confirmacao), não é mais fixa por .env. O Bearer usado é:
+ *   - o token PESSOAL da sessão (ps_auth/lib/sessao.ts), quando logado;
+ *   - senão, um token de APLICAÇÃO obtido do giro360_backend por CNPJ
+ *     (lib/giroBackend.ts) — usado antes do login (ex: listar filiais).
  *
  * Logs: grava em logs/api-YYYY-MM-DD.log (na raiz do petshop_web).
  *  - Sempre: erros (HTTP não-ok, falha de conexão, CodStatus negativo)
@@ -10,11 +16,33 @@
 
 import { appendFileSync, mkdirSync } from 'fs';
 import path from 'path';
+import { cookies } from 'next/headers';
+import { getEmpresaAtiva } from './empresa';
+import { getSessaoAtiva } from './sessao';
+import { getApiToken } from './giroBackend';
 
-const BASE   = process.env.BACKEND_URL!;
-const USER   = process.env.BACKEND_USER!;
-const PASS   = process.env.BACKEND_PASS!;
-export const FILIAL = Number(process.env.FILIAL ?? 1);
+/**
+ * Filial ativa da sessão (espelha o modelo do sistema legado:
+ * escolhida no login, fixa até o logout).
+ * Ordem de resolução: ps_user.filial (sessão) → cookie ps_filial
+ * (última escolhida) → env FILIAL → 1.
+ * Só pode ser chamada em request scope (pages, actions, route handlers).
+ */
+export function getFilial(): number {
+  try {
+    const store = cookies();
+    const raw = store.get('ps_user')?.value;
+    if (raw) {
+      const f = Number((JSON.parse(raw) as { filial?: number }).filial);
+      if (Number.isFinite(f) && f > 0) return f;
+    }
+    const fc = Number(store.get('ps_filial')?.value);
+    if (Number.isFinite(fc) && fc > 0) return fc;
+  } catch {
+    // fora de request scope ou cookie corrompido → fallback env
+  }
+  return Number(process.env.FILIAL ?? 1);
+}
 
 const LOG_TUDO = process.env.LOG_API === '1';
 const LOG_DIR  = path.join(process.cwd(), 'logs');
@@ -34,27 +62,60 @@ function logLinha(nivel: 'INFO' | 'ERRO', msg: string) {
   }
 }
 
-function authHeader(): string {
-  return 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64');
+/** URL do Delphi do tenant resolvido neste dispositivo (via /registro ou /confirmacao). */
+export function getBackendUrl(): string {
+  const empresa = getEmpresaAtiva();
+  if (!empresa) throw new Error('Nenhuma empresa registrada neste dispositivo. Acesse /registro primeiro.');
+  return empresa.backend_url.replace(/\/$/, '');
 }
 
-/** Fetch tipado com Basic Auth. Lança Error em resposta não-ok. */
+/**
+ * Token Bearer para a próxima chamada: o pessoal (pós-login) tem prioridade;
+ * sem sessão pessoal, cai para o token de aplicação (por CNPJ, via
+ * giro360_backend) — cobre o /login buscando a lista de filiais antes de
+ * o operador estar autenticado.
+ */
+async function resolverToken(forcarNovoAppToken = false): Promise<string> {
+  const sessao = getSessaoAtiva();
+  if (sessao?.token) return sessao.token;
+
+  const empresa = getEmpresaAtiva();
+  if (!empresa) throw new Error('Nenhuma empresa registrada neste dispositivo. Acesse /registro primeiro.');
+  return getApiToken(empresa.cnpj, forcarNovoAppToken);
+}
+
+/** Exportado para rotas que montam o próprio fetch (ex.: proxy de imagem binária). */
+export const getBearerToken = resolverToken;
+
+/** Fetch tipado com Bearer (sessão pessoal ou token de aplicação). Lança Error em resposta não-ok. */
 export async function apiFetch<T>(path_: string, init?: RequestInit): Promise<T> {
-  const url    = `${BASE}${path_}`;
+  const base   = getBackendUrl();
+  const url    = `${base}${path_}`;
   const metodo = init?.method ?? 'GET';
   const inicio = Date.now();
+  const usandoSessaoPessoal = !!getSessaoAtiva()?.token;
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  async function disparar(token: string): Promise<Response> {
+    return fetch(url, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: authHeader(),
+        Authorization: `Bearer ${token}`,
         ...(init?.headers ?? {}),
       },
       cache: 'no-store',
     });
+  }
+
+  let res: Response;
+  try {
+    res = await disparar(await resolverToken());
+    // Token de aplicação pode ter sido invalidado no backend do tenant (ex:
+    // reinício) mesmo dentro da janela de cache — tenta uma vez com token
+    // novo. Não se aplica à sessão pessoal (401 ali é sessão expirada mesmo).
+    if (res.status === 401 && !usandoSessaoPessoal) {
+      res = await disparar(await resolverToken(true));
+    }
   } catch (e) {
     logLinha('ERRO', `${metodo} ${path_} — FALHA DE CONEXÃO: ${e instanceof Error ? e.message : e}`
       + (init?.body ? ` | body=${init.body}` : ''));

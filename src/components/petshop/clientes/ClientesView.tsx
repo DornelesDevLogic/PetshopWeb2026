@@ -83,8 +83,8 @@ export default function ClientesView({
     if (timerRef.current) clearTimeout(timerRef.current);
     const trimmed = q.trim();
     if (trimmed.length === 0) {
-      // campo limpo → volta para listagem
-      nav({ q: null, qPet: null, skip: 0 });
+      // campo limpo → só navega se havia busca ativa (evita fetch no mount)
+      if (qAtual || qPetAtual) nav({ q: null, qPet: null, skip: 0 });
       return;
     }
     if (trimmed.length < 3) return; // aguarda mais caracteres
@@ -149,9 +149,9 @@ export default function ClientesView({
             </Button>
           )}
 
-          {/* Situação — oculto quando há busca */}
+          {/* Situação — oculto quando há busca; sem seleção = tela vazia */}
           {!buscando && (
-            <Select value={situacaoAtual || 'A'} onValueChange={(v) => nav({ situacao: v, skip: 0 })}>
+            <Select value={situacaoAtual || null} onValueChange={(v) => { if (v) nav({ situacao: v, skip: 0 }); }}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Situação" />
               </SelectTrigger>
@@ -184,7 +184,11 @@ export default function ClientesView({
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
             <Users className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm">
-              {buscando ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
+              {buscando
+                ? 'Nenhum cliente encontrado.'
+                : situacaoAtual || skipAtual > 0
+                  ? 'Nenhum cliente cadastrado.'
+                  : 'Use a busca acima ou o filtro de situação para listar clientes.'}
             </p>
           </div>
         ) : (
@@ -203,7 +207,12 @@ export default function ClientesView({
                           <p className="font-semibold text-sm leading-tight truncate">{c.nome}</p>
                           <SituacaoBadge statusAtivo={c.status_ativo} />
                         </div>
-                        {c.nome_fantasia && (
+                        {buscando && c.pets_resumo ? (
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
+                            <PawPrint className="h-3 w-3 shrink-0" />
+                            {c.pets_resumo}
+                          </p>
+                        ) : c.nome_fantasia && (
                           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
                             {buscando && <PawPrint className="h-3 w-3 shrink-0" />}
                             {c.nome_fantasia}
@@ -242,7 +251,12 @@ export default function ClientesView({
                     <TableRow key={`${c.id}-${c.filial}`} className="hover:bg-muted/40">
                       <TableCell>
                         <div className="font-medium">{c.nome}</div>
-                        {c.nome_fantasia && (
+                        {buscando && c.pets_resumo ? (
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <PawPrint className="h-3 w-3 shrink-0" />
+                            {c.pets_resumo}
+                          </div>
+                        ) : c.nome_fantasia && (
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
                             {buscando && <PawPrint className="h-3 w-3 shrink-0" />}
                             {c.nome_fantasia}
@@ -276,8 +290,8 @@ export default function ClientesView({
           </>
         )}
 
-        {/* Paginação */}
-        {!buscando && (
+        {/* Paginação — só quando há listagem ativa */}
+        {!buscando && (clientes.length > 0 || skipAtual > 0) && (
           <div className="flex items-center justify-between mt-4">
             <Button variant="outline" size="sm" disabled={!temAnter}
               onClick={() => nav({ skip: Math.max(0, skipAtual - limit) })}>

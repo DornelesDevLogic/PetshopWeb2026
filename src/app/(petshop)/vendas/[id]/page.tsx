@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { PrevendaDetalhe, PrevendaItensResponse } from '@/types/petshop';
 import VendaDetalheView from '@/components/petshop/vendas/VendaDetalheView';
 import { notFound } from 'next/navigation';
@@ -13,11 +13,11 @@ export default async function VendaDetalhePage({ params }: Props) {
 
   const [venda, itensRes] = await Promise.all([
     apiFetch<PrevendaDetalhe>(
-      `/api/petshop/prevendas/detalhe${qs({ id, filial: FILIAL })}`,
+      `/api/petshop/prevendas/detalhe${qs({ id, filial: getFilial() })}`,
     ).catch(() => null),
 
     apiFetch<PrevendaItensResponse>(
-      `/api/petshop/prevendas/itens${qs({ id, filial: FILIAL })}`,
+      `/api/petshop/prevendas/itens${qs({ id, filial: getFilial() })}`,
     ).catch(() => ({ dados: [], Count: 0, StartsAt: '', EndsAt: '' })),
   ]);
 

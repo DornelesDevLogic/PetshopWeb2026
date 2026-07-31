@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
 export async function uploadFoto(
@@ -13,7 +13,7 @@ export async function uploadFoto(
   try {
     res = await apiFetch<Record<string, unknown>>('/api/petshop/animais/foto', {
       method: 'POST',
-      body: JSON.stringify({ animal_id: animalId, filial: FILIAL, foto_base64: fotoBase64 }),
+      body: JSON.stringify({ animal_id: animalId, filial: getFilial(), foto_base64: fotoBase64 }),
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -38,7 +38,7 @@ export async function deleteFoto(
   try {
     res = await apiFetch<Record<string, unknown>>('/api/petshop/animais/foto', {
       method: 'DELETE',
-      body: JSON.stringify({ animal_id: animalId, filial: FILIAL }),
+      body: JSON.stringify({ animal_id: animalId, filial: getFilial() }),
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -65,7 +65,7 @@ export async function updateAnimal(
 
   const body = {
     id:              animalId,
-    filial:          FILIAL,
+    filial:          getFilial(),
     nome,
     apelido:         formData.get('apelido')         ?? '',
     sexo:            formData.get('sexo')            ?? '',
@@ -111,7 +111,7 @@ export async function deactivateAnimal(
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/animais', {
       method: 'DELETE',
-      body: JSON.stringify({ id: animalId, filial: FILIAL }),
+      body: JSON.stringify({ id: animalId, filial: getFilial() }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };

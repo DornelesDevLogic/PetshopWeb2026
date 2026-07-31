@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   ConsultaDetalhe,
   ProntuarioResponse,
@@ -10,6 +10,7 @@ import {
   AnexoExameResponse,
 } from '@/types/petshop';
 import ConsultaDetalheView from '@/components/petshop/consultas/ConsultaDetalheView';
+import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { notFound } from 'next/navigation';
 
 interface Props {
@@ -21,7 +22,7 @@ export default async function ConsultaDetalhePage({ params }: Props) {
   if (!id) notFound();
 
   const consulta = await apiFetch<ConsultaDetalhe>(
-    `/api/petshop/consultas/detalhe${qs({ id, filial: FILIAL })}`,
+    `/api/petshop/consultas/detalhe${qs({ id, filial: getFilial() })}`,
   ).catch(() => null);
 
   if (!consulta || consulta.CodStatus === -5) notFound();
@@ -33,33 +34,36 @@ export default async function ConsultaDetalhePage({ params }: Props) {
 
   const emptyAnexo: AnexoExameResponse = { dados: [], Count: 0 };
 
-  const [prontuariosRes, examesRes, vacinasRes, configRes, animalRes, anexosRes] = await Promise.all([
+  const [prontuariosRes, examesRes, vacinasRes, configRes, animalRes, anexosRes, cliente] = await Promise.all([
     apiFetch<ProntuarioResponse>(
-      `/api/petshop/prontuarios${qs({ consulta_id: id, filial: FILIAL })}`,
+      `/api/petshop/prontuarios${qs({ consulta_id: id, filial: getFilial() })}`,
     ).catch(() => emptyProntuario),
 
     apiFetch<ExameResponse>(
-      `/api/petshop/exames${qs({ consulta_id: id, filial: FILIAL })}`,
+      `/api/petshop/exames${qs({ consulta_id: id, filial: getFilial() })}`,
     ).catch(() => emptyExame),
 
     apiFetch<VacinaResponse>(
-      `/api/petshop/animais/vacinas-aplicadas${qs({ animal_id: consulta.animal_id, filial: FILIAL })}`,
+      `/api/petshop/animais/vacinas-aplicadas${qs({ animal_id: consulta.animal_id, filial: getFilial() })}`,
     ).catch(() => emptyVacina),
 
     apiFetch<ConfigAnamnese>(
-      `/api/petshop/config-anamnese${qs({ filial: FILIAL })}`,
+      `/api/petshop/config-anamnese${qs({ filial: getFilial() })}`,
     ).catch(() => null),
 
     apiFetch<AnimalResponse>(
-      `/api/petshop/animais${qs({ filial: FILIAL, filter1: `a.PET_ID=${consulta.animal_id}`, limit: 1 })}`,
+      `/api/petshop/animais${qs({ filial: getFilial(), filter1: `a.PET_ID=${consulta.animal_id}`, limit: 1 })}`,
     ).catch(() => emptyAnimal),
 
     apiFetch<AnexoExameResponse>(
-      `/api/petshop/exames/anexos${qs({ consulta_id: id, filial: FILIAL })}`,
+      `/api/petshop/exames/anexos${qs({ consulta_id: id, filial: getFilial() })}`,
     ).catch(() => emptyAnexo),
+
+    buscarClienteCompleto(consulta.proprietario_id),
   ]);
 
   const animal: Animal | null = animalRes.dados[0] ?? null;
+  const clienteTelefone = cliente?.celular || cliente?.telefone || '';
 
   return (
     <ConsultaDetalheView
@@ -70,6 +74,7 @@ export default async function ConsultaDetalhePage({ params }: Props) {
       config={configRes}
       animal={animal}
       anexos={anexosRes.dados ?? []}
+      clienteTelefone={clienteTelefone}
     />
   );
 }

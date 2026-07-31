@@ -117,7 +117,9 @@ export default function EditarAnimalDialog({
     fd.set('pelo',           peloNome);
     fd.set('controla_racao', controlaRacao ? '1' : '0');
     fd.set('obito',          obito ? '1' : '0');
-    if (obito) fd.set('ativo', '1'); // inativo ao marcar óbito
+    // Convenção do legado: PET_CADANIMAL.ATIVO = 1 significa INATIVO (invertido).
+    // Óbito → ATIVO=1 (inativo); edição normal mantém ATIVO=0 (ativo).
+    fd.set('ativo', obito ? '1' : '0');
     return fd;
   }
 

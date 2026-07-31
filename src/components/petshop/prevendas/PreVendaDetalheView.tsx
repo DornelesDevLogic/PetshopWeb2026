@@ -15,21 +15,27 @@ import {
   adicionarItemPreVenda,
   removerItemPreVenda,
   buscarProdutosPrevenda,
+  buscarDadosEmpresa,
   ProdutoBuscaItem,
 } from '@/app/(petshop)/prevendas/actions';
 import {
   verificarRegrasProdutos, criarEstimativa,
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
-import { FILIAL } from '@/lib/filial';
+import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
+import { getFilialClient } from '@/lib/filial';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 function fmtDate(s: string) {
   if (!s) return '-';
-  const d = s.split('T')[0];
+  // Backend pode devolver DD/MM/YYYY (ORCA.DATA_ORCA.AsString) ou ISO — trata os dois.
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s.slice(0, 10);
+  const d = s.split('T')[0].split(' ')[0];
   const [y, m, day] = d.split('-');
+  if (!day) return s;
   return `${day}/${m}/${y}`;
 }
 
@@ -42,16 +48,17 @@ const STATUS_LABEL: Record<number, { label: string; cls: string }> = {
 interface Props {
   prevenda: PreVendaDetalhe;
   itens:    ItemPreVenda[];
+  somenteVisualizacao?: boolean;
 }
 
-export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Props) {
+export default function PreVendaDetalheView({ prevenda, itens: itensInit, somenteVisualizacao = false }: Props) {
   const router = useRouter();
   const [pending, startT] = useTransition();
-  const [itens, setItens] = useState(itensInit);
+  const [itens, setItens] = useState(itensInit ?? []);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  const editavel = prevenda.status === 1 || prevenda.status === 2;
+  const editavel = !somenteVisualizacao && (prevenda.status === 1 || prevenda.status === 2);
 
   // campos editáveis
   const [profissional, setProfissional] = useState(prevenda.profissional);
@@ -81,8 +88,12 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
   const proRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!showProdDlg || buscaPro.length < 2) { setProdOpts([]); return; }
-    const t = setTimeout(async () => setProdOpts(await buscarProdutosPrevenda(buscaPro)), 300);
+    const termos = normalizarTermosBusca(buscaPro);
+    if (!showProdDlg || !termos.some(t => t.length >= 2)) { setProdOpts([]); return; }
+    const t = setTimeout(async () => {
+      const r = await buscarProdutosPrevenda(termoPrincipal(termos));
+      setProdOpts(filtrarProdutosPorTermos(r, termos, p => p.descricao + ' ' + p.cod_pro));
+    }, 300);
     return () => clearTimeout(t);
   }, [buscaPro, showProdDlg]);
 
@@ -92,6 +103,22 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
     setProRegra(regras[0] ?? null);
     if (!regras[0]) setProDias(0);
+  }
+
+  // Mantém ORCA.SUB_TOTAL/VALOR em sincronia imediatamente após adicionar ou
+  // remover um produto — antes só era recalculado ao clicar em "Salvar
+  // Alterações", deixando o total desatualizado na listagem se o usuário saísse
+  // da tela sem salvar manualmente.
+  async function persistirTotais(lista: ItemPreVenda[]) {
+    const subTotal  = lista.reduce((s, i) => s + i.valor, 0);
+    const totalDesc = lista.reduce((s, i) => s + i.valor * (i.desconto / 100), 0);
+    await atualizarPreVenda({
+      id: prevenda.id,
+      sub_total: subTotal,
+      desconto:  totalDesc,
+      val_produtos: subTotal,
+      valor: subTotal - totalDesc,
+    }).catch(() => null);
   }
 
   async function handleAddProduto() {
@@ -116,10 +143,10 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
       if (proRegra && (proDias ?? 0) > 0) {
         await criarEstimativa({
           clienteId:     prevenda.cliente_id,
-          clienteFilial: FILIAL,
+          clienteFilial: getFilialClient(),
           clienteNome:   prevenda.cliente,
           animalId:      0,
-          animalFilial:  FILIAL,
+          animalFilial:  getFilialClient(),
           animalNome:    prevenda.animal ?? '',
           dadosproId:    proSel!.id_dadospro,
           descPro:       proSel!.descricao,
@@ -127,10 +154,10 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
           dataCompra:    new Date().toISOString().split('T')[0],
           dias:          proDias!,
           orcaId:        prevenda.id,
-          orcaFilial:    FILIAL,
+          orcaFilial:    getFilialClient(),
         }).catch(() => null);
       }
-      setItens(prev => [...prev, {
+      const novaLista = [...itens, {
         id_prodorca: r.id_prodorca ?? 0,
         id_orca: prevenda.id,
         cod_prod: proSel!.cod_pro,
@@ -140,7 +167,9 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
         desconto: desc, preco_tabela: valorUnit,
         unid_pro: proSel!.unidade, status_vendido: 'N',
         ordem: itens.length + 1,
-      }]);
+      }];
+      setItens(novaLista);
+      await persistirTotais(novaLista);
       setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProQtd('1'); setProDesc('0'); setProdOpts([]);
       setProRegra(null); setProDias(null);
       setSucesso('Produto adicionado.'); setTimeout(() => setSucesso(''), 3000);
@@ -152,7 +181,9 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
     startT(async () => {
       const r = await removerItemPreVenda(item.id_prodorca);
       if (r.CodStatus !== 1) { setErro(r.DescricaoStatus ?? 'Erro ao remover.'); return; }
-      setItens(prev => prev.filter(i => i.id_prodorca !== item.id_prodorca));
+      const novaLista = itens.filter(i => i.id_prodorca !== item.id_prodorca);
+      setItens(novaLista);
+      await persistirTotais(novaLista);
     });
   }
 
@@ -170,8 +201,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
         val_produtos: subTotal, valor: subTotal - totalDesc,
       });
       if (r.CodStatus !== 1) { setErro(r.DescricaoStatus); return; }
-      setSucesso('Salvo com sucesso!'); setTimeout(() => setSucesso(''), 3000);
-      router.refresh();
+      router.push('/prevendas');
     });
   }
 
@@ -196,10 +226,26 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
   const totalDesc = itens.reduce((s, i) => s + i.valor * (i.desconto / 100), 0);
   const totalFinal = subTotal - totalDesc;
 
-  function handlePrint() {
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function handlePrint() {
+    setImprimindo(true);
+    const [empresa, cliente] = await Promise.all([
+      buscarDadosEmpresa(prevenda.filial).catch(() => null),
+      prevenda.cliente_id ? buscarClienteCompleto(prevenda.cliente_id).catch(() => null) : Promise.resolve(null),
+    ]);
+    setImprimindo(false);
+
     const html = gerarComandaPreVenda({
       id:           prevenda.id,
+      cliente_id:   prevenda.cliente_id,
       cliente:      prevenda.cliente,
+      telefone:     cliente?.telefone,
+      celular:      cliente?.celular,
+      endereco:     cliente?.endereco,
+      numero:       cliente?.numero,
+      bairro:       cliente?.bairro,
+      cidade:       cliente?.cidade,
       data:         prevenda.data,
       hora:         prevenda.hora,
       data_entrega: dataEntrega,
@@ -216,6 +262,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
         qtd:     i.qtd,
         valor:   i.valorliq,
       })),
+      empresa,
     });
     printWindow(html);
   }
@@ -232,14 +279,19 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
         </div>
         <div className="flex items-center gap-2">
           <span className={`rounded-full px-3 py-1 text-sm font-medium ${st.cls}`}>{st.label}</span>
-          <button onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent">
-            <Printer className="h-4 w-4" /> Imprimir
+          <button onClick={handlePrint} disabled={imprimindo}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-60">
+            <Printer className="h-4 w-4" /> {imprimindo ? 'Gerando...' : 'Imprimir'}
           </button>
         </div>
       </div>
 
       {/* Alertas */}
+      {somenteVisualizacao && (
+        <p className="rounded-md bg-muted px-4 py-2 text-sm text-muted-foreground">
+          Modo somente visualização — nenhuma alteração pode ser feita aqui.
+        </p>
+      )}
       {erro    && <p className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-950/30">{erro}</p>}
       {sucesso && <p className="rounded-md bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-950/30">{sucesso}</p>}
 
@@ -412,7 +464,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
       {/* Dialog produto */}
       {showProdDlg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-card p-6 shadow-xl space-y-4">
+          <div className="w-full max-w-2xl rounded-lg bg-card p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Adicionar Produto</h2>
               <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); }}>
@@ -436,12 +488,12 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit }: Prop
                 className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               {prodOpts.length > 0 && (
-                <ul className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                <ul className="absolute z-20 mt-1 w-full max-h-96 overflow-y-auto rounded-md border bg-popover shadow-lg">
                   {prodOpts.map((p, i) => (
                     <li key={p.id_dadospro} onClick={() => selProd(p)}
-                      className={cn('cursor-pointer px-3 py-2 text-sm hover:bg-accent', i === proIdx && 'bg-accent')}>
-                      <span className="font-medium">{p.descricao}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{p.cod_pro} · {fmt(p.preco)} · Est: {p.estoque}</span>
+                      className={cn('cursor-pointer px-3 py-2.5 text-sm hover:bg-accent border-b last:border-b-0', i === proIdx && 'bg-accent')}>
+                      <p className="font-medium leading-tight">{p.descricao}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{p.cod_pro} · {fmt(p.preco)} · Est: {p.estoque}</p>
                     </li>
                   ))}
                 </ul>

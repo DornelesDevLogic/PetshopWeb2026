@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { RelatorioComissaoResponse } from '@/types/petshop';
 import RelatorioComissoes from '@/components/petshop/relatorios/RelatorioComissoes';
 
@@ -27,7 +27,7 @@ export default async function RelatorioComissoesPage({ searchParams }: { searchP
   const dataFim = searchParams.data_fim || ultimoDiaMes();
 
   const res = await apiFetch<RelatorioComissaoResponse>(
-    `/api/petshop/relatorios/comissoes${qs({ filial: FILIAL, data_ini: dataIni, data_fim: dataFim })}`,
+    `/api/petshop/relatorios/comissoes${qs({ filial: getFilial(), data_ini: dataIni, data_fim: dataFim })}`,
   ).catch(() => empty);
 
   return <RelatorioComissoes dados={res} dataIni={dataIni} dataFim={dataFim} />;

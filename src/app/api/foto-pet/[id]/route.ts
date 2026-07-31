@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BASE = process.env.BACKEND_URL!;
-const USER = process.env.BACKEND_USER!;
-const PASS = process.env.BACKEND_PASS!;
+import { getBackendUrl, getBearerToken } from '@/lib/api';
 
 export async function GET(
   req: NextRequest,
@@ -10,14 +7,21 @@ export async function GET(
 ) {
   const { id } = await params;
   const filial  = req.nextUrl.searchParams.get('filial') ?? '1';
-  const auth    = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64');
 
   let res: Response;
   try {
+    const base = getBackendUrl();
+    const token = await getBearerToken();
     res = await fetch(
-      `${BASE}/api/petshop/animais/foto?animal_id=${id}&filial=${filial}`,
-      { headers: { Authorization: auth } },
+      `${base}/api/petshop/animais/foto?animal_id=${id}&filial=${filial}`,
+      { headers: { Authorization: `Bearer ${token}` } },
     );
+    if (res.status === 401) {
+      res = await fetch(
+        `${base}/api/petshop/animais/foto?animal_id=${id}&filial=${filial}`,
+        { headers: { Authorization: `Bearer ${await getBearerToken(true)}` } },
+      );
+    }
   } catch {
     return new NextResponse(null, { status: 502 });
   }

@@ -1,4 +1,4 @@
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { AgendaDetalhe, AgendaItensResponse } from '@/types/petshop';
 import AgendaDetalheView from '@/components/petshop/agenda/AgendaDetalheView';
 import { notFound } from 'next/navigation';
@@ -18,11 +18,11 @@ export default async function AgendaDetalhePage({ params, searchParams }: Props)
 
   const [detalhe, itensRes] = await Promise.all([
     apiFetch<AgendaDetalhe>(
-      `/api/petshop/agenda/detalhe?id=${id}&filial=${FILIAL}`,
+      `/api/petshop/agenda/detalhe?id=${id}&filial=${getFilial()}`,
     ).catch(() => null),
 
     apiFetch<AgendaItensResponse>(
-      `/api/petshop/agenda/itens?id=${id}&filial=${FILIAL}`,
+      `/api/petshop/agenda/itens?id=${id}&filial=${getFilial()}`,
     ).catch(() => emptyItens),
   ]);
 

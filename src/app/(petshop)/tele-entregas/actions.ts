@@ -1,7 +1,18 @@
 'use server';
 
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { revalidatePath } from 'next/cache';
+import { DadosEmpresa } from '@/types/petshop';
+
+interface FiliaisResponse { dados: DadosEmpresa[]; Count: number; StartsAt: string; EndsAt: string; }
+
+/** Dados da empresa (TBLCAPFILIAIS) para o cabeçalho do cupom impresso — mesma fonte da Agenda/Pré-venda. */
+export async function buscarDadosEmpresa(filial: number = getFilial()): Promise<DadosEmpresa | null> {
+  const res = await apiFetch<FiliaisResponse>(
+    `/api/petshop/filiais${qs({ filial, limit: 1 })}`,
+  ).catch(() => ({ dados: [] as DadosEmpresa[], Count: 0, StartsAt: '', EndsAt: '' }));
+  return res.dados[0] ?? null;
+}
 
 export interface TeleEntrega {
   id:          number;
@@ -60,7 +71,7 @@ export async function buscarTeleEntregas(params: {
 }) {
   return apiFetch<{ dados: TeleEntrega[]; Count: number }>(
     `/api/petshop/tele-entregas${qs({
-      filial:   FILIAL,
+      filial:   getFilial(),
       busca:    params.busca || undefined,
       status:   params.status || undefined,
       data_de:  params.data_de || undefined,
@@ -73,20 +84,20 @@ export async function buscarTeleEntregas(params: {
 
 export async function buscarTeleEntregaDetalhe(id: number) {
   return apiFetch<TeleEntregaDetalhe>(
-    `/api/petshop/tele-entregas/detalhe?id=${id}&filial=${FILIAL}`,
+    `/api/petshop/tele-entregas/detalhe?id=${id}&filial=${getFilial()}`,
   );
 }
 
 export async function buscarItensTeleEntrega(id: number) {
   return apiFetch<{ dados: ItemEntrega[]; Count: number }>(
-    `/api/petshop/agenda/itens?id=${id}&filial=${FILIAL}`,
+    `/api/petshop/agenda/itens?id=${id}&filial=${getFilial()}`,
   ).catch(() => ({ dados: [] as ItemEntrega[], Count: 0 }));
 }
 
 export async function criarTeleEntrega(body: Record<string, unknown>) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string; id?: number }>(
     '/api/petshop/tele-entregas',
-    { method: 'POST', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'POST', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
   if (res.CodStatus === 1) revalidatePath('/tele-entregas');
   return res;
@@ -95,7 +106,7 @@ export async function criarTeleEntrega(body: Record<string, unknown>) {
 export async function atualizarTeleEntrega(body: Record<string, unknown>) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/tele-entregas',
-    { method: 'PUT', body: JSON.stringify({ filial: FILIAL, ...body }) },
+    { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
   if (res.CodStatus === 1) revalidatePath('/tele-entregas');
   return res;
@@ -104,7 +115,7 @@ export async function atualizarTeleEntrega(body: Record<string, unknown>) {
 export async function confirmarTeleEntrega(id: number, dataReal?: string) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/tele-entregas/confirmar',
-    { method: 'POST', body: JSON.stringify({ id, filial: FILIAL, data_entrega_real: dataReal }) },
+    { method: 'POST', body: JSON.stringify({ id, filial: getFilial(), data_entrega_real: dataReal }) },
   );
   if (res.CodStatus === 1) revalidatePath('/tele-entregas');
   return res;
@@ -113,7 +124,7 @@ export async function confirmarTeleEntrega(id: number, dataReal?: string) {
 export async function cancelarTeleEntrega(id: number, justificativa: string) {
   const res = await apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/tele-entregas/cancelar',
-    { method: 'POST', body: JSON.stringify({ id, filial: FILIAL, justificativa }) },
+    { method: 'POST', body: JSON.stringify({ id, filial: getFilial(), justificativa }) },
   );
   if (res.CodStatus === 1) revalidatePath('/tele-entregas');
   return res;
@@ -122,14 +133,21 @@ export async function cancelarTeleEntrega(id: number, justificativa: string) {
 export async function adicionarItemEntrega(body: Record<string, unknown>) {
   return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_item?: number }>(
     '/api/petshop/agenda/itens',
-    { method: 'POST', body: JSON.stringify({ agenda_filial: FILIAL, ...body }) },
+    { method: 'POST', body: JSON.stringify({ agenda_filial: getFilial(), ...body }) },
   );
 }
 
 export async function removerItemEntrega(idItem: number) {
   return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
     '/api/petshop/agenda/itens',
-    { method: 'DELETE', body: JSON.stringify({ id_item: idItem, filial: FILIAL }) },
+    { method: 'DELETE', body: JSON.stringify({ id_item: idItem, filial: getFilial() }) },
+  );
+}
+
+export async function atualizarItemEntrega(body: Record<string, unknown>) {
+  return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
+    '/api/petshop/agenda/itens',
+    { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
 }
 
@@ -146,7 +164,7 @@ export interface ClienteBuscaItem {
 export async function buscarClientesTele(q: string): Promise<ClienteBuscaItem[]> {
   if (!q.trim() || q.trim().length < 2) return [];
   const res = await apiFetch<{ dados: ClienteBuscaItem[]; Count: number }>(
-    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: FILIAL })}`,
+    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: getFilial() })}`,
   ).catch(() => ({ dados: [] as ClienteBuscaItem[], Count: 0 }));
   return (res.dados ?? []).slice(0, 10);
 }
@@ -160,7 +178,7 @@ export interface ClienteDetalhe {
 export async function buscarClienteDetalhe(id: number): Promise<ClienteDetalhe | null> {
   try {
     const res = await apiFetch<{ dados?: ClienteDetalhe[] }>(
-      `/api/petshop/clientes?filial=${FILIAL}&filter1=${encodeURIComponent(`s.COD_CLI=${id}`)}&limit=1`,
+      `/api/petshop/clientes?filial=${getFilial()}&filter1=${encodeURIComponent(`s.COD_CLI=${id}`)}&limit=1`,
     );
     return (res.dados ?? [])[0] ?? null;
   } catch {
@@ -186,7 +204,7 @@ interface ProdutoApiRaw {
 export async function buscarProdutosTele(q: string): Promise<ProdutoBuscaItem[]> {
   if (!q.trim() || q.trim().length < 2) return [];
   const res = await apiFetch<{ dados: ProdutoApiRaw[]; Count: number }>(
-    `/api/petshop/produtos${qs({ filial: FILIAL, busca: q.trim(), ativo: 1, limit: 50 })}`,
+    `/api/petshop/produtos${qs({ filial: getFilial(), busca: q.trim(), ativo: 1, limit: 50 })}`,
   ).catch(() => ({ dados: [] as ProdutoApiRaw[], Count: 0 }));
   return (res.dados ?? []).map(p => ({
     id_dadospro: p.id_dadospro,
@@ -213,11 +231,11 @@ export async function buscarHistoricoClienteTele(
   clienteId: number,
 ): Promise<TeleEntrega[]> {
   const res = await apiFetch<{ dados: TeleEntrega[]; Count: number }>(
-    `/api/petshop/tele-entregas${qs({ filial: FILIAL, cliente_id: clienteId, limit: 300 })}`,
+    `/api/petshop/tele-entregas${qs({ filial: getFilial(), cliente_id: clienteId, limit: 300 })}`,
   ).catch(() => ({ dados: [] as TeleEntrega[], Count: 0 }));
   return (res.dados ?? []).map((t: any) => ({
     id:           t.id           ?? 0,
-    filial:       t.filial       ?? FILIAL,
+    filial:       t.filial       ?? getFilial(),
     cliente_id:   t.cliente_id   ?? clienteId,
     cliente:      t.cliente      ?? '',
     data:         t.data         ?? '',
@@ -244,7 +262,7 @@ export async function buscarSugestoesTele(
   limit = 2,
 ): Promise<SugestaoItem[]> {
   const res = await apiFetch<{ dados: SugestaoApiRaw[]; Count: number }>(
-    `/api/petshop/tele-entregas/sugestoes${qs({ filial: FILIAL, dias, limit })}`,
+    `/api/petshop/tele-entregas/sugestoes${qs({ filial: getFilial(), dias, limit })}`,
   ).catch(() => ({ dados: [] as SugestaoApiRaw[], Count: 0 }));
   return (res.dados ?? []).map(p => ({
     id_dadospro:   p.id_dadospro,

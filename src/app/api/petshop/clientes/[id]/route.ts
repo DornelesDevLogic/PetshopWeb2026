@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { Cliente, ClienteResponse } from '@/types/petshop';
 
 export async function GET(
@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   const id     = Number(params.id);
-  const filial = req.nextUrl.searchParams.get('filial') ?? String(FILIAL);
+  const filial = req.nextUrl.searchParams.get('filial') ?? String(getFilial());
 
   if (!id) return NextResponse.json(null, { status: 400 });
 

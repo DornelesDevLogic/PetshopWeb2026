@@ -61,7 +61,8 @@ function AnimalCard({
         {a.obito === 1 && <span className="text-xs text-red-500 mt-0.5">† Falecido</span>}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        {a.ativo === 0 && <span className="text-xs text-muted-foreground">Inativo</span>}
+        {/* Convenção do legado: ATIVO=1 significa INATIVO (invertido) */}
+        {a.ativo === 1 && <span className="text-xs text-muted-foreground">Inativo</span>}
         <Link href={`/animais/${a.id}/historico`}>
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-primary">
             <History className="h-3.5 w-3.5 mr-1" />
@@ -107,7 +108,10 @@ export default function ClienteDetalhe({ cliente: c, animais, especies, racas, p
             <User className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold">{c.nome}</h1>
+            <div className="flex items-baseline justify-between gap-3">
+              <h1 className="text-xl font-bold">{c.nome}</h1>
+              <span className="text-sm font-mono text-muted-foreground shrink-0">Cód. {c.id}</span>
+            </div>
             {c.nome_fantasia && <p className="text-sm text-muted-foreground">{c.nome_fantasia}</p>}
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               <span className={cn(

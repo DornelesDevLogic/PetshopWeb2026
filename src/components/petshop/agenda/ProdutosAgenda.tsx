@@ -31,6 +31,7 @@ import {
   Search, Loader2, Plus, Pencil, Trash2, X, PackageSearch, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -305,12 +306,14 @@ export default function ProdutosAgenda({ agendaId, filial, itensInic, podeEditar
   }, []);
 
   const buscarCallback = useCallback(async (texto: string) => {
-    if (texto.trim().length < 3) { setResultados([]); setDropAberto(false); return; }
+    const termos = normalizarTermosBusca(texto);
+    if (!termos.some(t => t.length >= 3)) { setResultados([]); setDropAberto(false); return; }
     setIsBuscando(true);
     try {
-      const lista = await buscarProdutos(texto);
-      setResultados(lista);
-      setDropAberto(lista.length > 0);
+      const lista = await buscarProdutos(termoPrincipal(termos));
+      const filtrados = filtrarProdutosPorTermos(lista, termos, p => p.nome_produto + ' ' + p.cod_pro);
+      setResultados(filtrados);
+      setDropAberto(filtrados.length > 0);
     } finally {
       setIsBuscando(false);
     }

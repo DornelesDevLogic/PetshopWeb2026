@@ -1,4 +1,4 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   ClienteResponse,
   AnimalResponse,
@@ -26,19 +26,19 @@ export default async function ClienteDetalhePage({ params }: Props) {
     ).catch(() => empty),
 
     apiFetch<AnimalResponse>(
-      `/api/petshop/animais${qs({ filial: FILIAL, limit: 100, filter1: `a.PET_FK_ID_CLIENTE=${id}` })}`,
+      `/api/petshop/animais${qs({ filial: getFilial(), limit: 100, filter1: `a.PET_FK_ID_CLIENTE=${id}` })}`,
     ).catch(() => empty),
 
     apiFetch<EspecieResponse>(
-      `/api/petshop/especies${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/especies${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
 
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: FILIAL, limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
     ).catch(() => empty),
 
     apiFetch<TipoPeloResponse>(
-      `/api/petshop/tipos-pelo${qs({ filial: FILIAL, limit: 200 })}`,
+      `/api/petshop/tipos-pelo${qs({ filial: getFilial(), limit: 200 })}`,
     ).catch(() => empty),
   ]);
 

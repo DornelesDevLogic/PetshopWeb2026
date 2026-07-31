@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef, useMemo } from 'react';
+import { useState, useTransition, useRef, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -22,6 +22,16 @@ import {
   AnexoExame,
 } from '@/types/petshop';
 import AnexosExame from '@/components/petshop/consultas/AnexosExame';
+import {
+  buscarItensAgenda,
+  type ItemAgendaConsulta,
+} from '@/app/(petshop)/consultas/nova/actions';
+import {
+  buscarProdutos,
+  adicionarItemNaAgenda,
+  type ProdutoResultado,
+} from '@/app/(petshop)/agenda/nova/actions';
+import { excluirItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
 import {
   GRUPOS_ANAMNESE,
   gruposVisiveis,
@@ -51,17 +61,49 @@ import {
   Plus,
   ChevronUp,
   Printer,
+  Package,
+  Search,
+  X,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
-  consulta:    ConsultaDetalhe;
-  prontuarios: Prontuario[];
-  exames:      Exame[];
-  vacinas:     VacinaAplicada[];
-  config:      ConfigAnamnese | null;
-  animal:      Animal | null;
-  anexos:      AnexoExame[];
+  consulta:        ConsultaDetalhe;
+  prontuarios:     Prontuario[];
+  exames:          Exame[];
+  vacinas:         VacinaAplicada[];
+  config:          ConfigAnamnese | null;
+  animal:          Animal | null;
+  anexos:          AnexoExame[];
+  clienteTelefone?: string;
+}
+
+/** Monta o link wa.me a partir de um telefone (com ou sem formatação) + mensagem */
+function linkWhatsapp(telefone: string, mensagem: string): string | null {
+  let digitos = telefone.replace(/\D/g, '');
+  if (!digitos) return null;
+  if (digitos.length <= 11) digitos = '55' + digitos; // adiciona DDI Brasil se ausente
+  return `https://wa.me/${digitos}?text=${encodeURIComponent(mensagem)}`;
+}
+
+/**
+ * O WhatsApp não permite anexar arquivo via link wa.me (limitação da própria
+ * Meta, não dá pra contornar pelo navegador) — então baixamos o PDF pro
+ * computador do usuário e, na sequência, abrimos a conversa já com o resumo
+ * em texto. Falta só arrastar o PDF baixado pra dentro da conversa.
+ */
+function baixarPdfEEnviarWhatsapp(consultaId: number, filial: number, linkWa: string | null) {
+  if (!linkWa) return;
+
+  const a = document.createElement('a');
+  a.href = `/api/petshop/consulta-pdf?id=${consultaId}&filial=${filial}`;
+  a.download = `consulta-${consultaId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  window.open(linkWa, '_blank', 'noopener,noreferrer');
 }
 
 function fmtData(s: string) {
@@ -80,7 +122,7 @@ const textareaCls =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none';
 
 export default function ConsultaDetalheView({
-  consulta, prontuarios, exames, vacinas, config, animal, anexos,
+  consulta, prontuarios, exames, vacinas, config, animal, anexos, clienteTelefone,
 }: Props) {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState('');
@@ -131,6 +173,68 @@ export default function ConsultaDetalheView({
       if (r.error) { setErrorMsg(r.error); return; }
       router.refresh();
     });
+  }
+
+  // ── Produtos / Medicamentos lançados na agenda vinculada ──────────────────
+  const temAgenda = consulta.agenda_id > 0;
+  const [itensAgenda, setItensAgenda]      = useState<ItemAgendaConsulta[]>([]);
+  const [carregandoItens, setCarregandoItens] = useState(temAgenda);
+  const [buscaPro, setBuscaPro]            = useState('');
+  const [proOpts, setProOpts]              = useState<ProdutoResultado[]>([]);
+  const [proSel, setProSel]                = useState<ProdutoResultado | null>(null);
+  const [proQtd, setProQtd]                = useState('1');
+  const [salvandoItem, setSalvandoItem]    = useState(false);
+  const [erroItem, setErroItem]            = useState('');
+
+  useEffect(() => {
+    if (!temAgenda) return;
+    buscarItensAgenda(consulta.agenda_id, consulta.filial)
+      .then(setItensAgenda)
+      .finally(() => setCarregandoItens(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consulta.agenda_id, consulta.filial]);
+
+  const buscaProRef = useRef(buscaPro);
+  buscaProRef.current = buscaPro;
+  const debProdutoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function onChangeBuscaPro(v: string) {
+    setBuscaPro(v);
+    setProSel(null);
+    if (debProdutoRef.current) clearTimeout(debProdutoRef.current);
+    if (v.trim().length < 3) { setProOpts([]); return; }
+    debProdutoRef.current = setTimeout(async () => {
+      const r = await buscarProdutos(v.trim(), consulta.filial);
+      if (buscaProRef.current.trim() === v.trim()) setProOpts(r);
+    }, 300);
+  }
+
+  async function handleAddItemAgenda() {
+    if (!proSel) return;
+    const qtd = parseFloat(proQtd) || 1;
+    setSalvandoItem(true);
+    setErroItem('');
+    const r = await adicionarItemNaAgenda(
+      consulta.agenda_id, consulta.filial,
+      proSel.id_dadospro, proSel.cod_filial,
+      qtd, proSel.preco, 0, proSel.nome_produto,
+      proSel.nome_produto, proSel.preco, proSel.cod_pro,
+    );
+    setSalvandoItem(false);
+    if (r.error) { setErroItem(r.error); return; }
+    setItensAgenda((prev) => [...prev, {
+      id_item: 0, cod_pro: proSel.cod_pro, produto: proSel.nome_produto,
+      descricao: proSel.nome_produto, unidade: proSel.unidade,
+      qtd: String(qtd), valor: String(proSel.preco),
+    }]);
+    setBuscaPro(''); setProOpts([]); setProSel(null); setProQtd('1');
+  }
+
+  async function handleRemoverItemAgenda(item: ItemAgendaConsulta) {
+    if (!item.id_item) return;
+    if (!confirm(`Remover "${item.descricao || item.produto}"?`)) return;
+    const r = await excluirItemAgenda(consulta.agenda_id, item.id_item, consulta.filial);
+    if (r.error) { setErroItem(r.error); return; }
+    setItensAgenda((prev) => prev.filter((i) => i.id_item !== item.id_item));
   }
 
   // ── Prontuário / Vacina add forms ─────────────────────────────────────────
@@ -259,6 +363,31 @@ export default function ConsultaDetalheView({
 
   const grupoAtivo = grupos.find((g) => g.key === abaAtiva) ?? grupos[0];
 
+  // ── Envio do prontuário por WhatsApp — mesmo padrão de link wa.me usado na
+  // Agenda; a API do WhatsApp não permite anexar arquivo via URL, então o
+  // "prontuário" vai como texto formatado (o PDF completo fica pra imprimir).
+  const mensagemWhatsapp = useMemo(() => {
+    const linhas: string[] = [
+      `*Prontuário — ${consulta.animal}*`,
+      `Data: ${fmtData(consulta.data)}${consulta.veterinario ? ` · Dr(a). ${consulta.veterinario}` : ''}`,
+    ];
+    if (consulta.motivo) linhas.push(`Motivo: ${consulta.motivo}`);
+    if (consulta.diagnostico) linhas.push(`Diagnóstico: ${consulta.diagnostico}`);
+    if (consulta.prescricao) linhas.push(`Prescrição: ${consulta.prescricao}`);
+
+    const ultimo = prontuarios[prontuarios.length - 1];
+    if (ultimo) {
+      linhas.push('', `Evolução (${fmtData(ultimo.data)} ${ultimo.hora?.slice(0, 5) ?? ''}):`);
+      if (ultimo.obs) linhas.push(ultimo.obs);
+      if (ultimo.medicacao) linhas.push(`Medicação: ${ultimo.medicacao}${ultimo.dose ? ` — ${ultimo.dose}` : ''}`);
+    }
+
+    linhas.push('', 'Qualquer dúvida, estamos à disposição!');
+    return linhas.join('\n');
+  }, [consulta, prontuarios]);
+
+  const linkWhatsappConsulta = clienteTelefone ? linkWhatsapp(clienteTelefone, mensagemWhatsapp) : null;
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
 
@@ -294,6 +423,17 @@ export default function ConsultaDetalheView({
               Imprimir PDF
             </Button>
           </a>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!linkWhatsappConsulta}
+            title={!linkWhatsappConsulta ? 'Cliente sem telefone/celular cadastrado' : 'Baixa o PDF da consulta e abre a conversa no WhatsApp — é só arrastar o arquivo baixado para dentro da conversa'}
+            onClick={() => baixarPdfEEnviarWhatsapp(consulta.id, consulta.filial, linkWhatsappConsulta)}
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30 disabled:border-input disabled:text-muted-foreground disabled:hover:bg-transparent"
+          >
+            <MessageCircle className="h-4 w-4 mr-1.5" />
+            Enviar por WhatsApp
+          </Button>
           {isAberto ? (
             <Button size="sm" onClick={() => act(() => fecharConsulta(consulta.id))} disabled={isPending}>
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1.5" />}
@@ -402,6 +542,93 @@ export default function ConsultaDetalheView({
           )}
         </div>
       </div>
+
+      {/* Produtos / Medicamentos — vinculados diretamente à agenda de origem */}
+      {temAgenda && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+            <Package className="h-3.5 w-3.5" />
+            Produtos / Medicamentos
+          </h2>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Lançados aqui ficam vinculados à agenda #{consulta.agenda_id} para faturar no Frente de Caixa.
+          </p>
+
+          {isAberto && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Buscar produto ou medicamento..."
+                value={buscaPro}
+                onChange={(e) => onChangeBuscaPro(e.target.value)}
+                className="pl-9"
+                autoComplete="off"
+              />
+              {proOpts.length > 0 && !proSel && (
+                <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                  {proOpts.map((p) => (
+                    <button
+                      key={p.id_dadospro}
+                      type="button"
+                      onClick={() => { setProSel(p); setBuscaPro(p.nome_produto); setProOpts([]); }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent border-b last:border-b-0"
+                    >
+                      <p className="font-medium leading-tight">{p.nome_produto}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {p.cod_pro} · R$ {p.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Est: {p.estoque}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {proSel && (
+            <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
+                <p className="text-xs text-muted-foreground">R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <Input
+                type="number" min="0.01" step="0.01" value={proQtd}
+                onChange={(e) => setProQtd(e.target.value)}
+                className="w-20"
+              />
+              <Button type="button" size="sm" onClick={handleAddItemAgenda} disabled={salvandoItem}>
+                {salvandoItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              </Button>
+              <Button type="button" size="icon" variant="ghost" onClick={() => { setProSel(null); setBuscaPro(''); }}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {erroItem && <p className="text-xs text-destructive">{erroItem}</p>}
+
+          {carregandoItens ? (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Carregando itens já lançados...</p>
+          ) : itensAgenda.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum produto lançado ainda.</p>
+          ) : (
+            <div className="rounded-md border divide-y">
+              {itensAgenda.map((it, i) => (
+                <div key={it.id_item || i} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{it.descricao || it.produto}</p>
+                    <p className="text-xs text-muted-foreground">{it.qtd} {it.unidade} · R$ {parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  {isAberto && !!it.id_item && (
+                    <Button type="button" variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-red-600" onClick={() => handleRemoverItemAgenda(it)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Anexos de Exames (PDF / imagem / documento) */}
       <AnexosExame consultaId={consulta.id} anexos={anexos} podeEditar={isAberto} />

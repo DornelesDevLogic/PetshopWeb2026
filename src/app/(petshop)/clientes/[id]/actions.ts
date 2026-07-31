@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 
 const up = (v: FormDataEntryValue | null) =>
@@ -17,7 +17,7 @@ export async function createAnimal(
   if (!nome) return { error: 'Nome é obrigatório.' };
 
   const body = {
-    filial:          FILIAL,
+    filial:          getFilial(),
     id_cliente:      clienteId,
     filial_cliente:  filialCliente,
     nome,

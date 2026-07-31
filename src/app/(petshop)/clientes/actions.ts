@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL, qs } from '@/lib/api';
+import { apiFetch, getFilial, qs } from '@/lib/api';
 import { ApiWrite, ClienteResponse } from '@/types/petshop';
 import { validarEmail, limparCpfCnpj } from '@/lib/masks';
 
@@ -76,6 +76,18 @@ export interface CpfDuplicadoResult {
   nome?: string;
 }
 
+/** Busca o cadastro completo de um cliente pelo ID (inclui endereço). */
+export async function buscarClienteCompleto(id: number): Promise<import('@/types/petshop').Cliente | null> {
+  try {
+    const res = await apiFetch<ClienteResponse>(
+      `/api/petshop/clientes${qs({ limit: 1, filter1: `s.COD_CLI=${id}` })}`,
+    );
+    return res.dados[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Verifica se já existe cliente com o mesmo CPF/CNPJ.
  * excludeId: ignora o próprio registro ao editar.
@@ -88,7 +100,7 @@ export async function verificarCpfDuplicado(
   if (cpfLimpo.length < 11) return { duplicado: false };
   try {
     const res = await apiFetch<ClienteResponse>(
-      `/api/petshop/clientes${qs({ filial: FILIAL, limit: 5, filter1: `s.CGC_CLI='${cpfLimpo}'` })}`,
+      `/api/petshop/clientes${qs({ filial: getFilial(), limit: 5, filter1: `s.CGC_CLI='${cpfLimpo}'` })}`,
     );
     const dados = res.dados ?? [];
     const encontrado = dados.find((c) => !excludeId || c.id !== excludeId);
@@ -127,7 +139,7 @@ export async function createCliente(
   }
 
   const body = {
-    filial:          FILIAL,
+    filial:          getFilial(),
     nome,
     nome_fantasia:   up(formData.get('nome_fantasia')),
     cpf_cnpj:        formData.get('cpf_cnpj')        ?? '',
@@ -242,7 +254,7 @@ export async function criarClienteRapido(dados: {
     const res = await apiFetch<ApiWrite>('/api/petshop/clientes', {
       method: 'POST',
       body: JSON.stringify({
-        filial:    FILIAL,
+        filial:    getFilial(),
         nome,
         telefone:  dados.telefone?.trim() ?? '',
         celular:   dados.celular?.trim()  ?? '',

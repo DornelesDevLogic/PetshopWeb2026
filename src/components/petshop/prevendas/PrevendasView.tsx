@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, CheckCircle, XCircle, Plus } from 'lucide-react';
+import { Eye, Pencil, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { PreVenda, confirmarPreVenda, cancelarPreVenda } from '@/app/(petshop)/prevendas/actions';
 
 const LIMIT = 100;
@@ -182,10 +182,19 @@ export default function PrevendasView({ dados, total, skip, filtros }: Props) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
+                      {(pv.status === 1 || pv.status === 2) && (
+                        <Link
+                          href={`/prevendas/${pv.id}`}
+                          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      )}
                       <Link
-                        href={`/prevendas/${pv.id}`}
+                        href={`/prevendas/${pv.id}?ver=1`}
                         className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        title="Ver / Editar"
+                        title="Visualizar"
                       >
                         <Eye className="h-4 w-4" />
                       </Link>

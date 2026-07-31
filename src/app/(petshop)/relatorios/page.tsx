@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BarChart3, Users, ShoppingBag } from 'lucide-react';
+import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket } from 'lucide-react';
 
 const relatorios = [
   {
@@ -9,10 +9,34 @@ const relatorios = [
     descricao: 'Comissão por produto, técnico e atendente no período.',
   },
   {
+    href:    '/relatorios/comissao-profissional',
+    icon:    UserRound,
+    titulo:  'Comissão por Profissional',
+    descricao: 'Total de comissão agrupado por profissional/técnico no período.',
+  },
+  {
+    href:    '/relatorios/atendimentos',
+    icon:    CalendarClock,
+    titulo:  'Agendas / Atendimentos',
+    descricao: 'Atendimentos do período por profissional ou serviço, com totais.',
+  },
+  {
     href:    '/relatorios/vendas-secao',
     icon:    ShoppingBag,
     titulo:  'Vendas por Seção',
     descricao: 'Itens vendidos agrupados por seção/categoria no período.',
+  },
+  {
+    href:    '/relatorios/espelho-cupons',
+    icon:    Receipt,
+    titulo:  'Espelho de Cupons',
+    descricao: 'Cupons/NFC-e emitidos no período, com itens de cada cupom.',
+  },
+  {
+    href:    '/relatorios/vales',
+    icon:    Ticket,
+    titulo:  'Vales de Clientes',
+    descricao: 'Consulta de crédito/vale-troca gerado por devolução (somente leitura).',
   },
 ];
 

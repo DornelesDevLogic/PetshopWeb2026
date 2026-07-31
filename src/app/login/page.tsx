@@ -1,91 +1,65 @@
-'use client';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
+import { getEmpresaAtiva } from '@/lib/empresa';
+import LoginForm, { FilialOption } from './LoginForm';
+import { Headphones, Mail, Globe, Monitor, PawPrint } from 'lucide-react';
 
-import { useState, useTransition } from 'react';
-import { login } from './actions';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { PawPrint, AlertCircle, Loader2 } from 'lucide-react';
+interface FiliaisResponse { dados: FilialOption[]; Count: number; }
 
-export default function LoginPage() {
-  const [error, setError]            = useState('');
-  const [isPending, startTransition] = useTransition();
+export const dynamic = 'force-dynamic';
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError('');
-    const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const result = await login({}, formData);
-      if (result?.error) setError(result.error);
-      // Se não houve erro, o Server Action faz redirect('/')
-    });
+export default async function LoginPage() {
+  // Sem empresa/dispositivo resolvido neste navegador ainda não há
+  // backend_url pra sequer listar filiais — manda pro registro primeiro
+  // (o middleware não cobre /login, que precisa ficar acessível sem sessão).
+  if (!getEmpresaAtiva()) redirect('/registro');
+
+  let filiais: FilialOption[] = [];
+  let erroFiliais: string | undefined;
+  try {
+    const res = await apiFetch<FiliaisResponse>('/api/petshop/filiais');
+    filiais = res.dados ?? [];
+    if (filiais.length === 0) erroFiliais = 'Nenhuma filial cadastrada no sistema.';
+  } catch {
+    erroFiliais = 'Sem conexão com o servidor. Recarregue a página para tentar novamente.';
   }
+  const filialPadrao = Number(cookies().get('ps_filial')?.value ?? process.env.FILIAL ?? 1);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[3fr_2fr]">
 
-        {/* Brand */}
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow">
-            <PawPrint className="h-8 w-8" />
-          </div>
-          <h1 className="text-2xl font-bold">PetShop</h1>
-          <p className="text-sm text-muted-foreground">Sistema de Gestão — acesso interno</p>
+        {/* ══ Esquerda: imagem em tela cheia ══ */}
+        <div className="hidden lg:block relative overflow-hidden bg-blue-50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/Loguin4k.png"
+            alt="PetShop — LogicBox"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
         </div>
 
-        {/* Card */}
-        <div className="rounded-xl border bg-card p-8 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div className="space-y-1.5">
-              <Label htmlFor="codigo">Código do Usuário</Label>
-              <Input
-                id="codigo"
-                name="codigo"
-                type="number"
-                inputMode="numeric"
-                autoComplete="username"
-                required
-                placeholder="Ex: 1"
-                min={1}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                name="senha"
-                type="password"
-                autoComplete="current-password"
-                required
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
+        {/* ══ Direita: painel de login ══ */}
+        <div className="flex items-center justify-center bg-slate-50 p-6 md:p-10">
+          <div className="w-full max-w-[400px] rounded-2xl bg-white shadow-[0_2px_16px_rgba(0,0,0,0.08)] p-8">
+              <div className="flex items-center gap-2">
+                <PawPrint className="h-7 w-7 text-blue-600" />
+                <span className="text-2xl font-bold text-blue-700">PetShop</span>
               </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
-                </>
-              ) : (
-                'Entrar'
-              )}
-            </Button>
-          </form>
+              <p className="text-sm text-muted-foreground mt-1 mb-5">Sistema de gestão para petshops</p>
+              <LoginForm filiais={filiais} filialPadrao={filialPadrao} erroFiliais={erroFiliais} />
+          </div>
         </div>
-
       </div>
+
+      {/* ══ Rodapé ══ */}
+      <footer className="bg-blue-700 text-blue-50 text-xs md:text-sm py-3 px-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1">
+        <span className="inline-flex items-center gap-1.5"><Monitor className="h-4 w-4" /> Sistema desenvolvido pela <strong className="font-semibold">Logicbox Automação</strong></span>
+        <span className="inline-flex items-center gap-1.5"><Headphones className="h-4 w-4" /> Suporte (51) 3076-3311</span>
+        <span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" /> suporte@logicbox.com.br</span>
+        <span className="inline-flex items-center gap-1.5"><Globe className="h-4 w-4" /> www.logicbox.com.br</span>
+      </footer>
     </div>
   );
 }

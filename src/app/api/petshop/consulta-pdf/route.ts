@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createElement } from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   ConsultaDetalhe, AnimalResponse, ClienteResponse, Animal, Cliente,
   DadosEmpresa, AnexoExameResponse, AnexoExame,
@@ -17,7 +17,7 @@ const EMPRESA_FALLBACK: DadosEmpresa = {
 export async function GET(req: NextRequest) {
   const sp     = req.nextUrl.searchParams;
   const id     = sp.get('id');
-  const filial = sp.get('filial') || String(FILIAL);
+  const filial = sp.get('filial') || String(getFilial());
 
   if (!id) {
     return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });

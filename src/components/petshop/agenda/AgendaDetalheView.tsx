@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AgendaDetalhe, AgendaItemServico, STATUS_AGENDA } from '@/types/petshop';
-import { atualizarStatus } from '@/app/(petshop)/agenda/[id]/actions';
+import { atualizarStatus, buscarDadosEmpresa } from '@/app/(petshop)/agenda/[id]/actions';
+import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -26,7 +27,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { printWindow } from '@/lib/printWindow';
-import { gerarComandaBanhoTosa } from '@/components/petshop/print/comandaBanhoTosa';
+import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
 import ProdutosAgenda from './ProdutosAgenda';
 import { cn } from '@/lib/utils';
 
@@ -77,7 +78,6 @@ const ACOES: Record<number, Acao[]> = {
     { label: 'Cancelar',            status: 'CANCELADO',      variant: 'destructive', icon: <XCircle      className="h-4 w-4" />, confirm: true  },
   ],
   2: [
-    { label: 'Finalizar',           status: 'FINALIZADO',     variant: 'default',     icon: <CheckCircle2 className="h-4 w-4" />, confirm: false },
     { label: 'Cancelar',            status: 'CANCELADO',      variant: 'destructive', icon: <XCircle      className="h-4 w-4" />, confirm: true  },
   ],
 };
@@ -91,25 +91,39 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
 
   const acoes = ACOES[d.status] ?? [];
 
-  function handlePrint() {
-    const html = gerarComandaBanhoTosa({
-      id:           d.id,
-      cliente:      d.cliente,
-      data:         d.data,
-      hora:         d.hora,
-      profissional: d.profissional,
-      servico:      d.servico,
-      animal:       d.animal,
-      raca:         d.raca,
-      obs:          d.obs,
-      banho_normal: d.banho_normal,
-      tosa_alta:    d.tosa_alta,
-      tosa_baixa:   d.tosa_baixa,
-      antipulga:    d.antipulga,
-      hidra:        d.hidra,
-      medic:        d.medic,
-      valor:        d.valor,
-      sub_total:    d.sub_total,
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function handlePrint() {
+    setImprimindo(true);
+    const [empresa, cliente] = await Promise.all([
+      buscarDadosEmpresa(d.filial).catch(() => null),
+      buscarClienteCompleto(d.cliente_id).catch(() => null),
+    ]);
+    setImprimindo(false);
+
+    const html = gerarCupomAgenda({
+      id:            d.id,
+      cliente_id:    d.cliente_id,
+      cliente:       d.cliente,
+      telefone:      cliente?.telefone || d.telefone,
+      celular:       cliente?.celular  || d.celular,
+      endereco:      cliente?.endereco,
+      numero:        cliente?.numero,
+      bairro:        cliente?.bairro,
+      cidade:        cliente?.cidade,
+      data:          d.data,
+      hora:          d.hora,
+      data_previsao: d.data_previsao,
+      data_entrega:  d.data_entrega,
+      profissional:  d.profissional,
+      vendedor:      d.vend_nome,
+      servico:       d.servico,
+      animal:        d.animal,
+      raca:          d.raca,
+      obs:           d.obs,
+      valor:         d.sub_total || d.valor,
+      itens:         itens,
+      empresa,
     });
     printWindow(html);
   }
@@ -157,9 +171,9 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
       {/* ── Cabeçalho ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Link href="/agenda">
-          <Button variant="ghost" size="sm">
+          <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50 font-medium">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Agenda
+            Voltar para Agenda
           </Button>
         </Link>
 
@@ -177,8 +191,9 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
               <span className="ml-1.5">{a.label}</span>
             </Button>
           ))}
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">
-            <Printer className="h-4 w-4" /> Imprimir
+          <Button size="sm" onClick={handlePrint} disabled={imprimindo} className="gap-1.5 bg-blue-700 hover:bg-blue-800">
+            {imprimindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+            Imprimir
           </Button>
         </div>
       </div>

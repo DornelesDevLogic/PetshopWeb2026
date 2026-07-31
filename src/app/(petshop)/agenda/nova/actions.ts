@@ -1,14 +1,59 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
-import { ApiWrite, AgendaResponse, ClienteResponse, AnimalResponse, Cliente, Animal } from '@/types/petshop';
+import { apiFetch, qs, getFilial } from '@/lib/api';
+import { agendaHub } from '@/lib/agenda-events';
+import {
+  ApiWrite, AgendaResponse, ClienteResponse, AnimalResponse, Cliente, Animal,
+  ProfissionalResponse, ServicoResponse, EspecieResponse, RacaResponse, TipoPeloResponse, VendedorResponse,
+  Profissional, Servico, Especie, Raca, TipoPelo, Vendedor,
+} from '@/types/petshop';
+
+/**
+ * Carrega as listas de referência do formulário de agenda (profissionais,
+ * serviços, espécies, raças, pelos, vendedores) + próximo número, em paralelo.
+ * Usado para carregamento progressivo: o formulário abre na hora e busca isto
+ * em segundo plano, enquanto o usuário seleciona o cliente.
+ */
+export interface ListasFormAgenda {
+  profissionais: Profissional[];
+  servicos:      Servico[];
+  especies:      Especie[];
+  racas:         Raca[];
+  pelos:         TipoPelo[];
+  vendedores:    Vendedor[];
+  proximoNumero: number | null;
+}
+
+export async function carregarListasFormAgenda(filialParam?: number): Promise<ListasFormAgenda> {
+  const filial = filialParam || getFilial();
+  const empty = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
+  const [prof, serv, esp, rac, pel, vend, prox] = await Promise.all([
+    apiFetch<ProfissionalResponse>(`/api/petshop/profissionais${qs({ filial, limit: 500 })}`).catch(() => empty),
+    apiFetch<ServicoResponse>(`/api/petshop/servicos${qs({ filial, limit: 200 })}`).catch(() => empty),
+    apiFetch<EspecieResponse>(`/api/petshop/especies${qs({ filial, limit: 100 })}`).catch(() => empty),
+    apiFetch<RacaResponse>(`/api/petshop/racas${qs({ filial, limit: 500 })}`).catch(() => empty),
+    apiFetch<TipoPeloResponse>(`/api/petshop/tipos-pelo${qs({ filial, limit: 100 })}`).catch(() => empty),
+    apiFetch<VendedorResponse>(`/api/petshop/vendedores${qs({ filial, limit: 200 })}`).catch(() => empty),
+    getProximoNumeroAgenda(filial),
+  ]);
+  return {
+    // Somente profissionais ativos (STATUS_ATIVO <> 1, convenção do legado)
+    profissionais: (prof.dados as Profissional[]).filter((p) => p.status_ativo !== 1),
+    servicos:      serv.dados as Servico[],
+    especies:      esp.dados  as Especie[],
+    racas:         rac.dados  as Raca[],
+    pelos:         pel.dados  as TipoPelo[],
+    vendedores:    vend.dados as Vendedor[],
+    proximoNumero: prox,
+  };
+}
 
 /** Retorna o próximo número provável da agenda (último id gravado + 1). */
-export async function getProximoNumeroAgenda(): Promise<number | null> {
+export async function getProximoNumeroAgenda(filialParam?: number): Promise<number | null> {
   try {
     const res = await apiFetch<AgendaResponse>(
-      `/api/petshop/agenda${qs({ filial: FILIAL, limit: 1, orderby: 'AG_ID desc' })}`,
+      `/api/petshop/agenda${qs({ filial: filialParam || getFilial(), limit: 1, orderby: 'AG_ID desc' })}`,
     );
     const ultimo = (res.dados ?? [])[0]?.id;
     return ultimo ? ultimo + 1 : null;
@@ -18,10 +63,10 @@ export async function getProximoNumeroAgenda(): Promise<number | null> {
 }
 
 /** Busca clientes por texto (nome, CPF, telefone) */
-export async function buscarClientes(q: string): Promise<Cliente[]> {
+export async function buscarClientes(q: string, filialParam?: number): Promise<Cliente[]> {
   if (!q.trim()) return [];
   const res = await apiFetch<ClienteResponse>(
-    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: FILIAL })}`,
+    `/api/petshop/clientes/busca-rapida${qs({ q: q.trim(), filial: filialParam || getFilial() })}`,
   ).catch(() => ({ dados: [] as Cliente[], Count: 0, StartsAt: '', EndsAt: '' }));
   return res.dados.slice(0, 10);
 }
@@ -43,10 +88,10 @@ export interface AnimalBuscaItem {
 interface AnimalBuscaResponse { dados: AnimalBuscaItem[]; Count: number }
 
 /** Busca animais por nome do pet (retorna o animal + dados do dono) */
-export async function buscarPorPet(q: string): Promise<AnimalBuscaItem[]> {
+export async function buscarPorPet(q: string, filialParam?: number): Promise<AnimalBuscaItem[]> {
   if (!q.trim()) return [];
   const res = await apiFetch<AnimalBuscaResponse>(
-    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), filial: FILIAL })}`,
+    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), filial: filialParam || getFilial() })}`,
   ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0 }));
   return res.dados;
 }
@@ -59,6 +104,7 @@ export async function buscarPorPet(q: string): Promise<AnimalBuscaItem[]> {
 export async function buscarCombinado(
   termoA: string,
   termoB: string,
+  filialParam?: number,
 ): Promise<AnimalBuscaItem[]> {
   const normalize = (s: string) => s.trim().toLowerCase();
   const nA = normalize(termoA);
@@ -66,8 +112,8 @@ export async function buscarCombinado(
 
   // Busca em paralelo: pets pelo termoA e pets pelo termoB
   const [porA, porB] = await Promise.all([
-    buscarPorPet(termoA),
-    buscarPorPet(termoB),
+    buscarPorPet(termoA, filialParam),
+    buscarPorPet(termoB, filialParam),
   ]);
 
   const seen = new Set<number>();
@@ -109,12 +155,52 @@ export interface ProdutoResultado {
 }
 
 /** Busca produtos por nome (mín. 3 chars) */
-export async function buscarProdutos(busca: string): Promise<ProdutoResultado[]> {
+export async function buscarProdutos(busca: string, filialParam?: number): Promise<ProdutoResultado[]> {
   if (busca.trim().length < 3) return [];
   const res = await apiFetch<{ dados: ProdutoResultado[]; Count: number }>(
-    `/api/petshop/produtos?filial=${FILIAL}&busca=${encodeURIComponent(busca.trim())}&limit=50`,
+    `/api/petshop/produtos?filial=${filialParam || getFilial()}&busca=${encodeURIComponent(busca.trim())}&limit=50`,
   ).catch(() => ({ dados: [], Count: 0 }));
   return res.dados;
+}
+
+/**
+ * Categoria de Serviço: busca se existe uma regra cadastrada para
+ * (raça do animal + serviço escolhido) e retorna o produto correspondente,
+ * para inserção automática e silenciosa no agendamento. Tenta raça específica
+ * primeiro; se não achar, cai para a regra genérica (sem raça). Se não existir
+ * nenhuma regra (ou o produto não estiver mais ativo), retorna `null` — nesse
+ * caso o fluxo segue normal, com seleção manual do serviço pelo atendente.
+ */
+export async function buscarProdutoPorCategoria(
+  racaId: number,
+  servicoId: number,
+): Promise<ProdutoResultado | null> {
+  if (!servicoId) return null;
+  interface Resp {
+    CodStatus: number;
+    id_dadospro?: number;
+    filial?: number;
+    cod_pro?: string;
+    descricao?: string;
+    unidade?: string;
+    preco?: number;
+    estoque?: number;
+  }
+  const res = await apiFetch<Resp>(
+    `/api/petshop/categoria-servico/buscar${qs({ filial: getFilial(), raca_id: racaId || undefined, servico_id: servicoId })}`,
+  ).catch(() => ({ CodStatus: -5 }) as Resp);
+  if (res.CodStatus !== 1 || !res.id_dadospro) return null;
+  return {
+    id_dadospro: res.id_dadospro,
+    cod_filial:  res.filial ?? getFilial(),
+    nome_produto: res.descricao ?? '',
+    unidade:     res.unidade ?? '',
+    preco:       res.preco ?? 0,
+    secao:       '',
+    grupo:       '',
+    cod_pro:     res.cod_pro ?? '',
+    estoque:     res.estoque ?? 0,
+  };
 }
 
 /** Adiciona um item a uma agenda já criada */
@@ -166,7 +252,7 @@ export async function criarClienteRapido(
   if (!nome) return { error: 'Nome é obrigatório.' };
 
   const body = {
-    filial:          FILIAL,
+    filial:          getFilial(),
     nome,
     nome_fantasia:   up(formData.get('nome_fantasia')),
     cpf_cnpj:        formData.get('cpf_cnpj')       ?? '',
@@ -198,7 +284,7 @@ export async function criarClienteRapido(
 
   const cliente: Cliente = {
     id:              res.id as number,
-    filial:          FILIAL,
+    filial:          getFilial(),
     nome:            body.nome,
     nome_fantasia:   body.nome_fantasia,
     cpf_cnpj:        String(body.cpf_cnpj),
@@ -241,7 +327,7 @@ export async function criarAnimalRapido(
   if (!nome) return { error: 'Nome é obrigatório.' };
 
   const body = {
-    filial:          FILIAL,
+    filial:          getFilial(),
     id_cliente:      clienteId,
     filial_cliente:  clienteFilial,
     nome,
@@ -274,7 +360,7 @@ export async function criarAnimalRapido(
 
   const animal: Animal = {
     id:              res.id as number,
-    filial:          FILIAL,
+    filial:          getFilial(),
     nome:            body.nome,
     apelido:         body.apelido,
     especie:         body.especie,
@@ -304,10 +390,13 @@ export async function criarAnimalRapido(
 // ─── Animais ─────────────────────────────────────────────────────────────────
 
 /** Carrega animais de um cliente */
-export async function buscarAnimais(clienteId: number): Promise<Animal[]> {
+export async function buscarAnimais(clienteId: number, filialParam?: number): Promise<Animal[]> {
   if (!clienteId) return [];
+  // Convenção do legado: PET_CADANIMAL.ATIVO = 1 significa INATIVO (invertido,
+  // igual STATUS_ATIVO de clientes/técnicos). Só pets ativos (ATIVO <> 1) devem
+  // aparecer para seleção ao criar um agendamento.
   const res = await apiFetch<AnimalResponse>(
-    `/api/petshop/animais?filial=${FILIAL}&limit=50&filter1=a.PET_FK_ID_CLIENTE=${clienteId}`,
+    `/api/petshop/animais?filial=${filialParam || getFilial()}&limit=50&filter1=a.PET_FK_ID_CLIENTE=${clienteId} AND a.ATIVO<>1`,
   ).catch(() => ({ dados: [] as Animal[], Count: 0, StartsAt: '', EndsAt: '' }));
   return res.dados;
 }
@@ -329,25 +418,28 @@ export async function createAgenda(
 
   const valor    = parseFloat((formData.get('valor')    as string || '0').replace(',', '.')) || 0;
   const desconto = parseFloat((formData.get('desconto') as string || '0').replace(',', '.')) || 0;
+  // Filial de destino da agenda: a que o usuário escolheu no formulário
+  // (pode ser diferente da filial da sessão, ao inserir em outra loja).
+  const filialAlvo = Number(formData.get('filial')) || getFilial();
 
   const body = {
-    filial:           FILIAL,
+    filial:           filialAlvo,
     cliente_id:       clienteId,
-    cliente_filial:   Number(formData.get('cliente_filial') || FILIAL),
+    cliente_filial:   Number(formData.get('cliente_filial') || filialAlvo),
     cliente_nome:     formData.get('cliente_nome')   ?? '',
     data:             dataPart,
     hora:             horaPart ? horaPart + ':00' : '',
     animal_id:        Number(formData.get('animal_id')    || 0),
-    animal_filial:    Number(formData.get('animal_filial') || FILIAL),
+    animal_filial:    Number(formData.get('animal_filial') || filialAlvo),
     animal_nome:      formData.get('animal_nome')    ?? '',
     raca:             formData.get('raca')           ?? '',
     prof_id:          Number(formData.get('prof_id')      || 0),
-    prof_filial:      Number(formData.get('prof_filial')   || FILIAL),
+    prof_filial:      Number(formData.get('prof_filial')   || filialAlvo),
     prof_nome:        formData.get('prof_nome')      ?? '',
     vend_id:          Number(formData.get('vend_id')      || 0),
-    vend_filial:      Number(formData.get('vend_filial')   || FILIAL),
+    vend_filial:      Number(formData.get('vend_filial')   || filialAlvo),
     servico_id:       Number(formData.get('servico_id')    || 0),
-    servico_filial:   Number(formData.get('servico_filial') || FILIAL),
+    servico_filial:   Number(formData.get('servico_filial') || filialAlvo),
     servico_nome:     formData.get('servico_nome')   ?? '',
     valor,
     desconto,
@@ -371,5 +463,66 @@ export async function createAgenda(
   if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
 
   revalidatePath('/agenda');
-  return { id: res.id as number };
+
+  const novoId = res.id as number;
+  agendaHub.publish({ tipo: 'AGENDA_ALTERADA', acao: 'INSERT', idAgenda: novoId, filial: filialAlvo, dataAgenda: dataPart });
+
+  return { id: novoId };
+}
+
+// ─── Agendar retorno (equivalente ao "Agendar retorno" do sistema antigo) ────
+
+export interface SugestaoRetorno {
+  dataBase:      string;
+  intervaloDias: number;
+}
+
+/**
+ * Sugere data-base e intervalo de dias para o retorno, com base na regra
+ * cadastrada em PET_CRIAREGRARACAO para o(s) produto(s) da agenda de origem
+ * (mesma fonte usada no legado); se não houver regra, sugere 30 dias.
+ */
+export async function sugerirRetornoAgenda(agendaId: number, filial: number): Promise<SugestaoRetorno> {
+  try {
+    const res = await apiFetch<{ data_base?: string; intervalo_dias?: number; CodStatus?: number }>(
+      `/api/petshop/agenda/retorno-sugestao${qs({ id: agendaId, filial })}`,
+    );
+    return {
+      dataBase:      res.data_base ?? new Date().toISOString().split('T')[0],
+      intervaloDias: res.intervalo_dias ?? 30,
+    };
+  } catch {
+    return { dataBase: new Date().toISOString().split('T')[0], intervaloDias: 30 };
+  }
+}
+
+/**
+ * Cria as agendas de retorno (equivalente ao "Agendar retorno" do legado):
+ * copia cliente/animal/profissional/serviço/produtos da agenda de origem em
+ * "quantidade" novas agendas, espaçadas por "intervaloDias".
+ */
+export async function criarRetornoAgenda(
+  agendaOrigemId: number,
+  filial:         number,
+  quantidade:     number,
+  intervaloDias:  number,
+  dataBase:       string,
+): Promise<{ error?: string; ids?: number[] }> {
+  try {
+    const res = await apiFetch<ApiWrite & { ids?: number[] }>('/api/petshop/agenda/retorno', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: agendaOrigemId,
+        filial,
+        quantidade,
+        intervalo_dias: intervaloDias,
+        data_base: dataBase,
+      }),
+    });
+    if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+    revalidatePath('/agenda');
+    return { ids: res.ids };
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
 }

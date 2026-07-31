@@ -1,14 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, qs, FILIAL } from '@/lib/api';
+import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ApiWrite, Cliente, ClienteResponse } from '@/types/petshop';
 
 export async function buscarClientes(q: string): Promise<Cliente[]> {
   if (!q.trim()) return [];
   try {
     const res = await apiFetch<ClienteResponse>(
-      `/api/petshop/clientes/busca-rapida${qs({ filial: FILIAL, q })}`,
+      `/api/petshop/clientes/busca-rapida${qs({ filial: getFilial(), q })}`,
     );
     return res.dados ?? [];
   } catch {
@@ -27,11 +27,11 @@ export async function createAnimal(
   if (!nome) return { error: 'Nome é obrigatório.' };
 
   const clienteId    = Number(formData.get('cliente_id')    || 0);
-  const filialCliente = Number(formData.get('filial_cliente') || FILIAL);
+  const filialCliente = Number(formData.get('filial_cliente') || getFilial());
   if (!clienteId) return { error: 'Selecione um cliente.' };
 
   const body = {
-    filial:          FILIAL,
+    filial:          getFilial(),
     id_cliente:      clienteId,
     filial_cliente:  filialCliente,
     nome,

@@ -1,14 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, FILIAL } from '@/lib/api';
+import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite, ServicoResponse } from '@/types/petshop';
 import { corServicoCss } from '@/lib/cores';
 
 async function post(endpoint: string, body: Record<string, unknown>): Promise<{ error?: string; id?: number }> {
   let res: ApiWrite;
   try {
-    res = await apiFetch<ApiWrite>(endpoint, { method: 'POST', body: JSON.stringify({ filial: FILIAL, ...body }) });
+    res = await apiFetch<ApiWrite>(endpoint, { method: 'POST', body: JSON.stringify({ filial: getFilial(), ...body }) });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
@@ -19,7 +19,7 @@ async function post(endpoint: string, body: Record<string, unknown>): Promise<{ 
 async function del(endpoint: string, id: number): Promise<{ error?: string }> {
   let res: ApiWrite;
   try {
-    res = await apiFetch<ApiWrite>(endpoint, { method: 'DELETE', body: JSON.stringify({ id, filial: FILIAL }) });
+    res = await apiFetch<ApiWrite>(endpoint, { method: 'DELETE', body: JSON.stringify({ id, filial: getFilial() }) });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
@@ -36,7 +36,7 @@ async function validarServicoDuplicado(
   ignorarId?: number,
 ): Promise<string | null> {
   const res = await apiFetch<ServicoResponse>(
-    `/api/petshop/servicos?filial=${FILIAL}&limit=500`,
+    `/api/petshop/servicos?filial=${getFilial()}&limit=500`,
   ).catch(() => null);
   const descNorm = descricao.trim().toUpperCase();
   const corNorm  = corServicoCss(cor); // normaliza hex/TColor para comparar
@@ -77,7 +77,7 @@ export async function updateServico(id: number, fd: FormData): Promise<{ error?:
   if (dup) return { error: dup };
 
   // Campos vazios são OMITIDOS: o backend usa COALESCE e mantém o valor atual
-  const body: Record<string, unknown> = { id, filial: FILIAL };
+  const body: Record<string, unknown> = { id, filial: getFilial() };
   if (descricao) body.descricao  = descricao;
   if (duracao)   body.duracao    = duracao;
   if (cor)       body.cor_status = cor;
@@ -186,6 +186,64 @@ export async function createMedicamento(_prev: unknown, fd: FormData): Promise<{
     laboratorio: fd.get('laboratorio') ?? '',
     aplicacao:   fd.get('aplicacao')   ?? '',
   });
+  if (!r.error) revalidatePath('/cadastros');
+  return r;
+}
+
+// ── Categoria de Serviço (Raça + Serviço -> Produto automático na Agenda) ──
+
+export interface NovaCategoriaServico {
+  servicoId:      number;
+  descServico:    string;
+  racaId:         number; // 0 = regra genérica, sem raça
+  descRaca:       string;
+  dadosproId:     number;
+  filialDadospro: number;
+  codProd:        string;
+  descPro:        string;
+}
+
+export async function criarCategoriaServico(dados: NovaCategoriaServico): Promise<{ error?: string }> {
+  const r = await post('/api/petshop/categoria-servico', {
+    servico_id:      dados.servicoId,
+    desc_servico:    dados.descServico,
+    raca_id:         dados.racaId || undefined,
+    desc_raca:       dados.descRaca,
+    dadospro_id:     dados.dadosproId,
+    filial_dadospro: dados.filialDadospro,
+    cod_prod:        dados.codProd,
+    desc_pro:        dados.descPro,
+  });
+  if (!r.error) revalidatePath('/cadastros');
+  return r;
+}
+
+export async function atualizarCategoriaServico(
+  id: number,
+  produto: { dadosproId: number; filialDadospro: number; codProd: string; descPro: string },
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/categoria-servico', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id, filial: getFilial(),
+        dadospro_id:     produto.dadosproId,
+        filial_dadospro: produto.filialDadospro,
+        cod_prod:        produto.codProd,
+        desc_pro:        produto.descPro,
+      }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  revalidatePath('/cadastros');
+  return {};
+}
+
+export async function excluirCategoriaServico(id: number): Promise<{ error?: string }> {
+  const r = await del('/api/petshop/categoria-servico', id);
   if (!r.error) revalidatePath('/cadastros');
   return r;
 }

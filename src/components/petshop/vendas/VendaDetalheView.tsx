@@ -11,6 +11,7 @@ import {
   deleteItem,
 } from '@/app/(petshop)/vendas/[id]/actions';
 import { PrevendaDetalhe, PrevendaItem, Produto, STATUS_PREVENDA } from '@/types/petshop';
+import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,10 +91,11 @@ export default function VendaDetalheView({ venda, itens }: Props) {
 
   function handleBuscarProduto(e: React.FormEvent) {
     e.preventDefault();
-    if (!buscaProd.trim()) return;
+    const termos = normalizarTermosBusca(buscaProd);
+    if (termos.length === 0) return;
     startBuscaProd(async () => {
-      const lista = await buscarProdutos(buscaProd);
-      setResultados(lista);
+      const lista = await buscarProdutos(termoPrincipal(termos));
+      setResultados(filtrarProdutosPorTermos(lista, termos, p => p.nome_produto));
     });
   }
 

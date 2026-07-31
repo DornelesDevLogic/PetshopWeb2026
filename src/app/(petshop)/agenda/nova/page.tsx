@@ -1,52 +1,34 @@
-import { apiFetch, qs, FILIAL } from '@/lib/api';
-import {
-  ProfissionalResponse, ServicoResponse,
-  EspecieResponse, RacaResponse, TipoPeloResponse, VendedorResponse,
-} from '@/types/petshop';
+import { getFilial } from '@/lib/api';
 import NovoAgendamentoForm from '@/components/petshop/agenda/NovoAgendamentoForm';
-import { getProximoNumeroAgenda } from '@/app/(petshop)/agenda/nova/actions';
 
 interface Props {
-  searchParams: { data?: string; hora?: string };
+  searchParams: { data?: string; hora?: string; prof_id?: string; filial?: string };
 }
 
-export default async function NovoAgendamentoPage({ searchParams }: Props) {
-  const empty = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
+export default function NovoAgendamentoPage({ searchParams }: Props) {
+  const filialHome = getFilial();
+  // Filial de destino: normalmente a da sessão, mas pode vir na URL quando o
+  // usuário optou por inserir a agenda em outra filial a partir do grid.
+  const filialAlvo = Number(searchParams.filial) || filialHome;
 
-  const [profsRes, servsRes, especiesRes, racasRes, pelosRes, vendsRes, proximoNumero] = await Promise.all([
-    apiFetch<ProfissionalResponse>(
-      `/api/petshop/profissionais${qs({ filial: FILIAL, limit: 100 })}`,
-    ).catch(() => empty),
-    apiFetch<ServicoResponse>(
-      `/api/petshop/servicos${qs({ filial: FILIAL, limit: 200 })}`,
-    ).catch(() => empty),
-    apiFetch<EspecieResponse>(
-      `/api/petshop/especies${qs({ filial: FILIAL, limit: 100 })}`,
-    ).catch(() => empty),
-    apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: FILIAL, limit: 500 })}`,
-    ).catch(() => empty),
-    apiFetch<TipoPeloResponse>(
-      `/api/petshop/tipos-pelo${qs({ filial: FILIAL, limit: 100 })}`,
-    ).catch(() => empty),
-    apiFetch<VendedorResponse>(
-      `/api/petshop/vendedores${qs({ filial: FILIAL, limit: 200 })}`,
-    ).catch(() => empty),
-    getProximoNumeroAgenda(),
-  ]);
-
+  // Carregamento progressivo: o formulário abre imediatamente (sem esperar as
+  // listas do backend). As listas de referência (profissionais, serviços, raças,
+  // etc.) são carregadas em segundo plano pelo próprio form, enquanto o usuário
+  // já começa selecionando o cliente. Ver carregarListasFormAgenda().
   return (
     <NovoAgendamentoForm
-      profissionais={profsRes.dados}
-      servicos={servsRes.dados}
-      especies={especiesRes.dados}
-      racas={racasRes.dados}
-      pelos={pelosRes.dados}
-      vendedores={vendsRes.dados}
+      profissionais={[]}
+      servicos={[]}
+      especies={[]}
+      racas={[]}
+      pelos={[]}
+      vendedores={[]}
       dataInicial={searchParams.data ?? ''}
       horaInicial={searchParams.hora ?? ''}
-      filial={FILIAL}
-      proximoNumero={proximoNumero ?? undefined}
+      profInicial={searchParams.prof_id ? Number(searchParams.prof_id) : undefined}
+      filial={filialAlvo}
+      filialHome={filialHome}
+      carregarListas
     />
   );
 }
