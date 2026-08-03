@@ -73,6 +73,7 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
   const [horaEntrega,  setHoraEntrega]  = useState('');
   const [animal,       setAnimal]       = useState('');
   const [vendedorId,   setVendedorId]   = useState('');
+  const [vendedorFilial, setVendedorFilial] = useState('');
   const [formapgto,    setFormapgto]    = useState('');
   const [condpgto,     setCondpgto]     = useState('');
   const [frete,        setFrete]        = useState('0');
@@ -257,9 +258,9 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
     };
     if (animal) body.animal = animal;
     if (vendedorId) {
-      const vend = vendedores.find(v => String(v.id) === vendedorId);
+      const vend = vendedores.find(v => String(v.id) === vendedorId && String(v.filial) === vendedorFilial);
       body.codvend      = Number(vendedorId);
-      body.vend_filial  = vend?.filial ?? 1;
+      body.vend_filial  = Number(vendedorFilial) || 1;
       body.profissional = vend?.nome ?? '';
     }
     if (dadosObs)     body.dados        = dadosObs;
@@ -728,8 +729,12 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
               Vendedor <span className="text-destructive">*</span>
             </label>
             <select
-              value={vendedorId}
-              onChange={(e) => setVendedorId(e.target.value)}
+              value={vendedorId ? `${vendedorFilial}:${vendedorId}` : ''}
+              onChange={(e) => {
+                const [fil, id] = e.target.value.split(':');
+                setVendedorId(id ?? '');
+                setVendedorFilial(fil ?? '');
+              }}
               className={cn(
                 'w-full h-9 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 ring-primary',
                 !vendedorId ? 'border-destructive/50' : 'border-input',
@@ -737,7 +742,7 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
             >
               <option value="">— Selecione —</option>
               {vendedores.map(v => (
-                <option key={v.id} value={String(v.id)}>{v.nome}</option>
+                <option key={`${v.filial}:${v.id}`} value={`${v.filial}:${v.id}`}>{v.nome}</option>
               ))}
             </select>
           </div>

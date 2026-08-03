@@ -801,7 +801,16 @@ export default function AgendaView({
   // depende dos query params pra decidir o que buscar (ver agenda/nova/page.tsx).
   useEffect(() => {
     router.prefetch('/agenda/nova');
+    router.prefetch('/agenda/lista');
   }, [router]);
+
+  // Botão "Visualização Rápida" — mesmo com o prefetch acima, o clique
+  // precisa reagir na hora (spinner + desabilitado) pra não parecer travado
+  // enquanto a navegação/dados carregam por trás.
+  const [abrindoLista, startAbrirLista] = useTransition();
+  function abrirVisualizacaoRapida() {
+    startAbrirLista(() => router.push('/agenda/lista'));
+  }
 
   // Visualizando filial diferente da padrão do usuário?
   const outraFilial = !!filialHome && filial !== filialHome;
@@ -1252,12 +1261,15 @@ export default function AgendaView({
             Hoje
           </Button>
 
-          <Link href="/agenda/lista" className="block mt-2">
-            <Button variant="outline" size="sm" className="w-full">
-              <List className="h-3.5 w-3.5 mr-1.5" />
-              Visualização Rápida
-            </Button>
-          </Link>
+          <Button
+            variant="outline" size="sm" className="w-full mt-2"
+            onClick={abrirVisualizacaoRapida} disabled={abrindoLista}
+          >
+            {abrindoLista
+              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              : <List className="h-3.5 w-3.5 mr-1.5" />}
+            Visualização Rápida
+          </Button>
 
           {/* ── Controles rápidos — só mobile (no desktop já ficam no cabeçalho) ── */}
           <div className="md:hidden mt-3 space-y-3">
@@ -1589,12 +1601,15 @@ export default function AgendaView({
                   Pré-venda
                 </Button>
               </Link>
-              <Link href="/agenda/lista" className="hidden md:inline-block">
-                <Button variant="outline" size="sm" className="h-8">
-                  <List className="h-3.5 w-3.5 mr-1.5" />
-                  Visualização Rápida
-                </Button>
-              </Link>
+              <Button
+                variant="outline" size="sm" className="h-8 hidden md:inline-flex"
+                onClick={abrirVisualizacaoRapida} disabled={abrindoLista}
+              >
+                {abrindoLista
+                  ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  : <List className="h-3.5 w-3.5 mr-1.5" />}
+                Visualização Rápida
+              </Button>
               <div className="hidden md:inline-block">
                 <GerenciarTecnicosDialog />
               </div>

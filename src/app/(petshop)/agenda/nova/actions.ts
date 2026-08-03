@@ -32,7 +32,7 @@ export async function carregarListasFormAgenda(filialParam?: number): Promise<Li
     apiFetch<ProfissionalResponse>(`/api/petshop/profissionais${qs({ filial, limit: 500 })}`).catch(() => empty),
     apiFetch<ServicoResponse>(`/api/petshop/servicos${qs({ filial, limit: 200 })}`).catch(() => empty),
     apiFetch<EspecieResponse>(`/api/petshop/especies${qs({ filial, limit: 100 })}`).catch(() => empty),
-    apiFetch<RacaResponse>(`/api/petshop/racas${qs({ filial, limit: 500 })}`).catch(() => empty),
+    apiFetch<RacaResponse>(`/api/petshop/racas${qs({ filial, limit: 3000 })}`).catch(() => empty),
     apiFetch<TipoPeloResponse>(`/api/petshop/tipos-pelo${qs({ filial, limit: 100 })}`).catch(() => empty),
     apiFetch<VendedorResponse>(`/api/petshop/vendedores${qs({ filial, limit: 200 })}`).catch(() => empty),
     getProximoNumeroAgenda(filial),

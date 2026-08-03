@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { apiFetch, qs, getFilial } from '@/lib/api';
 import { AgendaResponse, ProfissionalResponse, ServicoResponse } from '@/types/petshop';
 import AgendaListaView, { Filtros } from '@/components/petshop/agenda/AgendaListaView';
+import AgendaListaSkeleton from '@/components/petshop/agenda/AgendaListaSkeleton';
 import { getUsuarioLogado } from '@/lib/session';
 
 interface Props {
@@ -25,7 +27,19 @@ function addDias(base: Date, n: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export default async function AgendaListaPage({ searchParams }: Props) {
+// Página síncrona (sem await no topo): o cabeçalho e o esqueleto dos
+// filtros/tabela aparecem na hora do clique em "Visualização Rápida" — os
+// dados (agenda + profissionais + serviços) só bloqueiam o conteúdo interno,
+// dentro do Suspense, não a navegação em si.
+export default function AgendaListaPage({ searchParams }: Props) {
+  return (
+    <Suspense fallback={<AgendaListaSkeleton />}>
+      <AgendaListaContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function AgendaListaContent({ searchParams }: Props) {
   const hoje = new Date();
   const dataDe  = searchParams.data_de  ?? addDias(hoje, 0);
   const dataAte = searchParams.data_ate ?? addDias(hoje, 0);

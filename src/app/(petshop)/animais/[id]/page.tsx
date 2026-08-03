@@ -35,7 +35,7 @@ export default async function AnimalDetalhePage({ params }: Props) {
     ).catch(() => empty),
 
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 3000 })}`,
     ).catch(() => empty),
 
     apiFetch<TipoPeloResponse>(

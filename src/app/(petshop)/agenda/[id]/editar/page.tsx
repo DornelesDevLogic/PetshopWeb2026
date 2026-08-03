@@ -37,7 +37,7 @@ export default async function EditarAgendaPage({ params }: Props) {
       `/api/petshop/especies${qs({ filial: getFilial(), limit: 100 })}`,
     ).catch(() => empty),
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 3000 })}`,
     ).catch(() => empty),
     apiFetch<TipoPeloResponse>(
       `/api/petshop/tipos-pelo${qs({ filial: getFilial(), limit: 100 })}`,

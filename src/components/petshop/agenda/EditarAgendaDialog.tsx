@@ -55,9 +55,9 @@ export default function EditarAgendaDialog({
 
   function handleVendChange(val: string | null) {
     if (!val) return;
-    const v = vendedores.find(x => String(x.id) === val);
-    setVendId(val);
-    setVendFil(String(v?.filial ?? item.filial));
+    const [fil, id] = val.split(':');
+    setVendId(id ?? '');
+    setVendFil(fil ?? String(item.filial));
   }
 
   function handleSalvar() {
@@ -105,13 +105,13 @@ export default function EditarAgendaDialog({
           {/* Vendedor */}
           <div className="space-y-1.5">
             <Label>Vendedor</Label>
-            <Select value={vendId} onValueChange={handleVendChange}>
+            <Select value={vendId ? `${vendFil}:${vendId}` : ''} onValueChange={handleVendChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o vendedor" />
               </SelectTrigger>
               <SelectContent>
                 {vendedores.map(v => (
-                  <SelectItem key={v.id} value={String(v.id)}>{v.nome}</SelectItem>
+                  <SelectItem key={`${v.filial}:${v.id}`} value={`${v.filial}:${v.id}`}>{v.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -1640,12 +1640,15 @@ export default function NovoAgendamentoForm({
               Vendedor <span className="text-destructive">*</span>
             </Label>
             <Select
-              value={vendId}
+              // Vendedores agora vêm de todas as filiais — o código (id)
+              // pode se repetir entre filiais diferentes, então o valor do
+              // Select precisa ser a combinação filial:id pra não colidir.
+              value={vendId ? `${vendFilial || filial}:${vendId}` : ''}
               onValueChange={(v) => {
                 if (!v) return;
-                const vend = vendedores.find((vd) => String(vd.id) === v);
-                setVendId(v);
-                setVendFilial(String(vend?.filial ?? filial));
+                const [filStr, idStr] = v.split(':');
+                setVendId(idStr);
+                setVendFilial(filStr);
               }}
             >
               <SelectTrigger className={!vendId ? 'border-destructive/50' : ''}>
@@ -1653,7 +1656,7 @@ export default function NovoAgendamentoForm({
               </SelectTrigger>
               <SelectContent>
                 {vendedores.map((vd) => (
-                  <SelectItem key={vd.id} value={String(vd.id)}>
+                  <SelectItem key={`${vd.filial}:${vd.id}`} value={`${vd.filial}:${vd.id}`}>
                     {vd.nome.trim()}
                   </SelectItem>
                 ))}

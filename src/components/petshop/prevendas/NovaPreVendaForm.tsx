@@ -71,6 +71,7 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
 
   // Dados gerais (sem profissional / tipo de serviço / horário — não aplicáveis à pré-venda)
   const [vendedorId, setVendedorId] = useState('');
+  const [vendedorFilial, setVendedorFilial] = useState('');
   const [dataEntrega, setDataEntrega] = useState('');
   const [pzEntrega, setPzEntrega] = useState('');
   const [formapgto, setFormapgto] = useState('');
@@ -213,9 +214,9 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
         desconto:     totalDesc,
         valor_frete:  0,
         animal:       nomeAnimalTexto,
-        profissional: vendedores.find(v => String(v.id) === vendedorId)?.nome ?? '',
+        profissional: vendedores.find(v => String(v.id) === vendedorId && String(v.filial) === vendedorFilial)?.nome ?? '',
         codvend:      Number(vendedorId) || undefined,
-        vend_filial:  vendedores.find(v => String(v.id) === vendedorId)?.filial,
+        vend_filial:  Number(vendedorFilial) || undefined,
         data_entrega: dataEntrega,
         pz_entrega:   pzEntrega,
         formapgto, condpgto, frete, dados,
@@ -559,8 +560,14 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
               Vendedor <span className="text-destructive">*</span>
             </label>
             <select
-              value={vendedorId}
-              onChange={e => setVendedorId(e.target.value)}
+              // Vendedores vêm de todas as filiais — o código pode se repetir
+              // entre filiais diferentes, então o valor precisa ser filial:id.
+              value={vendedorId ? `${vendedorFilial}:${vendedorId}` : ''}
+              onChange={e => {
+                const [fil, id] = e.target.value.split(':');
+                setVendedorId(id ?? '');
+                setVendedorFilial(fil ?? '');
+              }}
               className={cn(
                 'w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary',
                 !vendedorId ? 'border-destructive/50' : '',
@@ -568,7 +575,7 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
             >
               <option value="">— Selecione —</option>
               {vendedores.map(v => (
-                <option key={v.id} value={String(v.id)}>{v.nome}</option>
+                <option key={`${v.filial}:${v.id}`} value={`${v.filial}:${v.id}`}>{v.nome}</option>
               ))}
             </select>
           </div>

@@ -34,7 +34,7 @@ export default async function ClienteDetalhePage({ params }: Props) {
     ).catch(() => empty),
 
     apiFetch<RacaResponse>(
-      `/api/petshop/racas${qs({ filial: getFilial(), limit: 500 })}`,
+      `/api/petshop/racas${qs({ filial: getFilial(), limit: 3000 })}`,
     ).catch(() => empty),
 
     apiFetch<TipoPeloResponse>(

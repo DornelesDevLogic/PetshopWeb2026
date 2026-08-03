@@ -128,7 +128,10 @@ export default function NovoAnimalDialog({
 
   const especieSel     = especies.find((e) => String(e.id) === idEspecie);
   const peloSel        = pelos.find((p) => String(p.id) === idPelo);
-  const racasFiltradas = idEspecie ? racas.filter((r) => String(r.id_especie) === idEspecie) : racas;
+  // Lista completa, sem filtrar por espécie — muitas raças do cadastro
+  // legado não têm espécie definida (ex.: variações de "SRD"), então
+  // filtrar por espécie escondia opções válidas.
+  const racasFiltradas = racas;
   const racasFiltBusca = racasFiltradas.filter((r) => r.descricao.toLowerCase().includes(racaBusca.toLowerCase()));
   const pelosFiltrados = idEspecie
     ? pelos.filter((p) => p.id_especie === 0 || String(p.id_especie) === idEspecie)
