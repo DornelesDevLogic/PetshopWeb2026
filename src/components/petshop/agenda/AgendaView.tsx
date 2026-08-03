@@ -330,6 +330,7 @@ function CardAgendamento({ item, corServico, isDragging, onDragStart, onDragEnd,
           <img
             src={`/api/petshop/animais/${item.animal_id}/foto`}
             alt=""
+            loading="lazy"
             className="h-6 w-6 rounded-full object-cover shrink-0 border border-white/80 shadow-sm"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
@@ -362,6 +363,7 @@ function CardAgendamento({ item, corServico, isDragging, onDragStart, onDragEnd,
             <img
               src={`/api/petshop/animais/${item.animal_id}/foto`}
               alt=""
+              loading="lazy"
               className="h-10 w-10 rounded-full object-cover shrink-0 border-2 border-white shadow-sm"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />

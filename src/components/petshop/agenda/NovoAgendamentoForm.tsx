@@ -877,7 +877,10 @@ export default function NovoAgendamentoForm({
     const servicoIdNum = Number(val) || 0;
     if (servicoIdNum > 0) {
       buscarProdutoPorCategoria(animalSel?.id_raca ?? 0, servicoIdNum).then((produtoAuto) => {
-        if (produtoAuto && produtoAuto.preco > 0) {
+        // Antes exigia preco > 0 pra inserir — se o produto da regra estiver
+        // com preco zerado/nao cadastrado naquela filial, a insercao
+        // automatica falhava silenciosamente mesmo com a regra encontrada.
+        if (produtoAuto) {
           setProdutos((prev) => [...prev, { ...produtoAuto, qtd: 1, valor: produtoAuto.preco, desconto: 0 }]);
         }
       });
