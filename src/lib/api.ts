@@ -47,6 +47,39 @@ export function getFilial(): number {
 const LOG_TUDO = process.env.LOG_API === '1';
 const LOG_DIR  = path.join(process.cwd(), 'logs');
 
+/**
+ * Cache compartilhado (em memória do processo Next.js) para dados de
+ * referência do backend Delphi — profissionais, serviços, vendedores,
+ * filiais etc. Esses dados são iguais para TODOS os usuários do mesmo
+ * tenant e mudam raramente, mas antes eram buscados a cada abertura da
+ * Agenda por CADA usuário — com vários usuários simultâneos isso sozinho
+ * já estourava o rate limit do backend (era o maior volume no log de
+ * produção). Ganho: N usuários abrindo a Agenda juntos → 1 requisição
+ * real ao backend por minuto, não N.
+ *
+ * Chave = URL completa (já inclui o backend do tenant, então não mistura
+ * dados entre clientes). `emVoo` evita "stampede": se várias requisições
+ * chegarem juntas com o cache vazio/expirado, só a primeira vai ao
+ * backend — as demais aguardam o mesmo resultado.
+ */
+const TTL_CACHE_REFERENCIA_MS = 60_000;
+const PREFIXOS_CACHEAVEIS = [
+  '/api/petshop/profissionais',
+  '/api/petshop/servicos',
+  '/api/petshop/vendedores',
+  '/api/petshop/filiais',
+  '/api/petshop/especies',
+  '/api/petshop/racas',
+  '/api/petshop/tipos-pelo',
+];
+const cacheReferencia = new Map<string, { data: unknown; expira: number }>();
+const emVoo = new Map<string, Promise<unknown>>();
+
+function ehCacheavel(path_: string, metodo: string): boolean {
+  if (metodo !== 'GET') return false;
+  return PREFIXOS_CACHEAVEIS.some((p) => path_.startsWith(p));
+}
+
 function logLinha(nivel: 'INFO' | 'ERRO', msg: string) {
   try {
     mkdirSync(LOG_DIR, { recursive: true });
@@ -92,6 +125,28 @@ export async function apiFetch<T>(path_: string, init?: RequestInit): Promise<T>
   const base   = getBackendUrl();
   const url    = `${base}${path_}`;
   const metodo = init?.method ?? 'GET';
+  const cacheavel = ehCacheavel(path_, metodo);
+
+  if (cacheavel) {
+    const cache = cacheReferencia.get(url);
+    if (cache && cache.expira > Date.now()) return cache.data as T;
+
+    const pendente = emVoo.get(url);
+    if (pendente) return pendente as Promise<T>;
+  }
+
+  const promessa = apiFetchSemCache<T>(url, path_, metodo, init);
+  if (cacheavel) {
+    emVoo.set(url, promessa);
+    promessa
+      .then((json) => cacheReferencia.set(url, { data: json, expira: Date.now() + TTL_CACHE_REFERENCIA_MS }))
+      .catch(() => {})
+      .finally(() => emVoo.delete(url));
+  }
+  return promessa;
+}
+
+async function apiFetchSemCache<T>(url: string, path_: string, metodo: string, init?: RequestInit): Promise<T> {
   const inicio = Date.now();
   const usandoSessaoPessoal = !!getSessaoAtiva()?.token;
 
