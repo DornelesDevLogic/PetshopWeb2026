@@ -56,18 +56,28 @@ interface Props {
   supervisor: boolean;
   user:       { codigo: number; nome: string; tipo: string; empresa: number } | null;
   logoutAction: () => Promise<void>;
-  backendVersion?: string;
 }
 
 const TIPO_LABEL: Record<string, string> = {
   S: 'Supervisor', G: 'Gerente', F: 'Ger. Especial', O: 'Operador',
 };
 
-export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction, backendVersion }: Props) {
+export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction }: Props) {
   const pathname  = usePathname();
   const [open, setOpen] = useState(true);
   const todos = supervisor ? [...links, linkConfig] : links;
   const [relatoriosAberto, setRelatoriosAberto] = useState(pathname.startsWith('/relatorios'));
+
+  // Buscada pelo cliente, depois que a tela já apareceu — é só cosmético
+  // (versão da API no rodapé do menu) e não deve atrasar a primeira
+  // renderização de nenhuma tela do sistema.
+  const [backendVersion, setBackendVersion] = useState('');
+  useEffect(() => {
+    fetch('/api/backend-version')
+      .then((r) => r.json())
+      .then((d: { versao?: string }) => setBackendVersion(d.versao ?? ''))
+      .catch(() => {});
+  }, []);
 
   // Se navegar para dentro de Relatórios por outro caminho (ex: link direto), expande sozinho.
   useEffect(() => {

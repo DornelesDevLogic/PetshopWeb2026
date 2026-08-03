@@ -1,7 +1,7 @@
 import CollapsibleSidebar from '@/components/petshop/sidebar/CollapsibleSidebar';
 import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
 import { logout } from '@/app/login/actions';
-import { getFilial, apiFetch } from '@/lib/api';
+import { getFilial } from '@/lib/api';
 import { cookies } from 'next/headers';
 
 interface UserInfo {
@@ -23,18 +23,8 @@ function getUser(): UserInfo | null {
   }
 }
 
-async function getBackendVersion(): Promise<string> {
-  try {
-    const data = await apiFetch<{ versao?: string }>('/api/petshop/status');
-    return data.versao ?? '';
-  } catch {
-    return '';
-  }
-}
-
-export default async function PetShopLayout({ children }: { children: React.ReactNode }) {
-  const user           = getUser();
-  const backendVersion = await getBackendVersion();
+export default function PetShopLayout({ children }: { children: React.ReactNode }) {
+  const user = getUser();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -46,7 +36,6 @@ export default async function PetShopLayout({ children }: { children: React.Reac
         supervisor={user?.tipo === 'S'}
         user={user}
         logoutAction={logout}
-        backendVersion={backendVersion}
       />
 
       {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
