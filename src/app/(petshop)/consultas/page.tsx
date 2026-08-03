@@ -15,7 +15,9 @@ interface SearchParams {
 
 export default async function ConsultasPage({ searchParams }: { searchParams: SearchParams }) {
   const hoje = new Date().toISOString().split('T')[0];
-  const dataDe      = searchParams.data_de      || hoje;
+  const semanaAtras = new Date();
+  semanaAtras.setDate(semanaAtras.getDate() - 6);
+  const dataDe      = searchParams.data_de      || semanaAtras.toISOString().split('T')[0];
   const dataAte     = searchParams.data_ate     || hoje;
   const status      = searchParams.status       || '';
   const profId      = searchParams.prof_id      || '';
