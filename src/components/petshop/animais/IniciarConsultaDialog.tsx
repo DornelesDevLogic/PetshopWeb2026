@@ -88,19 +88,22 @@ export default function IniciarConsultaDialog({
         {/* Corpo */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, já com os itens abaixo lançados —
-            prontos para faturar no Frente de Caixa.
+            {estimativas.length > 0
+              ? <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, já com os itens abaixo lançados — prontos para faturar no Frente de Caixa.</>
+              : <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, sem produtos pré-lançados — você pode adicionar durante o atendimento.</>}
           </p>
 
-          <div className="rounded-lg border divide-y">
-            {estimativas.map((e) => (
-              <div key={e.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-                <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="flex-1 truncate">{e.produto}</span>
-                <span className="text-xs text-muted-foreground shrink-0">qtd {e.qtd}</span>
-              </div>
-            ))}
-          </div>
+          {estimativas.length > 0 && (
+            <div className="rounded-lg border divide-y">
+              {estimativas.map((e) => (
+                <div key={e.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate">{e.produto}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">qtd {e.qtd}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Veterinário *</Label>

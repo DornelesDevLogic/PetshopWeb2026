@@ -446,7 +446,21 @@ export default function ConsultaDetalheView({
               <Stethoscope className="h-5 w-5 text-primary" />
               Consulta #{consulta.id}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{fmtData(consulta.data)}</p>
+            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              {fmtData(consulta.data)}
+              {consulta.agenda_id > 0 && (
+                <>
+                  <span>·</span>
+                  <Link
+                    href={`/agenda/${consulta.agenda_id}`}
+                    target="_blank"
+                    className="text-primary hover:underline"
+                  >
+                    Agenda #{consulta.agenda_id}
+                  </Link>
+                </>
+              )}
+            </p>
           </div>
         </div>
 

@@ -40,7 +40,8 @@ export async function criarConsultaDeEstimativas(
   if (!dados.animalId)  return { error: 'Animal inválido.' };
   if (!dados.vetId)     return { error: 'Selecione o veterinário.' };
   if (!dados.servicoId) return { error: 'Selecione o serviço.' };
-  if (dados.itens.length === 0) return { error: 'Selecione ao menos um item.' };
+  // itens vazio é permitido — o veterinário pode iniciar a consulta sem
+  // nenhuma estimativa selecionada e lançar produtos manualmente depois.
 
   const filial = getFilial();
 

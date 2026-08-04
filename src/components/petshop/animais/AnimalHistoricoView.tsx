@@ -499,9 +499,19 @@ export default function AnimalHistoricoView({
 
         {/* ── Aba: Estimativas ── */}
         {tab === 'estimativas' && (
-          estimativasFilt.length === 0
-            ? <EmptyState icon={<BellRing className="h-8 w-8 opacity-30" />} msg="Nenhuma estimativa registrada." />
-            : (
+          <div>
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-muted/10">
+              <p className="text-xs text-muted-foreground">
+                Selecione itens abaixo pra já lançar na consulta, ou inicie sem nenhum selecionado.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setIniciarConsultaAberto(true)}>
+                <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+                Iniciar Consulta
+              </Button>
+            </div>
+            {estimativasFilt.length === 0
+              ? <EmptyState icon={<BellRing className="h-8 w-8 opacity-30" />} msg="Nenhuma estimativa registrada." />
+              : (
               <div className="divide-y">
                 {estimativasFilt.map((e) => {
                   const st = ESTIMATIVA_STATUS[e.status] ?? { label: String(e.status), cls: 'bg-muted text-muted-foreground' };
@@ -533,7 +543,8 @@ export default function AnimalHistoricoView({
                   );
                 })}
               </div>
-            )
+              )}
+          </div>
         )}
 
       </div>
