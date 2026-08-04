@@ -4,51 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import {
-  PawPrint, LogOut, UserCircle2,
-  Home, CalendarDays, Users, Stethoscope, Wallet,
-  BarChart3, Settings, BellRing, SlidersHorizontal, Package,
-  Truck, ClipboardList, ChevronLeft, ChevronDown, ChevronRight, LayoutDashboard, Menu,
-  Sparkles, Loader2,
-} from 'lucide-react';
+import { PawPrint, LogOut, UserCircle2, SlidersHorizontal, ChevronLeft, ChevronDown, ChevronRight, Menu, Loader2 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
 
-interface SubmenuItem { href: string; label: string; }
+const links = NAV_ITEMS;
 
-const RELATORIOS_SUBMENU: SubmenuItem[] = [
-  { href: '/relatorios/comissoes',            label: 'Comissões' },
-  { href: '/relatorios/comissao-profissional', label: 'Comissão por Profissional' },
-  { href: '/relatorios/vendas-secao',         label: 'Vendas por Seção' },
-  { href: '/relatorios/atendimentos',         label: 'Agendas / Atendimentos' },
-  { href: '/relatorios/espelho-cupons',       label: 'Espelho de Cupons' },
-  { href: '/relatorios/vales',                label: 'Vales de Clientes' },
-];
-
-interface NavLink {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  submenu?: SubmenuItem[];
-}
-
-const links: NavLink[] = [
-  { href: '/home',          label: 'Início',        icon: Home          },
-  { href: '/agenda',        label: 'Agenda',        icon: CalendarDays  },
-  { href: '/clientes',      label: 'Clientes',      icon: Users         },
-  { href: '/animais',       label: 'Animais',       icon: PawPrint      },
-  { href: '/consultas',     label: 'Consultas',     icon: Stethoscope   },
-  { href: '/estimativas',   label: 'Estimativas',   icon: BellRing      },
-  { href: '/tele-entregas', label: 'Tele-entregas', icon: Truck         },
-  { href: '/prevendas',     label: 'Pré-vendas',    icon: ClipboardList },
-  { href: '/produtos',      label: 'Produtos',      icon: Package       },
-  { href: '/financeiro',    label: 'Financeiro',    icon: Wallet        },
-  { href: '/relatorios',    label: 'Relatórios',    icon: BarChart3, submenu: RELATORIOS_SUBMENU },
-  { href: '/dashboards',    label: 'Dashboards',    icon: LayoutDashboard },
-  { href: '/cadastros',     label: 'Cadastros',     icon: Settings      },
-  { href: '/sobre',         label: 'Sobre',         icon: Sparkles      },
-];
-
-const linkConfig: NavLink = { href: '/configuracoes', label: 'Configurações', icon: SlidersHorizontal };
+const linkConfig: NavItem = { href: '/configuracoes', label: 'Configurações', icon: SlidersHorizontal };
 
 interface Props {
   filial:     number;

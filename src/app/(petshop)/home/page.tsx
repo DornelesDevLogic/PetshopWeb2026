@@ -3,7 +3,9 @@ import Link from 'next/link';
 import HojeSection from '@/components/petshop/home/HojeSection';
 import AltoGiroSection from '@/components/petshop/home/AltoGiroSection';
 import EstoqueBaixoSection from '@/components/petshop/home/EstoqueBaixoSection';
+import AcessosRapidos from '@/components/petshop/home/AcessosRapidos';
 import { KpisSkeleton, ListaSkeleton } from '@/components/petshop/home/HomeSkeletons';
+import { obterAcessosRapidos } from '@/lib/acessos-rapidos';
 import { Home as HomeIcon, TrendingUp, PackageX } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +19,8 @@ function fmtDataHoje(): string {
 // Suspense — a mais rápida (hoje) aparece primeiro, sem esperar a mais pesada
 // (alto giro, que faz UNION em 3 tabelas de movimento).
 export default function HomePage() {
+  const acessosRapidos = obterAcessosRapidos(4);
+
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-5">
       <div className="flex items-center gap-2">
@@ -26,6 +30,8 @@ export default function HomePage() {
           <p className="text-sm text-muted-foreground capitalize">{fmtDataHoje()}</p>
         </div>
       </div>
+
+      <AcessosRapidos itens={acessosRapidos} />
 
       <Suspense fallback={<KpisSkeleton />}>
         <HojeSection />

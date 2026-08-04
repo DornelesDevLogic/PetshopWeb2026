@@ -1,5 +1,6 @@
 import CollapsibleSidebar from '@/components/petshop/sidebar/CollapsibleSidebar';
 import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
+import AcessoTracker from '@/components/petshop/AcessoTracker';
 import { logout } from '@/app/login/actions';
 import { getFilial } from '@/lib/api';
 import { cookies } from 'next/headers';
@@ -28,6 +29,7 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <AcessoTracker />
 
       {/* ── Sidebar colapsável (desktop) ──────────────────────────────────── */}
       <CollapsibleSidebar
