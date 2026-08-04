@@ -44,10 +44,20 @@ export default function NavLinks({ supervisor }: Props) {
 
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {todos.map(({ href, label, icon: Icon, submenu }) => {
+      {todos.map(({ href, label, icon: Icon, submenu, grupo }, i) => {
+        const mostraDivisor = grupo && grupo !== todos[i - 1]?.grupo;
+        const divisor = mostraDivisor && (
+          <div className="px-3 pt-3 pb-1">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {grupo}
+            </span>
+          </div>
+        );
+
         if (submenu) {
           return (
             <div key={href}>
+              {divisor}
               <button
                 type="button"
                 onClick={(e) => {
@@ -57,7 +67,7 @@ export default function NavLinks({ supervisor }: Props) {
                   setRelatoriosAberto((v) => !v);
                 }}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
                   pathname.startsWith(href)
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -78,7 +88,7 @@ export default function NavLinks({ supervisor }: Props) {
                         key={s.href}
                         href={s.href}
                         className={cn(
-                          'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors truncate',
+                          'rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors truncate',
                           subAtivo
                             ? 'bg-primary text-primary-foreground'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -97,23 +107,25 @@ export default function NavLinks({ supervisor }: Props) {
         const active = pathname.startsWith(href);
         const carregando = pendingHref === href;
         return (
-          <button
-            key={href}
-            type="button"
-            onClick={() => navegar(href)}
-            className={cn(
-              'w-full',
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-            )}
-          >
-            {carregando
-              ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              : <Icon className="h-4 w-4 shrink-0" />}
-            {label}
-          </button>
+          <div key={href}>
+            {divisor}
+            <button
+              type="button"
+              onClick={() => navegar(href)}
+              className={cn(
+                'w-full',
+                'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                active
+                  ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white shadow-[0_6px_16px_-6px_rgba(79,70,229,0.55)]'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              )}
+            >
+              {carregando
+                ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                : <Icon className="h-4 w-4 shrink-0" />}
+              {label}
+            </button>
+          </div>
         );
       })}
     </nav>

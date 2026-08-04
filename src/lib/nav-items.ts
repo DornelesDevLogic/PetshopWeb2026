@@ -11,6 +11,8 @@ export interface NavItem {
   label: string;
   icon: ComponentType<{ className?: string }>;
   submenu?: SubmenuItem[];
+  /** Agrupamento visual no menu lateral — vira o separador com o nome do grupo. */
+  grupo?: string;
 }
 
 const RELATORIOS_SUBMENU: SubmenuItem[] = [
@@ -28,16 +30,16 @@ const RELATORIOS_SUBMENU: SubmenuItem[] = [
 export const NAV_ITEMS: NavItem[] = [
   { href: '/home',          label: 'Início',        icon: Home          },
   { href: '/agenda',        label: 'Agenda',        icon: CalendarDays  },
-  { href: '/clientes',      label: 'Clientes',      icon: Users         },
+  { href: '/clientes',      label: 'Clientes',      icon: Users,         grupo: 'Comercial' },
   { href: '/animais',       label: 'Animais',       icon: PawPrint      },
   { href: '/consultas',     label: 'Consultas',     icon: Stethoscope   },
   { href: '/estimativas',   label: 'Estimativas',   icon: BellRing      },
   { href: '/tele-entregas', label: 'Tele-entregas', icon: Truck         },
   { href: '/prevendas',     label: 'Pré-vendas',    icon: ClipboardList },
   { href: '/produtos',      label: 'Produtos',      icon: Package       },
-  { href: '/financeiro',    label: 'Financeiro',    icon: Wallet        },
-  { href: '/relatorios',    label: 'Relatórios',    icon: BarChart3, submenu: RELATORIOS_SUBMENU },
+  { href: '/financeiro',    label: 'Financeiro',    icon: Wallet,        grupo: 'Financeiro' },
+  { href: '/relatorios',    label: 'Relatórios',    icon: BarChart3, submenu: RELATORIOS_SUBMENU, grupo: 'Relatórios' },
   { href: '/dashboards',    label: 'Dashboards',    icon: LayoutDashboard },
-  { href: '/cadastros',     label: 'Cadastros',     icon: Settings      },
+  { href: '/cadastros',     label: 'Cadastros',     icon: Settings,      grupo: 'Cadastros' },
   { href: '/sobre',         label: 'Sobre',         icon: Sparkles      },
 ];

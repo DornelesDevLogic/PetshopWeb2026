@@ -88,7 +88,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r bg-background relative',
+        'hidden md:flex flex-col border-r border-border/70 bg-background/80 backdrop-blur-xl relative',
         'transition-[width] duration-300 ease-in-out overflow-hidden',
         'w-56',
       )}
@@ -122,12 +122,26 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
         open ? 'px-3' : 'px-2',
       )}>
         <div className="flex flex-col gap-1">
-          {todos.map(({ href, label, icon: Icon, submenu }) => {
+          {todos.map(({ href, label, icon: Icon, submenu, grupo }, i) => {
             const active = pathname.startsWith(href) && (!submenu || pathname === href);
+            const mostraDivisor = grupo && grupo !== todos[i - 1]?.grupo;
+
+            const divisor = mostraDivisor && (
+              <div className={cn('px-3 pt-3 pb-1', !open && 'text-center')}>
+                {open ? (
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {grupo}
+                  </span>
+                ) : (
+                  <div className="h-px bg-border mx-1" />
+                )}
+              </div>
+            );
 
             if (submenu) {
               return (
                 <div key={href}>
+                  {divisor}
                   <button
                     type="button"
                     onClick={() => {
@@ -136,7 +150,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
                     }}
                     title={!open ? label : undefined}
                     className={cn(
-                      'flex w-full items-center rounded-md text-sm font-medium transition-colors',
+                      'flex w-full items-center rounded-xl text-sm font-medium transition-colors',
                       'overflow-hidden whitespace-nowrap',
                       open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
                       pathname.startsWith(href)
@@ -164,7 +178,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
                             key={s.href}
                             href={s.href}
                             className={cn(
-                              'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors truncate',
+                              'rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors truncate',
                               subAtivo
                                 ? 'bg-primary text-primary-foreground'
                                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -182,31 +196,33 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
 
             const carregando = pendingHref === href;
             return (
-              <button
-                key={href}
-                type="button"
-                title={!open ? label : undefined}
-                onClick={() => navegar(href)}
-                className={cn(
-                  'w-full',
-                  'flex items-center rounded-md text-sm font-medium transition-colors',
-                  'overflow-hidden whitespace-nowrap',
-                  open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
-                  active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                {carregando
-                  ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                  : <Icon className="h-4 w-4 shrink-0" />}
-                <span className={cn(
-                  'transition-all duration-300 overflow-hidden',
-                  open ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0',
-                )}>
-                  {label}
-                </span>
-              </button>
+              <div key={href}>
+                {divisor}
+                <button
+                  type="button"
+                  title={!open ? label : undefined}
+                  onClick={() => navegar(href)}
+                  className={cn(
+                    'w-full',
+                    'flex items-center rounded-xl text-sm font-medium transition-all',
+                    'overflow-hidden whitespace-nowrap',
+                    open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
+                    active
+                      ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white shadow-[0_6px_16px_-6px_rgba(79,70,229,0.55)]'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  )}
+                >
+                  {carregando
+                    ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    : <Icon className="h-4 w-4 shrink-0" />}
+                  <span className={cn(
+                    'transition-all duration-300 overflow-hidden',
+                    open ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0',
+                  )}>
+                    {label}
+                  </span>
+                </button>
+              </div>
             );
           })}
         </div>
