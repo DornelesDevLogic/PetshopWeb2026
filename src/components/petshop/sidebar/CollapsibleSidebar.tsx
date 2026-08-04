@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -72,14 +72,16 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
   // Feedback imediato no clique: páginas mais pesadas (ex: Dashboards) demoram
   // pra carregar, e sem isso o clique parece "não fazer nada" até o conteúdo
   // aparecer. `pendingHref` marca qual item mostra o spinner enquanto navega.
-  const [isPending, startTransition] = useTransition();
+  // Importante: NÃO envolver o router.push em useTransition aqui — isso faz
+  // o React suprimir o loading.tsx da página de destino (tela fica em branco
+  // em vez de mostrar o "Carregando..."), já confirmado ao vivo em produção.
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   function navegar(href: string) {
     if (href === pathname) return;
     setPendingHref(href);
-    startTransition(() => router.push(href));
+    router.push(href);
   }
-  useEffect(() => { if (!isPending) setPendingHref(null); }, [isPending]);
+  useEffect(() => { setPendingHref(null); }, [pathname]);
 
   // Buscada pelo cliente, depois que a tela já apareceu — é só cosmético
   // (versão da API no rodapé do menu) e não deve atrasar a primeira

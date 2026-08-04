@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -82,14 +82,16 @@ export default function NavLinks({ supervisor }: Props) {
   // Mesmo o drawer fechando na hora, a tela pode ficar alguns segundos sem
   // reação nenhuma até a próxima página (ex: Dashboards) carregar — o spinner
   // fica visível no instante entre o clique e o drawer fechar.
-  const [isPending, startTransition] = useTransition();
+  // Importante: NÃO envolver o router.push em useTransition aqui — isso faz
+  // o React suprimir o loading.tsx da página de destino (tela fica em branco
+  // em vez de mostrar o "Carregando..."), já confirmado ao vivo em produção.
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   function navegar(href: string) {
     if (href === pathname) return;
     setPendingHref(href);
-    startTransition(() => router.push(href));
+    router.push(href);
   }
-  useEffect(() => { if (!isPending) setPendingHref(null); }, [isPending]);
+  useEffect(() => { setPendingHref(null); }, [pathname]);
 
   return (
     <nav className="flex flex-col gap-1 px-3">
