@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   Sparkles,
+  LayoutDashboard,
 } from 'lucide-react';
 
 interface SubmenuItem { href: string; label: string; }
@@ -53,6 +54,7 @@ const links: NavLink[] = [
   { href: '/produtos',       label: 'Produtos',       icon: Package },
   { href: '/financeiro', label: 'Financeiro',  icon: Wallet },
   { href: '/relatorios', label: 'Relatórios',  icon: BarChart3, submenu: RELATORIOS_SUBMENU },
+  { href: '/dashboards', label: 'Dashboards',  icon: LayoutDashboard },
   { href: '/cadastros',  label: 'Cadastros',   icon: Settings },
   { href: '/sobre',      label: 'Sobre',       icon: Sparkles },
 ];
