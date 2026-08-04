@@ -33,6 +33,10 @@ import {
 } from '@/app/(petshop)/agenda/nova/actions';
 import { excluirItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
 import {
+  verificarRegrasProdutos, criarEstimativa,
+  type RegraProduto,
+} from '@/app/(petshop)/estimativas/actions';
+import {
   GRUPOS_ANAMNESE,
   gruposVisiveis,
   AnamneseField,
@@ -65,6 +69,7 @@ import {
   Search,
   X,
   MessageCircle,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -185,6 +190,9 @@ export default function ConsultaDetalheView({
   const [proQtd, setProQtd]                = useState('1');
   const [salvandoItem, setSalvandoItem]    = useState(false);
   const [erroItem, setErroItem]            = useState('');
+  // ── Estimativa (lembrete de recompra) — mesmo padrão da Pré-venda/Tele-entrega ──
+  const [proRegra, setProRegra]            = useState<RegraProduto | null>(null);
+  const [proDias, setProDias]              = useState<number | null>(null);
 
   useEffect(() => {
     if (!temAgenda) return;
@@ -208,8 +216,20 @@ export default function ConsultaDetalheView({
     }, 300);
   }
 
+  async function selecionarProdutoOpt(p: ProdutoResultado) {
+    setProSel(p);
+    setBuscaPro(p.nome_produto);
+    setProOpts([]);
+    setProDias(null);
+    // verifica regra de estimativa (lembrete de recompra) — igual Pré-venda/Tele-entrega
+    const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
+    setProRegra(regras[0] ?? null);
+    if (!regras[0]) setProDias(0); // sem regra → não cria
+  }
+
   async function handleAddItemAgenda() {
     if (!proSel) return;
+    if (proRegra && proDias === null) return; // deve escolher prazo primeiro
     const qtd = parseFloat(proQtd) || 1;
     setSalvandoItem(true);
     setErroItem('');
@@ -221,12 +241,33 @@ export default function ConsultaDetalheView({
     );
     setSalvandoItem(false);
     if (r.error) { setErroItem(r.error); return; }
+
+    // cria a estimativa se um prazo foi escolhido
+    if (proRegra && (proDias ?? 0) > 0 && animal) {
+      criarEstimativa({
+        clienteId:     animal.id_cliente,
+        clienteFilial: animal.filial_cliente,
+        clienteNome:   animal.nome_cliente,
+        animalId:      animal.id,
+        animalFilial:  animal.filial,
+        animalNome:    animal.nome,
+        dadosproId:    proSel.id_dadospro,
+        descPro:       proSel.nome_produto,
+        qtd,
+        dataCompra:    new Date().toISOString().split('T')[0],
+        dias:          proDias!,
+        orcaId:        consulta.agenda_id,
+        orcaFilial:    consulta.filial,
+      }).catch(() => null);
+    }
+
     setItensAgenda((prev) => [...prev, {
       id_item: 0, cod_pro: proSel.cod_pro, produto: proSel.nome_produto,
       descricao: proSel.nome_produto, unidade: proSel.unidade,
       qtd: String(qtd), valor: String(proSel.preco),
     }]);
     setBuscaPro(''); setProOpts([]); setProSel(null); setProQtd('1');
+    setProRegra(null); setProDias(null);
   }
 
   async function handleRemoverItemAgenda(item: ItemAgendaConsulta) {
@@ -570,7 +611,7 @@ export default function ConsultaDetalheView({
                     <button
                       key={p.id_dadospro}
                       type="button"
-                      onClick={() => { setProSel(p); setBuscaPro(p.nome_produto); setProOpts([]); }}
+                      onClick={() => selecionarProdutoOpt(p)}
                       className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent border-b last:border-b-0"
                     >
                       <p className="font-medium leading-tight">{p.nome_produto}</p>
@@ -585,22 +626,65 @@ export default function ConsultaDetalheView({
           )}
 
           {proSel && (
-            <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
-                <p className="text-xs text-muted-foreground">R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
+                  <p className="text-xs text-muted-foreground">R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <Input
+                  type="number" min="0.01" step="0.01" value={proQtd}
+                  onChange={(e) => setProQtd(e.target.value)}
+                  className="w-20"
+                />
+                <Button
+                  type="button" size="sm" onClick={handleAddItemAgenda}
+                  disabled={salvandoItem || (proRegra !== null && proDias === null)}
+                >
+                  {salvandoItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                </Button>
+                <Button type="button" size="icon" variant="ghost" onClick={() => { setProSel(null); setBuscaPro(''); setProRegra(null); setProDias(null); }}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <Input
-                type="number" min="0.01" step="0.01" value={proQtd}
-                onChange={(e) => setProQtd(e.target.value)}
-                className="w-20"
-              />
-              <Button type="button" size="sm" onClick={handleAddItemAgenda} disabled={salvandoItem}>
-                {salvandoItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              </Button>
-              <Button type="button" size="icon" variant="ghost" onClick={() => { setProSel(null); setBuscaPro(''); }}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
+
+              {/* Estimativa (lembrete de recompra) — mesmo padrão da Pré-venda/Tele-entrega */}
+              {proRegra && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2 dark:border-amber-800 dark:bg-amber-950/30">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                    <Bell className="h-3.5 w-3.5" />
+                    Lembrete de recompra — escolha o prazo:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: `Mínimo (${proRegra.dias_min} dias)`, val: proRegra.dias_min },
+                      { label: `Máximo (${proRegra.dias_max} dias)`, val: proRegra.dias_max },
+                      { label: 'Não criar lembrete', val: 0 },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setProDias(opt.val)}
+                        className={cn(
+                          'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                          proDias === opt.val
+                            ? opt.val === 0
+                              ? 'border-gray-400 bg-gray-400 text-white'
+                              : 'border-amber-500 bg-amber-500 text-white'
+                            : opt.val === 0
+                              ? 'border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                              : 'border-amber-300 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40',
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {proDias === null && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">* Escolha uma opção para lançar o produto</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

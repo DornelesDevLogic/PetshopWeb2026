@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import {
   Animal, AgendaItem, AgendaDetalhe, AgendaItemServico,
   AnimalHistoricoItem, ConsultaAnimalItem, ConsultaDetalhe,
+  Profissional, Servico,
 } from '@/types/petshop';
+import type { Estimativa } from '@/app/(petshop)/estimativas/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,19 +16,29 @@ import {
 } from '@/components/ui/table';
 import {
   ArrowLeft, PawPrint, Calendar, ShoppingBag, Stethoscope,
-  Search, X, ChevronUp, ChevronDown, Eye, Loader2, ExternalLink,
+  Search, X, ChevronUp, ChevronDown, Eye, Loader2, ExternalLink, BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import IniciarConsultaDialog from './IniciarConsultaDialog';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface Props {
-  animal:    Animal;
-  agendas:   AgendaItem[];
-  compras:   AnimalHistoricoItem[];
-  consultas: ConsultaAnimalItem[];
-  filial:    number;
+  animal:        Animal;
+  agendas:       AgendaItem[];
+  compras:       AnimalHistoricoItem[];
+  consultas:     ConsultaAnimalItem[];
+  estimativas:   Estimativa[];
+  profissionais: Profissional[];
+  servicos:      Servico[];
+  filial:        number;
 }
+
+const ESTIMATIVA_STATUS: Record<number, { label: string; cls: string }> = {
+  0: { label: 'Pendente',  cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  1: { label: 'Enviada',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  2: { label: 'Cancelada', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -100,17 +112,20 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type TabId = 'agendas' | 'compras' | 'consultas';
+type TabId = 'agendas' | 'compras' | 'consultas' | 'estimativas';
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'agendas',   label: 'Agendamentos',  icon: <Calendar    className="h-4 w-4" /> },
-  { id: 'compras',   label: 'Compras / NF',  icon: <ShoppingBag className="h-4 w-4" /> },
-  { id: 'consultas', label: 'Consultas',     icon: <Stethoscope className="h-4 w-4" /> },
+  { id: 'agendas',     label: 'Agendamentos',  icon: <Calendar    className="h-4 w-4" /> },
+  { id: 'compras',     label: 'Compras / NF',  icon: <ShoppingBag className="h-4 w-4" /> },
+  { id: 'consultas',   label: 'Consultas',     icon: <Stethoscope className="h-4 w-4" /> },
+  { id: 'estimativas', label: 'Estimativas',   icon: <BellRing    className="h-4 w-4" /> },
 ];
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
-export default function AnimalHistoricoView({ animal, agendas, compras, consultas, filial }: Props) {
+export default function AnimalHistoricoView({
+  animal, agendas, compras, consultas, estimativas, profissionais, servicos, filial,
+}: Props) {
   const router = useRouter();
 
   // ── Filtros / ordenação ──
@@ -119,6 +134,17 @@ export default function AnimalHistoricoView({ animal, agendas, compras, consulta
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [sortCol,      setSortCol]      = useState<string>('data');
   const [sortAsc,      setSortAsc]      = useState(false);
+
+  // ── Seleção de estimativas → Iniciar Consulta ──
+  const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
+  const [iniciarConsultaAberto, setIniciarConsultaAberto] = useState(false);
+  function toggleSelecionada(id: number) {
+    setSelecionadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   // ── Modal agenda ──
   const [agendaModal,    setAgendaModal]    = useState<AgendaDetalhe | null>(null);
@@ -221,10 +247,16 @@ export default function AnimalHistoricoView({ animal, agendas, compras, consulta
     (c) => sortCol === 'veterinario' ? c.veterinario : c.data ?? '',
   );
 
+  const estimativasFilt = ordenar(
+    estimativas.filter((e) => !q || e.produto?.toLowerCase().includes(q)),
+    (e) => e.data_compra ?? '',
+  );
+
   const contadores: Record<TabId, number> = {
-    agendas:   agendasFilt.length,
-    compras:   comprasFilt.length,
-    consultas: consultasFilt.length,
+    agendas:     agendasFilt.length,
+    compras:     comprasFilt.length,
+    consultas:   consultasFilt.length,
+    estimativas: estimativasFilt.length,
   };
 
   return (
@@ -465,7 +497,64 @@ export default function AnimalHistoricoView({ animal, agendas, compras, consulta
             )
         )}
 
+        {/* ── Aba: Estimativas ── */}
+        {tab === 'estimativas' && (
+          estimativasFilt.length === 0
+            ? <EmptyState icon={<BellRing className="h-8 w-8 opacity-30" />} msg="Nenhuma estimativa registrada." />
+            : (
+              <div className="divide-y">
+                {estimativasFilt.map((e) => {
+                  const st = ESTIMATIVA_STATUS[e.status] ?? { label: String(e.status), cls: 'bg-muted text-muted-foreground' };
+                  const sel = selecionadas.has(e.id);
+                  return (
+                    <label
+                      key={e.id}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors',
+                        sel ? 'bg-primary/5' : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sel}
+                        onChange={() => toggleSelecionada(e.id)}
+                        className="h-4 w-4 shrink-0 accent-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{e.produto}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Comprado em {fmtData(e.data_compra)} · previsto para {fmtData(e.data_estimada)} · qtd {e.qtd}
+                        </p>
+                      </div>
+                      <span className={cn('shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold', st.cls)}>
+                        {st.label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )
+        )}
+
       </div>
+
+      {/* Barra flutuante: aparece só com itens selecionados na aba Estimativas */}
+      {tab === 'estimativas' && selecionadas.size > 0 && (
+        <div className="sticky bottom-4 flex items-center justify-between gap-3 rounded-xl border bg-card shadow-lg px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {selecionadas.size} {selecionadas.size === 1 ? 'item selecionado' : 'itens selecionados'}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelecionadas(new Set())}>
+              Limpar seleção
+            </Button>
+            <Button size="sm" onClick={() => setIniciarConsultaAberto(true)}>
+              <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+              Iniciar Consulta
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
 
     {/* ════════════════════════════════════════════════════════
@@ -716,6 +805,17 @@ export default function AnimalHistoricoView({ animal, agendas, compras, consulta
           </div>
         </div>
       </div>
+    )}
+
+    {iniciarConsultaAberto && (
+      <IniciarConsultaDialog
+        animal={animal}
+        filial={filial}
+        estimativas={estimativas.filter((e) => selecionadas.has(e.id))}
+        profissionais={profissionais}
+        servicos={servicos}
+        onClose={() => setIniciarConsultaAberto(false)}
+      />
     )}
     </>
   );

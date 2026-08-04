@@ -9,11 +9,13 @@ import {
   ConsultaAnimalResponse,
   ConsultaAnimalItem,
 } from '@/types/petshop';
+import { buscarEstimativas, type Estimativa } from '@/app/(petshop)/estimativas/actions';
 
 export interface HistoricoAnimal {
-  agendas:  AgendaItem[];
-  compras:  AnimalHistoricoItem[];
-  consultas: ConsultaAnimalItem[];
+  agendas:     AgendaItem[];
+  compras:     AnimalHistoricoItem[];
+  consultas:   ConsultaAnimalItem[];
+  estimativas: Estimativa[];
 }
 
 export async function buscarHistoricoAnimal(
@@ -22,7 +24,7 @@ export async function buscarHistoricoAnimal(
 ): Promise<HistoricoAnimal> {
   const fil = filial ?? getFilial();
 
-  const [agendasRes, comprasRes, consultasRes] = await Promise.all([
+  const [agendasRes, comprasRes, consultasRes, estimativas] = await Promise.all([
     apiFetch<AgendaResponse>(
       `/api/petshop/agenda${qs({ filial: fil, animal_id: animalId, status: 'todos', limit: 999 })}`,
     ).catch(() => ({ dados: [] as AgendaItem[], Count: 0, StartsAt: '', EndsAt: '' })),
@@ -34,11 +36,14 @@ export async function buscarHistoricoAnimal(
     apiFetch<ConsultaAnimalResponse>(
       `/api/petshop/consultas${qs({ filial: fil, animal_id: animalId, limit: 200 })}`,
     ).catch(() => ({ animal_id: animalId, dados: [] as ConsultaAnimalItem[], Count: 0, StartsAt: '', EndsAt: '' })),
+
+    buscarEstimativas({ animalId, status: 'todas' }).catch(() => [] as Estimativa[]),
   ]);
 
   return {
-    agendas:  agendasRes.dados ?? [],
-    compras:  comprasRes.dados  ?? [],
-    consultas: consultasRes.dados ?? [],
+    agendas:     agendasRes.dados ?? [],
+    compras:     comprasRes.dados  ?? [],
+    consultas:   consultasRes.dados ?? [],
+    estimativas,
   };
 }
