@@ -85,7 +85,12 @@ export default function NavLinks({ supervisor }: Props) {
             <div key={href}>
               <button
                 type="button"
-                onClick={() => setRelatoriosAberto((v) => !v)}
+                onClick={(e) => {
+                  // Só alterna o submenu — não deve fechar o drawer mobile,
+                  // que fecha em qualquer clique dentro do menu (ver MobileHeader).
+                  e.stopPropagation();
+                  setRelatoriosAberto((v) => !v);
+                }}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   pathname.startsWith(href)
