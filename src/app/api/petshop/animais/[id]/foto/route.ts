@@ -10,18 +10,22 @@ interface FotoResponse {
 // vários usuários simultâneos, cada um ainda ia ao backend buscar a foto
 // do mesmo animal. Aqui a primeira busca (de qualquer usuário) serve todos
 // os outros pelo resto da janela de cache.
-const TTL_CACHE_FOTO_MS = 3_600_000;
+// "Sem foto" muda muito pouco (só quando alguém cadastra a 1ª foto do
+// animal) — pode ficar cacheado mais tempo que uma foto já existente
+// (que pode ser trocada pelo usuário). 2h e 1h respectivamente, tanto no
+// cache do processo quanto no Cache-Control devolvido ao navegador — assim
+// o navegador para de nem perguntar de novo dentro dessa janela.
+const TTL_SEM_FOTO_MS = 7_200_000;
+const TTL_COM_FOTO_MS = 3_600_000;
 const cacheFoto = new Map<string, { buf: ReturnType<typeof Buffer.from> | null; expira: number }>();
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  // "Sem foto" (404) também é cacheado, só por menos tempo — sem isso, todo
-  // animal sem foto cadastrada é reconsultado no backend a cada render.
   const semFoto = () => new NextResponse(null, {
     status: 404,
-    headers: { 'Cache-Control': 'public, max-age=600, stale-while-revalidate=3600' },
+    headers: { 'Cache-Control': 'public, max-age=7200, stale-while-revalidate=86400' },
   });
 
   const id = Number(params.id);
@@ -49,13 +53,13 @@ export async function GET(
   }
 
   if (!data?.foto) {
-    cacheFoto.set(chave, { buf: null, expira: Date.now() + TTL_CACHE_FOTO_MS });
+    cacheFoto.set(chave, { buf: null, expira: Date.now() + TTL_SEM_FOTO_MS });
     return semFoto();
   }
 
   // Remove eventuais quebras de linha MIME (CRLF/LF) antes de decodificar
   const buf = Buffer.from(data.foto.replace(/[\r\n]/g, ''), 'base64');
-  cacheFoto.set(chave, { buf, expira: Date.now() + TTL_CACHE_FOTO_MS });
+  cacheFoto.set(chave, { buf, expira: Date.now() + TTL_COM_FOTO_MS });
   return new NextResponse(buf, {
     headers: {
       'Content-Type':  'image/jpeg',
