@@ -146,11 +146,12 @@ export default function NavLinks({ supervisor }: Props) {
         const active = pathname.startsWith(href);
         const carregando = pendingHref === href;
         return (
-          <Link
+          <button
             key={href}
-            href={href}
-            onClick={(e) => { e.preventDefault(); navegar(href); }}
+            type="button"
+            onClick={() => navegar(href)}
             className={cn(
+              'w-full',
               'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               active
                 ? 'bg-primary text-primary-foreground'
@@ -161,7 +162,7 @@ export default function NavLinks({ supervisor }: Props) {
               ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
               : <Icon className="h-4 w-4 shrink-0" />}
             {label}
-          </Link>
+          </button>
         );
       })}
     </nav>

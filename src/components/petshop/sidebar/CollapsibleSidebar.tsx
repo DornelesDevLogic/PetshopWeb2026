@@ -218,12 +218,13 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
 
             const carregando = pendingHref === href;
             return (
-              <Link
+              <button
                 key={href}
-                href={href}
+                type="button"
                 title={!open ? label : undefined}
-                onClick={(e) => { e.preventDefault(); navegar(href); }}
+                onClick={() => navegar(href)}
                 className={cn(
+                  'w-full',
                   'flex items-center rounded-md text-sm font-medium transition-colors',
                   'overflow-hidden whitespace-nowrap',
                   open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
@@ -241,7 +242,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
                 )}>
                   {label}
                 </span>
-              </Link>
+              </button>
             );
           })}
         </div>
