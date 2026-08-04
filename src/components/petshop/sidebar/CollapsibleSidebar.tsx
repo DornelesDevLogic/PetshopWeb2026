@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   PawPrint, LogOut, UserCircle2,
   Home, CalendarDays, Users, Stethoscope, Wallet,
   BarChart3, Settings, BellRing, SlidersHorizontal, Package,
   Truck, ClipboardList, ChevronLeft, ChevronDown, ChevronRight, LayoutDashboard, Menu,
-  Sparkles,
+  Sparkles, Loader2,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
@@ -64,9 +64,22 @@ const TIPO_LABEL: Record<string, string> = {
 
 export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction }: Props) {
   const pathname  = usePathname();
+  const router    = useRouter();
   const [open, setOpen] = useState(true);
   const todos = supervisor ? [...links, linkConfig] : links;
   const [relatoriosAberto, setRelatoriosAberto] = useState(pathname.startsWith('/relatorios'));
+
+  // Feedback imediato no clique: páginas mais pesadas (ex: Dashboards) demoram
+  // pra carregar, e sem isso o clique parece "não fazer nada" até o conteúdo
+  // aparecer. `pendingHref` marca qual item mostra o spinner enquanto navega.
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  function navegar(href: string) {
+    if (href === pathname) return;
+    setPendingHref(href);
+    startTransition(() => router.push(href));
+  }
+  useEffect(() => { if (!isPending) setPendingHref(null); }, [isPending]);
 
   // Buscada pelo cliente, depois que a tela já apareceu — é só cosmético
   // (versão da API no rodapé do menu) e não deve atrasar a primeira
@@ -203,11 +216,13 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
               );
             }
 
+            const carregando = pendingHref === href;
             return (
               <Link
                 key={href}
                 href={href}
                 title={!open ? label : undefined}
+                onClick={(e) => { e.preventDefault(); navegar(href); }}
                 className={cn(
                   'flex items-center rounded-md text-sm font-medium transition-colors',
                   'overflow-hidden whitespace-nowrap',
@@ -217,7 +232,9 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                {carregando
+                  ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                  : <Icon className="h-4 w-4 shrink-0" />}
                 <span className={cn(
                   'transition-all duration-300 overflow-hidden',
                   open ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0',

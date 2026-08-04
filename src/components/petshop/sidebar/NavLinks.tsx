@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   Home,
@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Sparkles,
   LayoutDashboard,
+  Loader2,
 } from 'lucide-react';
 
 interface SubmenuItem { href: string; label: string; }
@@ -70,12 +71,25 @@ interface Props {
 
 export default function NavLinks({ supervisor }: Props) {
   const pathname = usePathname();
+  const router   = useRouter();
   const todos = supervisor ? [...links, linkConfiguracoes] : links;
   const [relatoriosAberto, setRelatoriosAberto] = useState(pathname.startsWith('/relatorios'));
 
   useEffect(() => {
     if (pathname.startsWith('/relatorios')) setRelatoriosAberto(true);
   }, [pathname]);
+
+  // Mesmo o drawer fechando na hora, a tela pode ficar alguns segundos sem
+  // reação nenhuma até a próxima página (ex: Dashboards) carregar — o spinner
+  // fica visível no instante entre o clique e o drawer fechar.
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  function navegar(href: string) {
+    if (href === pathname) return;
+    setPendingHref(href);
+    startTransition(() => router.push(href));
+  }
+  useEffect(() => { if (!isPending) setPendingHref(null); }, [isPending]);
 
   return (
     <nav className="flex flex-col gap-1 px-3">
@@ -130,10 +144,12 @@ export default function NavLinks({ supervisor }: Props) {
         }
 
         const active = pathname.startsWith(href);
+        const carregando = pendingHref === href;
         return (
           <Link
             key={href}
             href={href}
+            onClick={(e) => { e.preventDefault(); navegar(href); }}
             className={cn(
               'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               active
@@ -141,7 +157,9 @@ export default function NavLinks({ supervisor }: Props) {
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            {carregando
+              ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              : <Icon className="h-4 w-4 shrink-0" />}
             {label}
           </Link>
         );
