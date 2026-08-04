@@ -398,7 +398,7 @@ export default function EstimativasView({ estimativas, regras, statusAtual, busc
                     return (
                       <TableRow key={e.id} className="hover:bg-muted/40">
                         <TableCell className="font-mono text-xs text-muted-foreground px-2">{e.id}</TableCell>
-                        <TableCell className="max-w-[160px]">
+                        <TableCell className="max-w-[160px] whitespace-normal">
                           <p className="font-medium text-sm break-words">{e.cliente_nome || '—'}</p>
                           {(e.celular || e.telefone) && (
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -406,8 +406,8 @@ export default function EstimativasView({ estimativas, regras, statusAtual, busc
                             </p>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm px-2 max-w-[100px] break-words">{e.animal_nome || '—'}</TableCell>
-                        <TableCell className="text-sm px-2 max-w-[220px] break-words">
+                        <TableCell className="text-sm px-2 max-w-[100px] whitespace-normal break-words">{e.animal_nome || '—'}</TableCell>
+                        <TableCell className="text-sm px-2 max-w-[220px] whitespace-normal break-words">
                           {e.produto}
                           {e.qtd > 1 && <span className="text-xs text-muted-foreground ml-1">×{e.qtd}</span>}
                         </TableCell>
