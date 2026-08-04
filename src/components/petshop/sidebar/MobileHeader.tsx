@@ -12,9 +12,9 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 interface UserInfo { codigo: number; nome: string; tipo: string; empresa: number; }
-interface Props { filial: number; user: UserInfo | null; }
+interface Props { filial: number; filialNome?: string; user: UserInfo | null; logoUrl?: string | null; }
 
-export default function MobileHeader({ filial, user }: Props) {
+export default function MobileHeader({ filial, filialNome, user, logoUrl }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,10 +28,15 @@ export default function MobileHeader({ filial, user }: Props) {
         >
           <Menu className="h-4.5 w-4.5" />
         </button>
-        <div className="flex items-center gap-1.5 flex-1">
-          <PawPrint className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-sm leading-none">PetShop</span>
-          <span className="ml-0.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo" className="h-4.5 w-4.5 rounded object-contain shrink-0" />
+          ) : (
+            <PawPrint className="h-4 w-4 text-primary shrink-0" />
+          )}
+          <span className="font-semibold text-sm leading-none truncate">{filialNome || 'PetShop'}</span>
+          <span className="ml-0.5 shrink-0 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
             Filial {filial}
           </span>
         </div>
@@ -56,9 +61,14 @@ export default function MobileHeader({ filial, user }: Props) {
       >
         {/* Brand + fechar */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
-          <div className="flex items-center gap-2">
-            <PawPrint className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-base leading-none">PetShop</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Logo" className="h-6 w-6 rounded-lg object-contain shrink-0" />
+            ) : (
+              <PawPrint className="h-6 w-6 text-primary shrink-0" />
+            )}
+            <span className="font-semibold text-base leading-none truncate">{filialNome || 'PetShop'}</span>
           </div>
           <button
             onClick={() => setOpen(false)}

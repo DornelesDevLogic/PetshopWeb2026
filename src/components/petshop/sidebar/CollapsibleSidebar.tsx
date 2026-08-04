@@ -18,13 +18,14 @@ interface Props {
   supervisor: boolean;
   user:       { codigo: number; nome: string; tipo: string; empresa: number } | null;
   logoutAction: () => Promise<void>;
+  logoUrl?:   string | null;
 }
 
 const TIPO_LABEL: Record<string, string> = {
   S: 'Supervisor', G: 'Gerente', F: 'Ger. Especial', O: 'Operador',
 };
 
-export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction }: Props) {
+export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction, logoUrl }: Props) {
   const pathname  = usePathname();
   const router    = useRouter();
   const [open, setOpen] = useState(true);
@@ -99,18 +100,22 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
         'transition-all duration-300',
         open ? 'gap-2 px-5 py-4' : 'justify-center px-0 py-4',
       )}>
-        <PawPrint className="h-6 w-6 text-primary shrink-0" />
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="Logo" className="h-7 w-7 rounded-lg object-contain shrink-0" />
+        ) : (
+          <PawPrint className="h-6 w-6 text-primary shrink-0" />
+        )}
         <div className={cn(
-          'flex items-baseline gap-1.5 overflow-hidden whitespace-nowrap',
+          'flex flex-col overflow-hidden whitespace-nowrap min-w-0',
           'transition-all duration-300',
-          open ? 'opacity-100 max-w-[160px] ml-0' : 'opacity-0 max-w-0 ml-0',
+          open ? 'opacity-100 max-w-[170px] ml-0' : 'opacity-0 max-w-0 ml-0',
         )}>
-          <span className="font-semibold text-base leading-none">PetShop</span>
-          <span
-            title={filialNome || undefined}
-            className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate max-w-[110px]"
-          >
-            {filialNome ? `${filial} · ${filialNome}` : `Filial ${filial}`}
+          <span title={filialNome || undefined} className="font-semibold text-sm leading-tight truncate">
+            {filialNome || 'PetShop'}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            Filial {filial}
           </span>
         </div>
       </div>

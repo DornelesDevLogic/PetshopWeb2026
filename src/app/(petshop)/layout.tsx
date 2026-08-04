@@ -3,6 +3,7 @@ import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
 import AcessoTracker from '@/components/petshop/AcessoTracker';
 import { logout } from '@/app/login/actions';
 import { getFilial } from '@/lib/api';
+import { obterLogoEmpresa } from '@/lib/logo-empresa';
 import { cookies } from 'next/headers';
 
 interface UserInfo {
@@ -24,8 +25,9 @@ function getUser(): UserInfo | null {
   }
 }
 
-export default function PetShopLayout({ children }: { children: React.ReactNode }) {
+export default async function PetShopLayout({ children }: { children: React.ReactNode }) {
   const user = getUser();
+  const logoUrl = await obterLogoEmpresa();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -38,11 +40,12 @@ export default function PetShopLayout({ children }: { children: React.ReactNode 
         supervisor={user?.tipo === 'S'}
         user={user}
         logoutAction={logout}
+        logoUrl={logoUrl}
       />
 
       {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <MobileHeader filial={getFilial()} user={user} />
+        <MobileHeader filial={getFilial()} filialNome={user?.filial_nome ?? ''} user={user} logoUrl={logoUrl} />
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
