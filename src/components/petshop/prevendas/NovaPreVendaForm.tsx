@@ -154,6 +154,11 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
     setProdOpts([]);
     setProIdx(-1);
     setProDias(null);
+    // reseta qtd/desconto do produto anterior — sem isso, cancelar o dialog
+    // de um produto (sem adicionar) deixava esses valores "vazarem" pro
+    // próximo produto selecionado, aplicando um desconto que o atendente
+    // nunca digitou para ele.
+    setProQtd('1'); setProDesc('0');
     setShowProdDlg(true); // abre o dialog de confirmação (qtd/desconto/estimativa) direto
     // verifica regra de estimativa
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
@@ -164,6 +169,7 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
   function fecharDialogProduto() {
     setShowProdDlg(false);
     setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null);
+    setProQtd('1'); setProDesc('0');
   }
 
   function adicionarProdutoLocal() {
@@ -191,9 +197,13 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
     setProdutos(prev => prev.filter((_, idx) => idx !== i));
   }
 
+  // "totalFinal" vem SEMPRE da soma do total já calculado de cada item (uma
+  // única vez, ao adicionar) — nunca de uma segunda fórmula em paralelo
+  // (subtotal - desconto), que já divergiu do total real dos itens em
+  // produção (desconto aplicado em dobro no cabeçalho de uma pré-venda).
   const subTotal = produtos.reduce((s, p) => s + p.preco * p.qtd, 0);
-  const totalDesc = produtos.reduce((s, p) => s + p.preco * p.qtd * (p.desconto / 100), 0);
-  const totalFinal = subTotal - totalDesc;
+  const totalFinal = produtos.reduce((s, p) => s + p.total, 0);
+  const totalDesc = subTotal - totalFinal;
 
   // Nome do pet a gravar no texto livre da ORCA (animal selecionado ou digitado manualmente)
   const nomeAnimalTexto = animalSel?.nome ?? animalManual.trim();

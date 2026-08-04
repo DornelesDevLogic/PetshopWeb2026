@@ -100,6 +100,10 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
   async function selProd(p: ProdutoBuscaItem) {
     setProSel(p); setBuscaPro(p.descricao); setProdOpts([]); setProIdx(-1);
     setProDias(null);
+    // reseta qtd/desconto do produto anterior — sem isso, cancelar o dialog
+    // de um produto (sem adicionar) deixava esses valores "vazarem" pro
+    // próximo produto selecionado.
+    setProQtd('1'); setProDesc('0');
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
     setProRegra(regras[0] ?? null);
     if (!regras[0]) setProDias(0);
@@ -110,14 +114,19 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
   // Alterações", deixando o total desatualizado na listagem se o usuário saísse
   // da tela sem salvar manualmente.
   async function persistirTotais(lista: ItemPreVenda[]) {
-    const subTotal  = lista.reduce((s, i) => s + i.valor, 0);
-    const totalDesc = lista.reduce((s, i) => s + i.valor * (i.desconto / 100), 0);
+    // "valor" do cabeçalho vem SEMPRE da soma do valorliq de cada item (já
+    // calculado uma única vez, no momento em que o item foi adicionado) —
+    // nunca recalculado por uma segunda fórmula em paralelo (subtotal -
+    // desconto), que já divergiu do total real dos itens em produção
+    // (desconto aplicado em dobro no cabeçalho de uma pré-venda).
+    const totalFinal = lista.reduce((s, i) => s + i.valorliq, 0);
+    const subTotal    = lista.reduce((s, i) => s + i.valor, 0);
     await atualizarPreVenda({
       id: prevenda.id,
       sub_total: subTotal,
-      desconto:  totalDesc,
+      desconto:  subTotal - totalFinal,
       val_produtos: subTotal,
-      valor: subTotal - totalDesc,
+      valor: totalFinal,
     }).catch(() => null);
   }
 
@@ -189,16 +198,16 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
 
   async function handleSalvar() {
     setErro(''); setSucesso('');
-    const subTotal = itens.reduce((s, i) => s + i.valor, 0);
-    const totalDesc = itens.reduce((s, i) => s + i.valor * (i.desconto / 100), 0);
+    const totalFinal = itens.reduce((s, i) => s + i.valorliq, 0);
+    const subTotal    = itens.reduce((s, i) => s + i.valor, 0);
     startT(async () => {
       const r = await atualizarPreVenda({
         id: prevenda.id,
         profissional, animal, data_entrega: dataEntrega,
         hora_entrega: horaEntrega, pz_entrega: pzEntrega,
         formapgto, condpgto, frete, dados,
-        sub_total: subTotal, desconto: totalDesc,
-        val_produtos: subTotal, valor: subTotal - totalDesc,
+        sub_total: subTotal, desconto: subTotal - totalFinal,
+        val_produtos: subTotal, valor: totalFinal,
       });
       if (r.CodStatus !== 1) { setErro(r.DescricaoStatus); return; }
       router.push('/prevendas');
@@ -222,9 +231,9 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
     });
   }
 
-  const subTotal  = itens.reduce((s, i) => s + i.valor, 0);
-  const totalDesc = itens.reduce((s, i) => s + i.valor * (i.desconto / 100), 0);
-  const totalFinal = subTotal - totalDesc;
+  const subTotal   = itens.reduce((s, i) => s + i.valor, 0);
+  const totalFinal = itens.reduce((s, i) => s + i.valorliq, 0);
+  const totalDesc  = subTotal - totalFinal;
 
   const [imprimindo, setImprimindo] = useState(false);
 
@@ -467,7 +476,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
           <div className="w-full max-w-2xl rounded-lg bg-card p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Adicionar Produto</h2>
-              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); }}>
+              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProQtd('1'); setProDesc('0'); setProRegra(null); setProDias(null); }}>
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
@@ -548,7 +557,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null); }}
+              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null); setProQtd('1'); setProDesc('0'); }}
                 className="rounded-md border px-4 py-2 text-sm hover:bg-accent">
                 Cancelar
               </button>
