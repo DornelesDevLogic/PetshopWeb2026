@@ -3,7 +3,7 @@ import MobileHeader from '@/components/petshop/sidebar/MobileHeader';
 import AcessoTracker from '@/components/petshop/AcessoTracker';
 import { logout } from '@/app/login/actions';
 import { getFilial } from '@/lib/api';
-import { obterLogoEmpresa } from '@/lib/logo-empresa';
+import { obterInfoEmpresa } from '@/lib/empresa-info';
 import { cookies } from 'next/headers';
 
 interface UserInfo {
@@ -27,7 +27,10 @@ function getUser(): UserInfo | null {
 
 export default async function PetShopLayout({ children }: { children: React.ReactNode }) {
   const user = getUser();
-  const logoUrl = await obterLogoEmpresa();
+  const { nomeFantasia, logoUrl } = await obterInfoEmpresa();
+  // Nome fantasia (TBLCAPFILIAIS) é o mais "de marca" — cai pro nome da
+  // filial da sessão se a filial não tiver fantasia cadastrada.
+  const nomeExibicao = nomeFantasia || user?.filial_nome || '';
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -36,7 +39,7 @@ export default async function PetShopLayout({ children }: { children: React.Reac
       {/* ── Sidebar colapsável (desktop) ──────────────────────────────────── */}
       <CollapsibleSidebar
         filial={getFilial()}
-        filialNome={user?.filial_nome ?? ''}
+        filialNome={nomeExibicao}
         supervisor={user?.tipo === 'S'}
         user={user}
         logoutAction={logout}
@@ -45,7 +48,7 @@ export default async function PetShopLayout({ children }: { children: React.Reac
 
       {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <MobileHeader filial={getFilial()} filialNome={user?.filial_nome ?? ''} user={user} logoUrl={logoUrl} />
+        <MobileHeader filial={getFilial()} filialNome={nomeExibicao} user={user} logoUrl={logoUrl} />
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
