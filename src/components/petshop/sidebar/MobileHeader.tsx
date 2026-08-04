@@ -31,7 +31,7 @@ export default function MobileHeader({ filial, filialNome, user, logoUrl }: Prop
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Logo" className="h-4.5 w-4.5 rounded object-contain shrink-0" />
+            <img src={logoUrl} alt="Logo" className="h-[18px] w-[18px] rounded object-contain shrink-0" />
           ) : (
             <PawPrint className="h-4 w-4 text-primary shrink-0" />
           )}
