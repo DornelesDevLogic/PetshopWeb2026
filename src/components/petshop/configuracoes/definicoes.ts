@@ -15,9 +15,10 @@ export type TipoCampo =
   | 'SN'     // CHAR: 'S' / 'N'
   | 'opcoes' // select com options próprias
   | 'num'    // numérico
-  | 'texto'  // texto livre
-  | 'senha'  // texto mascarado
-  | 'hora';  // HH:MM:SS
+  | 'texto'    // texto livre (uma linha)
+  | 'textarea' // texto livre (várias linhas)
+  | 'senha'    // texto mascarado
+  | 'hora';    // HH:MM:SS
 
 export interface ParamDef {
   tabela:   Tabela;
@@ -245,7 +246,8 @@ export const GRUPOS: GrupoDef[] = [
       { tabela: 'config', col: 'pet_imp_timbrada',    label: 'Impressão em papel timbrado', tipo: '01' },
       { tabela: 'config', col: 'pet_imp_consulta_a5', label: 'Impressão de consulta em A5', tipo: '01' },
       { tabela: 'config', col: 'pet_ultiliza_a4',     label: 'Utiliza papel A4', tipo: 'TF' },
-      { tabela: 'config', col: 'imprim_obs_agenda',   label: 'Dados adicionais na comanda', tipo: 'texto' },
+      { tabela: 'config', col: 'imprim_obs_agenda',   label: 'Dados adicionais na comanda', tipo: 'textarea',
+        ajuda: 'Aparece no rodapé da comanda impressa, acima do campo de assinatura' },
       { tabela: 'pet_config', col: 'mod_imp_rec_cons', label: 'Modelo de impressão do receituário', tipo: 'num' },
       { tabela: 'pet_config', col: 'pet_imp_animal_tele', label: 'Imprime dados do animal na tele-entrega', tipo: '01' },
     ],

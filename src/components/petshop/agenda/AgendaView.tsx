@@ -29,6 +29,7 @@ import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { reagendarHorario, buscarDadosEmpresa, atualizarStatus } from '@/app/(petshop)/agenda/[id]/actions';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
+import { buscarObsComanda } from '@/app/(petshop)/configuracoes/actions';
 import { useAgendaRealtime } from '@/hooks/useAgendaRealtime';
 import { printWindow } from '@/lib/printWindow';
 import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
@@ -517,10 +518,11 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
 
   async function handlePrint() {
     setImprimindo(true);
-    const [empresa, cliente, itensRes] = await Promise.all([
+    const [empresa, cliente, itensRes, dadosAdicionais] = await Promise.all([
       buscarDadosEmpresa(item.filial).catch(() => null),
       current.cliente_id ? buscarClienteCompleto(current.cliente_id).catch(() => null) : Promise.resolve(null),
       fetch(`/api/petshop/agenda/itens?id=${item.id}&filial=${item.filial}`).then(r => r.json()).catch(() => null),
+      buscarObsComanda().catch(() => ''),
     ]);
     setImprimindo(false);
 
@@ -547,6 +549,7 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
       valor:         current.sub_total || current.valor,
       itens:         itensRes?.dados ?? [],
       empresa,
+      dadosAdicionais,
     });
     printWindow(html);
   }

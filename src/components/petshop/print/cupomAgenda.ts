@@ -23,6 +23,7 @@ interface CupomAgendaData {
   valor?:        string | number;
   itens?:        AgendaItemServico[];
   empresa?:      DadosEmpresa | null;
+  dadosAdicionais?: string;
 }
 
 function fmtData(s?: string): string {
@@ -136,6 +137,9 @@ export function gerarCupomAgenda(d: CupomAgendaData): string {
   <hr class="dashed">
   <p>Data e Hora da Agenda: ${fmtData(d.data_previsao) || fmtData(d.data) + (d.hora ? ' ' + d.hora.slice(0, 5) : '')}</p>
   ${d.data_entrega ? `<p>Previsão de Entrega: ${fmtData(d.data_entrega)}</p>` : ''}
+  ${d.dadosAdicionais ? `
+  <hr class="dashed">
+  <div class="obs-box">${esc(d.dadosAdicionais).replace(/\n/g, '<br>')}</div>` : ''}
   <div class="assinatura">Ass: _______________________________</div>
 </body>
 </html>`;

@@ -13,6 +13,24 @@ export interface ConfiguracoesData {
   anamnese:   Record<string, string>;
 }
 
+/**
+ * Texto de "Dados adicionais na comanda" (config.imprim_obs_agenda), usado
+ * no rodapé da comanda impressa da Agenda. Ao contrário de
+ * `buscarConfiguracoes`, não é restrito a Supervisor — qualquer operador
+ * precisa poder imprimir a comanda. Só repassa esse único campo pro
+ * client, nunca o restante (senhas de e-mail, etc).
+ */
+export async function buscarObsComanda(): Promise<string> {
+  try {
+    const res = await apiFetch<ConfiguracoesData & { CodStatus: number }>(
+      '/api/petshop/configuracoes',
+    );
+    return res.config?.imprim_obs_agenda ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export async function buscarConfiguracoes(): Promise<ConfiguracoesData | null> {
   if (!isSupervisor()) return null;
   try {

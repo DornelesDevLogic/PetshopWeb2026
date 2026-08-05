@@ -192,6 +192,19 @@ export default function ConfiguracoesView({ dados }: Props) {
             className="h-8 w-56 text-sm"
           />
         );
+      case 'textarea':
+        return (
+          <textarea
+            value={v}
+            disabled={off}
+            rows={3}
+            onChange={(e) => setValor(p.tabela, p.col, e.target.value)}
+            className={cn(
+              'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm resize-y',
+              off && 'opacity-40',
+            )}
+          />
+        );
       default: // texto
         return (
           <Input
@@ -335,7 +348,8 @@ export default function ConfiguracoesView({ dados }: Props) {
               <div
                 key={`${p.tabela}.${p.col}`}
                 className={cn(
-                  'flex items-center justify-between gap-4 px-4 py-2.5',
+                  'gap-4 px-4 py-2.5',
+                  p.tipo === 'textarea' ? 'flex flex-col' : 'flex items-center justify-between',
                   alterado && 'bg-amber-50/50 dark:bg-amber-950/20',
                 )}
               >

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AgendaDetalhe, AgendaItemServico, STATUS_AGENDA } from '@/types/petshop';
 import { atualizarStatus, buscarDadosEmpresa } from '@/app/(petshop)/agenda/[id]/actions';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
+import { buscarObsComanda } from '@/app/(petshop)/configuracoes/actions';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -95,9 +96,10 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
 
   async function handlePrint() {
     setImprimindo(true);
-    const [empresa, cliente] = await Promise.all([
+    const [empresa, cliente, dadosAdicionais] = await Promise.all([
       buscarDadosEmpresa(d.filial).catch(() => null),
       buscarClienteCompleto(d.cliente_id).catch(() => null),
+      buscarObsComanda().catch(() => ''),
     ]);
     setImprimindo(false);
 
@@ -124,6 +126,7 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
       valor:         d.sub_total || d.valor,
       itens:         itens,
       empresa,
+      dadosAdicionais,
     });
     printWindow(html);
   }
