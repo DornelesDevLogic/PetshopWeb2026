@@ -25,7 +25,8 @@ import {
 } from '@/app/(petshop)/estimativas/actions';
 import { Cliente, Animal, Profissional, Servico, Especie, Raca, TipoPelo, Vendedor, AgendaDetalhe } from '@/types/petshop';
 import { editarAgenda } from '@/app/(petshop)/agenda/editar/actions';
-import { excluirItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
+import { excluirItemAgenda, atualizarItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
+import EditableValor from '@/components/petshop/EditableValor';
 import { updateCliente, buscarCep, buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { updateAnimal } from '@/app/(petshop)/animais/[id]/actions';
 import NovoClienteDialog from '@/components/petshop/clientes/NovoClienteDialog';
@@ -406,6 +407,10 @@ export default function NovoAgendamentoForm({
     setProdutos((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  function alterarValorProduto(idx: number, novoValor: number) {
+    setProdutos((prev) => prev.map((p, i) => i === idx ? { ...p, valor: novoValor } : p));
+  }
+
   async function removerItemSalvo(idItem: number) {
     if (!agendaId) return;
     setRemovendoItem(idItem);
@@ -414,6 +419,14 @@ export default function NovoAgendamentoForm({
       setItensSalvos((prev) => prev.filter((i) => i.id_item !== idItem));
     }
     setRemovendoItem(null);
+  }
+
+  async function alterarValorItemSalvo(it: ItemSalvo, novoValor: number) {
+    if (!agendaId) return;
+    const res = await atualizarItemAgenda(agendaId, it.id_item, filial, it.qtd, novoValor, it.desconto, it.produto);
+    if (!res.error) {
+      setItensSalvos((prev) => prev.map((i) => i.id_item === it.id_item ? { ...i, valor: novoValor } : i));
+    }
   }
 
   const totalProdutos = produtos.reduce(
@@ -1858,7 +1871,9 @@ export default function NovoAgendamentoForm({
                           <p className="text-xs text-muted-foreground">{[it.cod_pro, it.unidade].filter(Boolean).join(' · ')}</p>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">{it.qtd}</td>
-                        <td className="px-3 py-2 text-right font-mono">R$ {fmtMoeda(it.valor)}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          R$ <EditableValor valor={it.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorItemSalvo(it, v)} />
+                        </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {it.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(it.desconto)}</span> : '—'}
                         </td>
@@ -1893,7 +1908,9 @@ export default function NovoAgendamentoForm({
                           </p>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">{p.qtd}</td>
-                        <td className="px-3 py-2 text-right font-mono">R$ {fmtMoeda(p.valor)}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          R$ <EditableValor valor={p.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorProduto(i, v)} />
+                        </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {p.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(p.desconto)}</span> : '—'}
                         </td>

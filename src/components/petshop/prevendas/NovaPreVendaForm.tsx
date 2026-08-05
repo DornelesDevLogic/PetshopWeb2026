@@ -23,6 +23,7 @@ import {
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
+import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
@@ -201,6 +202,12 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
 
   function removerProduto(i: number) {
     setProdutos(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function alterarValorProduto(i: number, novoValor: number) {
+    setProdutos(prev => prev.map((p, idx) => idx === i
+      ? { ...p, preco: novoValor, total: novoValor * p.qtd * (1 - p.desconto / 100) }
+      : p));
   }
 
   // "totalFinal" vem SEMPRE da soma do total já calculado de cada item (uma
@@ -549,7 +556,9 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
                     )}
                   </td>
                   <td className="py-1.5 text-right">{p.qtd} {p.unidade}</td>
-                  <td className="py-1.5 text-right">{fmt(p.preco)}</td>
+                  <td className="py-1.5 text-right">
+                    <EditableValor valor={p.preco} fmt={fmt} onCommit={(v) => alterarValorProduto(i, v)} />
+                  </td>
                   <td className="py-1.5 text-right">{p.desconto}%</td>
                   <td className="py-1.5 text-right font-medium">{fmt(p.total)}</td>
                   <td className="py-1.5 text-right">

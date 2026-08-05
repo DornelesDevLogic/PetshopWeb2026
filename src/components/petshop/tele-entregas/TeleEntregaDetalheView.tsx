@@ -8,6 +8,7 @@ import {
   MapPin, Package, Plus, Trash2, Search, X, Bell, Printer, History, Pencil,
 } from 'lucide-react';
 import HistoricoClienteModal from '@/components/petshop/tele-entregas/HistoricoClienteModal';
+import EditableValor from '@/components/petshop/EditableValor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -284,6 +285,15 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
       router.refresh();
     } else {
       setDlgErro(r.DescricaoStatus);
+    }
+  }
+
+  async function handleAlterarValorItem(idItem: number, novoValor: number) {
+    const r = await atualizarItemEntrega({ id_item: idItem, valor: novoValor });
+    if (r.CodStatus === 1) {
+      setItens(prev => prev.map(i => i.id_item === idItem ? { ...i, valor: novoValor } : i));
+    } else {
+      setErro(r.DescricaoStatus);
     }
   }
 
@@ -657,7 +667,11 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
                       <p className="text-xs text-muted-foreground">{item.unidade}</p>
                     </td>
                     <td className="px-2 py-1.5 text-center font-mono">{item.qtd}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">R$ {fmtMoeda(item.valor)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {canEdit
+                        ? <>R$ <EditableValor valor={item.valor} fmt={fmtMoeda} onCommit={(v) => handleAlterarValorItem(item.id_item, v)} /></>
+                        : <>R$ {fmtMoeda(item.valor)}</>}
+                    </td>
                     <td className="px-2 py-1.5 text-right font-mono font-semibold text-primary">
                       R$ {fmtMoeda(item.qtd * item.valor)}
                     </td>

@@ -18,6 +18,7 @@ import {
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
+import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
 import { buscarUltimasComprasCliente, type CompraHistItem } from '@/app/(petshop)/clientes/historico-actions';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
@@ -233,6 +234,10 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
 
   function removerItem(key: number) {
     setItens(prev => prev.filter(i => i.key !== key));
+  }
+
+  function alterarValorItem(key: number, novoValor: number) {
+    setItens(prev => prev.map(i => i.key === key ? { ...i, valor: novoValor } : i));
   }
 
   // ---------- salvar ----------
@@ -691,7 +696,9 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
                       <p className="text-xs text-muted-foreground">{item.unidade}</p>
                     </td>
                     <td className="px-2 py-1.5 text-center font-mono">{item.qtd}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">R$ {fmtMoeda(item.valor)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      R$ <EditableValor valor={item.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorItem(item.key, v)} />
+                    </td>
                     <td className="px-2 py-1.5 text-right font-mono font-semibold text-primary">
                       R$ {fmtMoeda(item.qtd * item.valor)}
                     </td>

@@ -13,6 +13,7 @@ import {
   confirmarPreVenda,
   cancelarPreVenda,
   adicionarItemPreVenda,
+  editarItemPreVenda,
   removerItemPreVenda,
   buscarProdutosPrevenda,
   buscarDadosEmpresa,
@@ -25,6 +26,7 @@ import {
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { getFilialClient } from '@/lib/filial';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import EditableValor from '@/components/petshop/EditableValor';
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -186,6 +188,23 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
       setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProQtd('1'); setProDesc('0'); setProValor('0'); setProdOpts([]);
       setProRegra(null); setProDias(null);
       setSucesso('Produto adicionado.'); setTimeout(() => setSucesso(''), 3000);
+    });
+  }
+
+  async function handleAlterarValorItem(item: ItemPreVenda, novoValor: number) {
+    const precoTabela = item.qtd > 0 ? novoValor / item.qtd : novoValor;
+    const novoValorLiq = novoValor * (1 - item.desconto / 100);
+    startT(async () => {
+      const r = await editarItemPreVenda({
+        id_prodorca: item.id_prodorca,
+        valor: novoValor, valorliq: novoValorLiq, preco_tabela: precoTabela,
+      });
+      if (r.CodStatus !== 1) { setErro(r.DescricaoStatus ?? 'Erro ao alterar valor.'); return; }
+      const novaLista = itens.map(i => i.id_prodorca === item.id_prodorca
+        ? { ...i, valor: novoValor, valorliq: novoValorLiq, preco_tabela: precoTabela }
+        : i);
+      setItens(novaLista);
+      await persistirTotais(novaLista);
     });
   }
 
@@ -401,7 +420,11 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
                     <span className="ml-2 text-xs text-muted-foreground">{item.cod_prod}</span>
                   </td>
                   <td className="py-1.5 text-right">{item.qtd} {item.unid_pro}</td>
-                  <td className="py-1.5 text-right">{fmt(item.valor)}</td>
+                  <td className="py-1.5 text-right">
+                    {editavel
+                      ? <EditableValor valor={item.valor} fmt={fmt} onCommit={(v) => handleAlterarValorItem(item, v)} />
+                      : fmt(item.valor)}
+                  </td>
                   <td className="py-1.5 text-right">{item.desconto}%</td>
                   <td className="py-1.5 text-right font-medium">{fmt(item.valorliq)}</td>
                   {editavel && (
