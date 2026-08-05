@@ -1653,6 +1653,7 @@ export default function NovoAgendamentoForm({
                 setVendId(idStr);
                 setVendFilial(filStr);
               }}
+              items={vendedores.map((vd) => ({ value: `${vd.filial}:${vd.id}`, label: vd.nome.trim() }))}
             >
               <SelectTrigger className={!vendId ? 'border-destructive/50' : ''}>
                 <SelectValue placeholder="Selecione o vendedor..." />

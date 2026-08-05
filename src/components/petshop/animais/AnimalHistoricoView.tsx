@@ -38,6 +38,7 @@ const ESTIMATIVA_STATUS: Record<number, { label: string; cls: string }> = {
   0: { label: 'Pendente',  cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
   1: { label: 'Enviada',   cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
   2: { label: 'Cancelada', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+  3: { label: 'Atendida',  cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -516,19 +517,22 @@ export default function AnimalHistoricoView({
                 {estimativasFilt.map((e) => {
                   const st = ESTIMATIVA_STATUS[e.status] ?? { label: String(e.status), cls: 'bg-muted text-muted-foreground' };
                   const sel = selecionadas.has(e.id);
+                  const jaAtendida = e.status === 3;
                   return (
                     <label
                       key={e.id}
                       className={cn(
-                        'flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors',
-                        sel ? 'bg-primary/5' : 'hover:bg-muted/40',
+                        'flex items-center gap-3 px-4 py-3 transition-colors',
+                        jaAtendida ? 'cursor-default opacity-60' : 'cursor-pointer',
+                        sel ? 'bg-primary/5' : !jaAtendida && 'hover:bg-muted/40',
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={sel}
+                        disabled={jaAtendida}
                         onChange={() => toggleSelecionada(e.id)}
-                        className="h-4 w-4 shrink-0 accent-primary"
+                        className="h-4 w-4 shrink-0 accent-primary disabled:cursor-not-allowed"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{e.produto}</p>

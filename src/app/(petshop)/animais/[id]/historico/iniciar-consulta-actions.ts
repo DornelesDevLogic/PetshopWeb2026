@@ -3,11 +3,15 @@
 import { apiFetch, qs, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
 import type { ProdutoResultado } from '@/app/(petshop)/agenda/nova/actions';
+import { atualizarStatusEstimativa, criarEstimativa } from '@/app/(petshop)/estimativas/actions';
 
 export interface ItemEstimativaSelecionado {
+  id:         number;
   dadosproId: number;
   descPro:    string;
   qtd:        number;
+  /** Prazo (em dias) escolhido pra criar um novo lembrete de recompra; 0 = não criar. */
+  dias?:      number;
 }
 
 export interface DadosIniciarConsulta {
@@ -85,6 +89,8 @@ export async function criarConsultaDeEstimativas(
   //    preço/código atuais do produto (a Estimativa só guarda o nome e a
   //    quantidade da época da compra, não o preço).
   const errosItens: string[] = [];
+  const idsAtendidos: number[] = [];
+  let valorTotal = 0;
   for (const item of dados.itens) {
     try {
       const resProduto = await apiFetch<{ dados: ProdutoResultado[] }>(
@@ -106,8 +112,45 @@ export async function criarConsultaDeEstimativas(
         }),
       });
       if (resItem.CodStatus !== 1) errosItens.push(`${item.descPro}: ${resItem.DescricaoStatus}`);
+      else {
+        idsAtendidos.push(item.id);
+        valorTotal += item.qtd * produto.preco;
+        // Prazo escolhido pra recompra > 0: gera a próxima estimativa (a
+        // atual está sendo marcada como atendida logo abaixo).
+        if (item.dias && item.dias > 0) {
+          await criarEstimativa({
+            clienteId:     dados.clienteId,
+            clienteFilial: dados.clienteFilial,
+            clienteNome:   dados.clienteNome,
+            animalId:      dados.animalId,
+            animalFilial:  dados.animalFilial,
+            animalNome:    dados.animalNome,
+            dadosproId:    produto.id_dadospro,
+            descPro:       produto.nome_produto,
+            qtd:           item.qtd,
+            dataCompra:    dados.data,
+            dias:          item.dias,
+            orcaId:        agendaId,
+            orcaFilial:    filial,
+          }).catch(() => {});
+        }
+      }
     } catch {
       errosItens.push(`${item.descPro}: falha ao lançar na agenda.`);
+    }
+  }
+
+  // A Agenda nasceu com valor=0 (preço só se sabe depois de buscar cada
+  // produto); agora que os itens foram lançados, sincroniza o total real.
+  if (valorTotal > 0) {
+    try {
+      await apiFetch<ApiWrite>('/api/petshop/agenda', {
+        method: 'PUT',
+        body: JSON.stringify({ id: agendaId, filial, valor: valorTotal, desconto: 0 }),
+      });
+    } catch {
+      // Segue o fluxo mesmo se a sincronização de total falhar — os itens
+      // já estão lançados corretamente, o valor pode ser ajustado depois.
     }
   }
 
@@ -135,6 +178,11 @@ export async function criarConsultaDeEstimativas(
     if (resConsulta.CodStatus !== 1 || !resConsulta.id) {
       return { error: resConsulta.DescricaoStatus || 'Agenda criada, mas não foi possível abrir a consulta.' };
     }
+
+    // Estimativas cujo item foi lançado com sucesso: marca como atendida
+    // (status 3) pra não continuar aparecendo como pendente no histórico.
+    await Promise.all(idsAtendidos.map((id) => atualizarStatusEstimativa(id, 3)));
+
     if (errosItens.length > 0) {
       return { consultaId: resConsulta.id as number, error: `Consulta criada, mas alguns itens falharam: ${errosItens.join('; ')}` };
     }

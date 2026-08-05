@@ -5,39 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type DocWithViewTransition = Document & {
-  startViewTransition?: (cb: () => void) => { ready: Promise<void> };
-};
-
-/**
- * Troca de tema com uma revelação circular a partir do ponto informado
- * (estilo "liquid glass" da Apple), usando a View Transitions API.
- * Em navegadores sem suporte cai de volta para a troca instantânea normal.
- */
-function trocarTemaComTransicao(origem: { x: number; y: number }, aplicar: () => void) {
-  const doc = document as DocWithViewTransition;
-  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    aplicar();
-    return;
-  }
-  const raioMax = Math.hypot(
-    Math.max(origem.x, window.innerWidth - origem.x),
-    Math.max(origem.y, window.innerHeight - origem.y),
-  );
-  const transicao = doc.startViewTransition(() => aplicar());
-  transicao.ready.then(() => {
-    document.documentElement.animate(
-      {
-        clipPath: [
-          `circle(0px at ${origem.x}px ${origem.y}px)`,
-          `circle(${raioMax}px at ${origem.x}px ${origem.y}px)`,
-        ],
-      },
-      { duration: 550, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', pseudoElement: '::view-transition-new(root)' },
-    );
-  }).catch(() => {});
-}
-
 // Interpola entre o laranja (claro) e o azul (escuro) conforme a posição do arraste
 function corBrilho(frac: number): string {
   const de = [251, 191, 36];   // amber-400 (Claro)
@@ -74,19 +41,6 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
     return Math.min(1, Math.max(0, x / usable));
   }
 
-  function commitTema(novoFrac: number) {
-    const novoTema = novoFrac >= 0.5 ? 'dark' : 'light';
-    const track = trackRef.current;
-    const rect = track?.getBoundingClientRect();
-    const origem = rect
-      ? { x: rect.left + PADDING + KNOB / 2 + novoFrac * (rect.width - KNOB - PADDING * 2), y: rect.top + rect.height / 2 }
-      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    setFrac(novoFrac);
-    if (novoTema !== theme) {
-      trocarTemaComTransicao(origem, () => setTheme(novoTema));
-    }
-  }
-
   function onPointerDown(e: React.PointerEvent) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDragging(true);
@@ -99,75 +53,99 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
   function onPointerUp(e: React.PointerEvent) {
     if (!dragging) return;
     setDragging(false);
-    commitTema(fracDoPointer(e.clientX) >= 0.5 ? 1 : 0);
+    const novoFrac = fracDoPointer(e.clientX) >= 0.5 ? 1 : 0;
+    setFrac(novoFrac);
+    const novoTema = novoFrac === 1 ? 'dark' : 'light';
+    if (novoTema !== theme) setTheme(novoTema);
   }
   function onClickTrack(e: React.MouseEvent) {
     if (dragging) return;
-    commitTema(fracDoPointer(e.clientX) >= 0.5 ? 1 : 0);
+    const novoTema = fracDoPointer(e.clientX) >= 0.5 ? 'dark' : 'light';
+    setFrac(novoTema === 'dark' ? 1 : 0);
+    if (novoTema !== theme) setTheme(novoTema);
   }
 
   const glow = corBrilho(frac);
 
-  if (collapsed) {
-    return (
-      <div className="flex justify-center py-2">
-        <button
-          type="button"
-          title="Alternar tema"
-          onClick={(e) => trocarTemaComTransicao({ x: e.clientX, y: e.clientY }, () => setTheme(theme === 'dark' ? 'light' : 'dark'))}
-          className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </button>
-      </div>
-    );
-  }
+  // Enquanto arrasta, o app inteiro acompanha visualmente: um véu leve
+  // (preto indo pra escuro, branco indo pra claro) na proporção da distância
+  // entre a posição do dedo e o tema real — sem troca pesada de classe/CSS
+  // a cada pixel, só uma opacidade que sobe e desce suave.
+  const fracReal = theme === 'dark' ? 1 : 0;
+  const diff = frac - fracReal;
+  const veuAtivo = dragging && Math.abs(diff) > 0.02;
 
   return (
-    <div className="px-3 py-2">
-      <p className="text-xs text-muted-foreground mb-1.5 px-1">Tema</p>
-      <div
-        ref={trackRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onClick={onClickTrack}
-        className="relative h-9 w-full max-w-[140px] rounded-full border border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5 backdrop-blur-md shadow-inner cursor-pointer select-none touch-none overflow-hidden"
-      >
-        {/* Brilho colorido que acompanha o arraste */}
+    <>
+      {veuAtivo && (
         <div
-          className="absolute inset-y-0 rounded-full pointer-events-none"
+          aria-hidden
+          className="fixed inset-0 z-[999] pointer-events-none"
           style={{
-            left: `calc(${frac * 100}% - ${KNOB}px)`,
-            width: `${KNOB * 3}px`,
-            background: `radial-gradient(circle, rgba(${glow},0.55) 0%, rgba(${glow},0) 70%)`,
-            transition: dragging ? 'none' : 'left 300ms cubic-bezier(.2,.9,.25,1)',
-            filter: 'blur(2px)',
+            background: diff > 0 ? '#000' : '#fff',
+            opacity: Math.abs(diff) * 0.45,
           }}
         />
-        {/* Rótulos */}
-        <div className="absolute inset-0 flex items-center justify-between px-2.5 text-[10px] font-medium text-muted-foreground pointer-events-none">
-          <span className={cn(frac < 0.5 && 'opacity-0')}>Claro</span>
-          <span className={cn(frac >= 0.5 && 'opacity-0')}>Escuro</span>
+      )}
+
+      {collapsed ? (
+        <div className="flex justify-center py-2">
+          <button
+            type="button"
+            title="Alternar tema"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center justify-center rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </button>
         </div>
-        {/* Botão redondo */}
-        <div
-          className={cn(
-            'absolute top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center',
-            'bg-gradient-to-b from-white to-white/80 dark:from-neutral-200 dark:to-neutral-300',
-            'shadow-[0_1px_4px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-black/5',
-          )}
-          style={{
-            width: KNOB, height: KNOB,
-            left: `calc(${PADDING}px + ${frac} * (100% - ${KNOB + PADDING * 2}px))`,
-            transition: dragging ? 'none' : 'left 300ms cubic-bezier(.2,.9,.25,1)',
-          }}
-        >
-          {frac < 0.5
-            ? <Sun className="h-3.5 w-3.5 text-amber-500" />
-            : <Moon className="h-3.5 w-3.5 text-blue-600" />}
+      ) : (
+        <div className="px-3 py-2">
+          <p className="text-xs text-muted-foreground mb-1.5 px-1">Tema</p>
+          <div
+            ref={trackRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onClick={onClickTrack}
+            className="relative h-9 w-full max-w-[140px] rounded-full border border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5 backdrop-blur-md shadow-inner cursor-pointer select-none touch-none overflow-hidden"
+          >
+            {/* Brilho colorido que acompanha o arraste */}
+            <div
+              className="absolute inset-y-0 rounded-full pointer-events-none"
+              style={{
+                left: `calc(${frac * 100}% - ${KNOB}px)`,
+                width: `${KNOB * 3}px`,
+                background: `radial-gradient(circle, rgba(${glow},0.55) 0%, rgba(${glow},0) 70%)`,
+                transition: dragging ? 'none' : 'left 200ms ease-out',
+                filter: 'blur(2px)',
+              }}
+            />
+            {/* Rótulos */}
+            <div className="absolute inset-0 flex items-center justify-between px-2.5 text-[10px] font-medium text-muted-foreground pointer-events-none">
+              <span className={cn(frac < 0.5 && 'opacity-0')}>Claro</span>
+              <span className={cn(frac >= 0.5 && 'opacity-0')}>Escuro</span>
+            </div>
+            {/* Botão redondo */}
+            <div
+              className={cn(
+                'absolute top-1/2 -translate-y-1/2 rounded-full flex items-center justify-center',
+                'bg-gradient-to-b from-white to-white/80 dark:from-neutral-200 dark:to-neutral-300',
+                'shadow-[0_1px_4px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-black/5',
+              )}
+              style={{
+                width: KNOB, height: KNOB,
+                left: `calc(${PADDING}px + ${frac} * (100% - ${KNOB + PADDING * 2}px))`,
+                transition: dragging ? 'none' : 'left 200ms ease-out',
+              }}
+            >
+              {frac < 0.5
+                ? <Sun className="h-3.5 w-3.5 text-amber-500" />
+                : <Moon className="h-3.5 w-3.5 text-blue-600" />}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
