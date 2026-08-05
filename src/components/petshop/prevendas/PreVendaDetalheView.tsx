@@ -82,6 +82,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
   const [proIdx, setProIdx] = useState(-1);
   const [proSel, setProSel] = useState<ProdutoBuscaItem | null>(null);
   const [proQtd, setProQtd] = useState('1');
+  const [proValor, setProValor] = useState('0');
   const [proDesc, setProDesc] = useState('0');
   const [proRegra, setProRegra] = useState<RegraProduto | null>(null);
   const [proDias, setProDias] = useState<number | null>(null);
@@ -100,10 +101,11 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
   async function selProd(p: ProdutoBuscaItem) {
     setProSel(p); setBuscaPro(p.descricao); setProdOpts([]); setProIdx(-1);
     setProDias(null);
-    // reseta qtd/desconto do produto anterior — sem isso, cancelar o dialog
-    // de um produto (sem adicionar) deixava esses valores "vazarem" pro
-    // próximo produto selecionado.
+    // reseta qtd/valor/desconto do produto anterior — sem isso, cancelar o
+    // dialog de um produto (sem adicionar) deixava esses valores "vazarem"
+    // pro próximo produto selecionado.
     setProQtd('1'); setProDesc('0');
+    setProValor(String(p.preco).replace('.', ','));
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
     setProRegra(regras[0] ?? null);
     if (!regras[0]) setProDias(0);
@@ -134,7 +136,9 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
     if (!proSel) return;
     const qtd  = parseFloat(proQtd) || 1;
     const desc = parseFloat(proDesc) || 0;
-    const valorUnit = proSel.preco;
+    // Valor unitário: normalmente o preço de tabela, mas o atendente pode
+    // sobrescrever digitando direto no campo (ex.: negociação com o cliente).
+    const valorUnit = parseFloat(proValor.replace(',', '.')) || proSel.preco;
     const valorTotal = valorUnit * qtd;
     const valorLiq   = valorTotal * (1 - desc / 100);
     startT(async () => {
@@ -179,7 +183,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
       }];
       setItens(novaLista);
       await persistirTotais(novaLista);
-      setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProQtd('1'); setProDesc('0'); setProdOpts([]);
+      setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProQtd('1'); setProDesc('0'); setProValor('0'); setProdOpts([]);
       setProRegra(null); setProDias(null);
       setSucesso('Produto adicionado.'); setTimeout(() => setSucesso(''), 3000);
     });
@@ -476,7 +480,7 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
           <div className="w-full max-w-2xl rounded-lg bg-card p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Adicionar Produto</h2>
-              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProQtd('1'); setProDesc('0'); setProRegra(null); setProDias(null); }}>
+              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProQtd('1'); setProDesc('0'); setProValor('0'); setProRegra(null); setProDias(null); }}>
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
@@ -511,13 +515,18 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
             {proSel && (
               <div className="rounded-md bg-muted/50 p-3 text-sm">
                 <p className="font-medium">{proSel.descricao}</p>
-                <p className="text-muted-foreground">Preço: {fmt(proSel.preco)} · Estoque: {proSel.estoque} {proSel.unidade}</p>
+                <p className="text-muted-foreground">Preço de tabela: {fmt(proSel.preco)} · Estoque: {proSel.estoque} {proSel.unidade}</p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium">Quantidade</label>
                 <input type="number" min="0.01" step="0.01" value={proQtd} onChange={e => setProQtd(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Valor (R$)</label>
+                <input type="text" inputMode="decimal" value={proValor} onChange={e => setProValor(e.target.value)}
                   className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
@@ -553,11 +562,11 @@ export default function PreVendaDetalheView({ prevenda, itens: itensInit, soment
             )}
             {proSel && (
               <p className="text-sm font-medium">
-                Total: {fmt(proSel.preco * (parseFloat(proQtd) || 1) * (1 - (parseFloat(proDesc) || 0) / 100))}
+                Total: {fmt((parseFloat(proValor.replace(',', '.')) || proSel.preco) * (parseFloat(proQtd) || 1) * (1 - (parseFloat(proDesc) || 0) / 100))}
               </p>
             )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null); setProQtd('1'); setProDesc('0'); }}
+              <button onClick={() => { setShowProdDlg(false); setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null); setProQtd('1'); setProDesc('0'); setProValor('0'); }}
                 className="rounded-md border px-4 py-2 text-sm hover:bg-accent">
                 Cancelar
               </button>

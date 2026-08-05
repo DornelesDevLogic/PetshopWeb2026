@@ -42,11 +42,16 @@ export interface Filtros {
   orderBy:  string;   // 'abertura' | 'previsao'
 }
 
+interface FilialOption { id: number; nome: string; }
+
 interface Props {
   items:         AgendaItem[];
   profissionais: Profissional[];
   servicos:      Servico[];
   filtros:       Filtros;
+  filial?:       number;
+  filialHome?:   number;
+  filiais?:      FilialOption[];
 }
 
 function parseValor(v: string): number {
@@ -78,7 +83,9 @@ function grupoDeStatus(status: string): GrupoStatus {
   return 'todos';
 }
 
-export default function AgendaListaView({ items, profissionais, servicos, filtros }: Props) {
+export default function AgendaListaView({
+  items, profissionais, servicos, filtros, filial, filialHome, filiais = [],
+}: Props) {
   const router = useRouter();
   const [busca,  setBusca]  = useState(filtros.busca);
   const [animal, setAnimal] = useState(filtros.animal);
@@ -86,8 +93,9 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
   const [historicoDe, setHistoricoDe] = useState<AgendaItem | null>(null);
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
+  const outraFilial = !!filialHome && filial !== filialHome;
 
-  function navegar(mudancas: Partial<Filtros>) {
+  function navegar(mudancas: Partial<Filtros> & { filial?: number | null }) {
     const f = { ...filtros, busca, animal, numero, ...mudancas };
     const sp = new URLSearchParams();
     if (f.dataDe)  sp.set('data_de',  f.dataDe);
@@ -101,6 +109,8 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
     if (f.animal) sp.set('animal', f.animal);
     if (f.numero) sp.set('numero', f.numero);
     if (f.orderBy && f.orderBy !== 'abertura') sp.set('order_by', f.orderBy);
+    const filialAlvo = 'filial' in mudancas ? mudancas.filial : filial;
+    if (filialAlvo && filialAlvo !== filialHome) sp.set('filial', String(filialAlvo));
     router.push(`/agenda/lista?${sp.toString()}`);
   }
 
@@ -158,7 +168,26 @@ export default function AgendaListaView({ items, profissionais, servicos, filtro
       <div className="rounded-xl border bg-card p-4 space-y-3">
 
         {/* Linha 1: Datas */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-3', filiais.length > 1 ? 'lg:grid-cols-9' : 'lg:grid-cols-8')}>
+          {filiais.length > 1 && (
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground">Filial</label>
+              <Select
+                value={String(filial ?? filialHome ?? '')}
+                onValueChange={(v) => v && navegar({ filial: Number(v) === filialHome ? null : Number(v) })}
+                items={filiais.map((f) => ({ value: String(f.id), label: f.nome }))}
+              >
+                <SelectTrigger className={cn('h-8 text-xs w-full', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {filiais.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)} className="text-xs">{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
               Datas Abertura

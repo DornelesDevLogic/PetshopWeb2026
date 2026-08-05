@@ -235,64 +235,57 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
 
       {/* ── Usuário + Logout ──────────────────────────────────────────────── */}
       <div className={cn(
-        'border-t space-y-1 shrink-0 overflow-hidden',
+        'border-t space-y-0.5 shrink-0 overflow-hidden',
         'transition-all duration-300',
-        open ? 'px-3 py-3' : 'px-2 py-3',
+        open ? 'px-3 py-2' : 'px-2 py-2',
       )}>
         {user && (
           <div className={cn(
-            'flex items-center rounded-md bg-muted/50 text-xs text-muted-foreground overflow-hidden',
+            'flex items-center rounded-md bg-muted/50 text-[11px] text-muted-foreground overflow-hidden',
             'transition-all duration-300',
-            open ? 'gap-2 px-3 py-2' : 'justify-center px-0 py-2',
-          )}>
-            <UserCircle2 className="h-4 w-4 shrink-0 text-primary" />
-            <div className={cn(
-              'min-w-0 overflow-hidden transition-all duration-300',
-              open ? 'opacity-100 max-w-[120px]' : 'opacity-0 max-w-0',
+            open ? 'gap-2 px-2.5 py-1.5' : 'justify-center px-0 py-1.5',
+          )}
+            title={open ? undefined : `${user.nome} · Cód. ${user.codigo}`}
+          >
+            <UserCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <p className={cn(
+              'min-w-0 overflow-hidden transition-all duration-300 truncate',
+              open ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
             )}>
-              <p className="font-medium text-foreground truncate">{user.nome}</p>
-              <p className="truncate">
-                Cód. {user.codigo}
-                {user.tipo ? ` · ${TIPO_LABEL[user.tipo] ?? user.tipo}` : ''}
-              </p>
-            </div>
+              <span className="font-medium text-foreground">{user.nome}</span>
+              {' · '}Cód. {user.codigo}
+            </p>
           </div>
         )}
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            title={!open ? 'Sair' : undefined}
-            className={cn(
-              'flex w-full items-center rounded-md text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground overflow-hidden',
-              open ? 'gap-3 px-3 py-2' : 'justify-center px-0 py-2.5',
-            )}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span className={cn(
-              'transition-all duration-300 overflow-hidden whitespace-nowrap',
-              open ? 'opacity-100 max-w-[120px]' : 'opacity-0 max-w-0',
-            )}>
-              Sair
-            </span>
-          </button>
-        </form>
-        <ThemeToggle collapsed={!open} />
+        <div className={cn('flex items-center', open ? 'justify-between gap-1' : 'flex-col gap-0.5')}>
+          <form action={logoutAction} className={open ? 'flex-1' : undefined}>
+            <button
+              type="submit"
+              title="Sair"
+              className={cn(
+                'flex items-center rounded-md text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground overflow-hidden',
+                open ? 'w-full gap-2 px-2.5 py-1.5' : 'justify-center px-0 py-1.5 w-full',
+              )}
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" />
+              <span className={cn(
+                'transition-all duration-300 overflow-hidden whitespace-nowrap',
+                open ? 'opacity-100 max-w-[80px]' : 'opacity-0 max-w-0',
+              )}>
+                Sair
+              </span>
+            </button>
+          </form>
+          <ThemeToggle collapsed={!open} compact />
+        </div>
 
         {/* ── Versão do backend ───────────────────────────────────────────── */}
         {backendVersion && (
           <div
             title={`API PetShop v${backendVersion}`}
-            className={cn(
-              'flex items-center text-[10px] text-muted-foreground/60 overflow-hidden',
-              'transition-all duration-300',
-              open ? 'justify-center gap-1 pt-1' : 'justify-center pt-1',
-            )}
+            className="flex items-center justify-center text-[9px] text-muted-foreground/50 overflow-hidden"
           >
-            {open ? (
-              <span className="whitespace-nowrap">API v{backendVersion}</span>
-            ) : (
-              <span className="font-mono">v{backendVersion.split('.').slice(0, 2).join('.')}</span>
-            )}
+            <span className="font-mono">v{backendVersion.split('.').slice(0, 2).join('.')}</span>
           </div>
         )}
       </div>

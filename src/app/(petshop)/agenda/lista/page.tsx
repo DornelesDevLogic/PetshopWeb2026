@@ -5,6 +5,8 @@ import AgendaListaView, { Filtros } from '@/components/petshop/agenda/AgendaList
 import AgendaListaSkeleton from '@/components/petshop/agenda/AgendaListaSkeleton';
 import { getUsuarioLogado } from '@/lib/session';
 
+interface FiliaisResponse { dados: { id: number; nome: string }[]; Count: number; }
+
 interface Props {
   searchParams: {
     data_de?:         string;
@@ -18,6 +20,7 @@ interface Props {
     animal?:          string;
     numero?:          string;
     order_by?:        string;  // 'abertura' | 'previsao'
+    filial?:          string;
   };
 }
 
@@ -58,6 +61,11 @@ async function AgendaListaContent({ searchParams }: Props) {
   const busca   = searchParams.busca    ?? '';
   const numero  = searchParams.numero   ?? '';
 
+  const filialHome = getFilial();
+  // Filial sendo visualizada (pode ser outra loja, escolhida no seletor) —
+  // não altera a filial padrão da sessão, só o que é exibido nesta tela.
+  const filialVisualizada = Number(searchParams.filial) || filialHome;
+
   // status '1' no filtro rápido representa "Em aberto" (status 1 e 2 no backend).
   // Quando o usuário clicar em "Em aberto" enviamos status=1; o backend filtra
   // por STATUS in (1,2) se receber status=1 (comportamento do legado).
@@ -68,10 +76,10 @@ async function AgendaListaContent({ searchParams }: Props) {
 
   const empty = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
 
-  const [agendaRes, profRes, servRes] = await Promise.all([
+  const [agendaRes, profRes, servRes, filiaisRes] = await Promise.all([
     apiFetch<AgendaResponse>(
       `/api/petshop/agenda${qs({
-        filial:             getFilial(),
+        filial:             filialVisualizada,
         data_de:            numero ? undefined : dataDe,
         data_ate:           numero ? undefined : dataAte,
         data_entrega_de:    prevDe  || undefined,
@@ -89,12 +97,14 @@ async function AgendaListaContent({ searchParams }: Props) {
     ).catch(() => empty),
 
     apiFetch<ProfissionalResponse>(
-      `/api/petshop/profissionais${qs({ filial: getFilial(), limit: 500 })}`
+      `/api/petshop/profissionais${qs({ filial: filialVisualizada, limit: 500 })}`
     ).catch(() => empty),
 
     apiFetch<ServicoResponse>(
-      `/api/petshop/servicos${qs({ filial: getFilial(), limit: 200 })}`
+      `/api/petshop/servicos${qs({ filial: filialVisualizada, limit: 200 })}`
     ).catch(() => empty),
+
+    apiFetch<FiliaisResponse>('/api/petshop/filiais').catch(() => ({ dados: [], Count: 0 })),
   ]);
 
   const SERVICOS_EXCLUIDOS = new Set([
@@ -130,6 +140,9 @@ async function AgendaListaContent({ searchParams }: Props) {
       profissionais={profRes.dados}
       servicos={servRes.dados}
       filtros={filtros}
+      filial={filialVisualizada}
+      filialHome={filialHome}
+      filiais={filiaisRes.dados}
     />
   );
 }

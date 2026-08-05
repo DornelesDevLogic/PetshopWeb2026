@@ -11,6 +11,7 @@ import {
   deleteProntuario,
   addVacina,
   deleteVacina,
+  criarAgendaParaConsulta,
 } from '@/app/(petshop)/consultas/[id]/actions';
 import {
   ConsultaDetalhe,
@@ -725,6 +726,35 @@ export default function ConsultaDetalheView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {!temAgenda && isAberto && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+            <Package className="h-3.5 w-3.5" />
+            Produtos / Medicamentos
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Essa consulta ainda não tem uma agenda vinculada pra lançar produtos e faturar no Frente de Caixa.
+          </p>
+          <Button type="button" size="sm" disabled={isPending} onClick={() => act(async () => {
+            const r = await criarAgendaParaConsulta({
+              consultaId:       consulta.id,
+              filial:           consulta.filial,
+              animalId:         consulta.animal_id,
+              animalNome:       consulta.animal,
+              proprietarioId:   consulta.proprietario_id,
+              proprietarioNome: consulta.proprietario,
+              veterinarioId:    consulta.veterinario_id,
+              veterinarioNome:  consulta.veterinario,
+              data:             consulta.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+            });
+            return r.error ? { error: r.error } : {};
+          })}>
+            {isPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+            Adicionar Produto
+          </Button>
         </div>
       )}
 

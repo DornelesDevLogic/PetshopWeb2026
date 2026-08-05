@@ -70,7 +70,7 @@ hr.dashed { border: none; border-top: 1.5px dashed #000; margin: 1.5mm 0; }
 .item-row { margin-top: 1.8mm; }
 .item-desc { font-size: 9pt; font-weight: 700; }
 .item-vals { display: flex; justify-content: space-between; font-size: 8.5pt; font-weight: 600; margin-top: 0.3mm; }
-.obs-box { white-space: pre-wrap; font-size: 9pt; font-weight: 600; }
+.obs-box { white-space: pre-wrap; font-size: 9pt; font-weight: 600; line-height: 1.15; }
 .assinatura { border-top: 1.5px solid #000; margin-top: 8mm; padding-top: 1mm; text-align: center; font-size: 9pt; font-weight: 600; }
 `;
 
@@ -139,7 +139,7 @@ export function gerarCupomAgenda(d: CupomAgendaData): string {
   ${d.data_entrega ? `<p>Previsão de Entrega: ${fmtData(d.data_entrega)}</p>` : ''}
   ${d.dadosAdicionais ? `
   <hr class="dashed">
-  <div class="obs-box">${esc(d.dadosAdicionais).replace(/\n/g, '<br>')}</div>` : ''}
+  <div class="obs-box">${esc(d.dadosAdicionais).trim().replace(/\n{2,}/g, '\n').replace(/\n/g, '<br>')}</div>` : ''}
   <div class="assinatura">Ass: _______________________________</div>
 </body>
 </html>`;

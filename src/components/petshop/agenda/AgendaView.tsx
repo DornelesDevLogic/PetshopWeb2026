@@ -36,6 +36,17 @@ import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
 import GerenciarTecnicosDialog from '@/components/petshop/agenda/GerenciarTecnicosDialog';
 import { definirAgendaTecnico } from '@/app/(petshop)/agenda/tecnicos-actions';
 
+// Serviços que podem virar uma Consulta veterinária a partir da Agenda.
+// Lista com e sem acento pra não depender de como o texto foi cadastrado
+// (ex.: bancos antigos costumam ter "VACINACAO" sem cedilha/til).
+const SERVICOS_PERMITEM_CONSULTA = [
+  'CONSULTA', 'VETERINARIO', 'VETERINÁRIO', 'VACINACAO', 'VACINAÇÃO',
+];
+function permiteIniciarConsulta(servico?: string): boolean {
+  const s = (servico ?? '').toUpperCase();
+  return SERVICOS_PERMITEM_CONSULTA.some((v) => s.includes(v));
+}
+
 interface FilialOption { id: number; nome: string; }
 
 interface Props {
@@ -684,7 +695,7 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
           <Pencil className="h-4 w-4 mr-2" />
           Editar Agendamento
         </Button>
-        {(current.servico ?? '').toUpperCase().includes('CONSULTA') && current.status !== 4 && (
+        {permiteIniciarConsulta(current.servico) && current.status !== 4 && (
           <Button
             variant="outline"
             size="sm"

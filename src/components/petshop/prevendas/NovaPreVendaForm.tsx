@@ -87,6 +87,7 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
   const [proIdx, setProIdx] = useState(-1);
   const [proSel, setProSel] = useState<ProdutoBuscaItem | null>(null);
   const [proQtd, setProQtd] = useState('1');
+  const [proValor, setProValor] = useState('0');
   const [proDesc, setProDesc] = useState('0');
   const [proRegra, setProRegra] = useState<RegraProduto | null>(null);
   const [proDias, setProDias] = useState<number | null>(null); // null=pendente escolha
@@ -154,12 +155,13 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
     setProdOpts([]);
     setProIdx(-1);
     setProDias(null);
-    // reseta qtd/desconto do produto anterior — sem isso, cancelar o dialog
-    // de um produto (sem adicionar) deixava esses valores "vazarem" pro
-    // próximo produto selecionado, aplicando um desconto que o atendente
-    // nunca digitou para ele.
+    // reseta qtd/valor/desconto do produto anterior — sem isso, cancelar o
+    // dialog de um produto (sem adicionar) deixava esses valores "vazarem"
+    // pro próximo produto selecionado, aplicando um desconto/valor que o
+    // atendente nunca digitou para ele.
     setProQtd('1'); setProDesc('0');
-    setShowProdDlg(true); // abre o dialog de confirmação (qtd/desconto/estimativa) direto
+    setProValor(String(p.preco).replace('.', ','));
+    setShowProdDlg(true); // abre o dialog de confirmação (qtd/valor/desconto/estimativa) direto
     // verifica regra de estimativa
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
     setProRegra(regras[0] ?? null);
@@ -169,27 +171,31 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
   function fecharDialogProduto() {
     setShowProdDlg(false);
     setBuscaPro(''); setProSel(null); setProdOpts([]); setProRegra(null); setProDias(null);
-    setProQtd('1'); setProDesc('0');
+    setProQtd('1'); setProDesc('0'); setProValor('0');
   }
 
   function adicionarProdutoLocal() {
     if (!proSel) return;
     if (proRegra && proDias === null) return; // deve escolher prazo
-    const qtd  = parseFloat(proQtd) || 1;
-    const desc = parseFloat(proDesc) || 0;
-    const total = proSel.preco * qtd * (1 - desc / 100);
+    const qtd   = parseFloat(proQtd) || 1;
+    const desc  = parseFloat(proDesc) || 0;
+    // Valor unitário: normalmente o preço de tabela, mas o atendente pode
+    // sobrescrever digitando direto no campo (ex.: negociação com o cliente),
+    // sem precisar simular isso via desconto.
+    const valorUnit = parseFloat(proValor.replace(',', '.')) || proSel.preco;
+    const total = valorUnit * qtd * (1 - desc / 100);
     setProdutos(prev => [...prev, {
       id_dadospro: proSel!.id_dadospro,
       filial:      proSel!.filial,
       cod_pro:     proSel!.cod_pro,
       descricao:   proSel!.descricao,
       unidade:     proSel!.unidade,
-      preco:       proSel!.preco,
+      preco:       valorUnit,
       qtd, desconto: desc, total,
       regra: proRegra ?? undefined,
       dias:  proDias ?? 0,
     }]);
-    setProQtd('1'); setProDesc('0');
+    setProQtd('1'); setProDesc('0'); setProValor('0');
     fecharDialogProduto();
   }
 
@@ -661,15 +667,20 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
                 <p className="font-medium">{proSel.descricao}</p>
                 <p className="text-muted-foreground">
                   {proSel.cod_pro && <span className="font-mono mr-1.5">{proSel.cod_pro}</span>}
-                  Preço: {fmt(proSel.preco)} · Estoque: {proSel.estoque} {proSel.unidade}
+                  Preço de tabela: {fmt(proSel.preco)} · Estoque: {proSel.estoque} {proSel.unidade}
                 </p>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium">Quantidade</label>
                 <input type="number" min="0.01" step="0.01" value={proQtd} onChange={e => setProQtd(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Valor (R$)</label>
+                <input type="text" inputMode="decimal" value={proValor} onChange={e => setProValor(e.target.value)}
                   className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
@@ -723,7 +734,7 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
 
             {proSel && (
               <p className="text-sm font-medium">
-                Total: {fmt(proSel.preco * (parseFloat(proQtd) || 1) * (1 - (parseFloat(proDesc) || 0) / 100))}
+                Total: {fmt((parseFloat(proValor.replace(',', '.')) || proSel.preco) * (parseFloat(proQtd) || 1) * (1 - (parseFloat(proDesc) || 0) / 100))}
               </p>
             )}
 

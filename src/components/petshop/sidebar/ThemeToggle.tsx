@@ -15,10 +15,9 @@ function corBrilho(frac: number): string {
   return `${r}, ${g}, ${b}`;
 }
 
-const KNOB = 28;      // diâmetro do botão redondo
-const PADDING = 3;    // respiro interno da trilha
-
-export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
+export default function ThemeToggle({ collapsed, compact }: { collapsed?: boolean; compact?: boolean }) {
+  const KNOB = compact ? 18 : 28;      // diâmetro do botão redondo
+  const PADDING = compact ? 2 : 3;     // respiro interno da trilha
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -100,15 +99,19 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
           </button>
         </div>
       ) : (
-        <div className="px-3 py-2">
-          <p className="text-xs text-muted-foreground mb-1.5 px-1">Tema</p>
+        <div className={compact ? undefined : 'px-3 py-2'}>
+          {!compact && <p className="text-xs text-muted-foreground mb-1.5 px-1">Tema</p>}
           <div
             ref={trackRef}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onClick={onClickTrack}
-            className="relative h-9 w-full max-w-[140px] rounded-full border border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5 backdrop-blur-md shadow-inner cursor-pointer select-none touch-none overflow-hidden"
+            title="Alternar tema"
+            className={cn(
+              'relative rounded-full border border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5 backdrop-blur-md shadow-inner cursor-pointer select-none touch-none overflow-hidden',
+              compact ? 'h-6 w-[52px] shrink-0' : 'h-9 w-full max-w-[140px]',
+            )}
           >
             {/* Brilho colorido que acompanha o arraste */}
             <div
@@ -121,11 +124,13 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
                 filter: 'blur(2px)',
               }}
             />
-            {/* Rótulos */}
-            <div className="absolute inset-0 flex items-center justify-between px-2.5 text-[10px] font-medium text-muted-foreground pointer-events-none">
-              <span className={cn(frac < 0.5 && 'opacity-0')}>Claro</span>
-              <span className={cn(frac >= 0.5 && 'opacity-0')}>Escuro</span>
-            </div>
+            {/* Rótulos (só no modo normal — sem espaço no compacto) */}
+            {!compact && (
+              <div className="absolute inset-0 flex items-center justify-between px-2.5 text-[10px] font-medium text-muted-foreground pointer-events-none">
+                <span className={cn(frac < 0.5 && 'opacity-0')}>Claro</span>
+                <span className={cn(frac >= 0.5 && 'opacity-0')}>Escuro</span>
+              </div>
+            )}
             {/* Botão redondo */}
             <div
               className={cn(
@@ -140,8 +145,8 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
               }}
             >
               {frac < 0.5
-                ? <Sun className="h-3.5 w-3.5 text-amber-500" />
-                : <Moon className="h-3.5 w-3.5 text-blue-600" />}
+                ? <Sun className={compact ? 'h-2.5 w-2.5 text-amber-500' : 'h-3.5 w-3.5 text-amber-500'} />
+                : <Moon className={compact ? 'h-2.5 w-2.5 text-blue-600' : 'h-3.5 w-3.5 text-blue-600'} />}
             </div>
           </div>
         </div>

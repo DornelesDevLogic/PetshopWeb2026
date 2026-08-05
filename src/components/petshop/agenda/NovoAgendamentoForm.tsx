@@ -628,6 +628,8 @@ export default function NovoAgendamentoForm({
     }
   }
   const formRef = useRef<HTMLFormElement>(null);
+  const animalRef = useRef<HTMLDivElement>(null);
+  const [animalPiscando, setAnimalPiscando] = useState(false);
   const vendRef = useRef<HTMLDivElement>(null);
   const [vendPiscando, setVendPiscando] = useState(false);
   const servicoRef = useRef<HTMLDivElement>(null);
@@ -913,6 +915,16 @@ export default function NovoAgendamentoForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorMsg('');
+
+    // Regra: animal obrigatório na Agenda — diferente de Pré-venda/Tele-entrega,
+    // que podem ser lançadas sem pet vinculado, a Agenda sempre precisa de um.
+    if (!animalSel) {
+      setErrorMsg('Selecione o animal antes de gravar.');
+      animalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setAnimalPiscando(true);
+      setTimeout(() => setAnimalPiscando(false), 1500);
+      return;
+    }
 
     // Regra: vendedor obrigatório — rola até o campo e destaca, senão o usuário
     // não percebe a mensagem de erro lá embaixo
@@ -1382,11 +1394,17 @@ export default function NovoAgendamentoForm({
         </div>
 
         {/* ── Animal ── */}
-        <div className="rounded-xl border bg-card p-4 space-y-2.5">
+        <div
+          ref={animalRef}
+          className={cn(
+            'rounded-xl border bg-card p-4 space-y-2.5',
+            animalPiscando && 'ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse',
+          )}
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <PawPrint className="h-3.5 w-3.5" />
-              Animal
+              Animal <span className="text-destructive">*</span>
             </h2>
             {clienteSel && (
               <Button type="button" size="sm" variant="outline" onClick={() => setNovoAnimalOpen(true)}>

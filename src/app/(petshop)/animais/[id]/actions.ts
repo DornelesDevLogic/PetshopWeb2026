@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { apiFetch, getFilial } from '@/lib/api';
 import { ApiWrite } from '@/types/petshop';
+import { invalidarFotoCache } from '@/lib/fotoCache';
 
 export async function uploadFoto(
   animalId: number,
@@ -26,6 +27,10 @@ export async function uploadFoto(
     return { error: (res['DescricaoStatus'] as string | undefined) ?? (res['erro'] as string | undefined) ?? 'Erro ao salvar foto.' };
   }
 
+  // Sem isso, a rota GET da foto continua servindo do cache em memória
+  // (até 2h) o resultado "sem foto" de antes do upload — o pet parece não
+  // ter salvo a foto mesmo o backend tendo aceitado.
+  invalidarFotoCache(animalId, getFilial());
   revalidatePath(`/animais/${animalId}`);
   return {};
 }
@@ -50,6 +55,7 @@ export async function deleteFoto(
     return { error: (res['DescricaoStatus'] as string | undefined) ?? (res['erro'] as string | undefined) ?? 'Erro ao remover foto.' };
   }
 
+  invalidarFotoCache(animalId, getFilial());
   revalidatePath(`/animais/${animalId}`);
   return {};
 }
