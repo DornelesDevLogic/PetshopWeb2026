@@ -59,9 +59,9 @@ function toDateInput(s: string) {
   return s.split(' ')[0];
 }
 
-const STATUS_LABEL: Record<number, string> = { 1: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
+const STATUS_LABEL: Record<number, string> = { 2: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
 const STATUS_CLS: Record<number, string> = {
-  1: 'bg-blue-100 text-blue-700',
+  2: 'bg-blue-100 text-blue-700',
   3: 'bg-green-100 text-green-700',
   4: 'bg-red-100 text-red-700',
 };
@@ -76,7 +76,7 @@ interface Props {
 
 export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empresa }: Props) {
   const router = useRouter();
-  const canEdit = Number(detalhe.status) === 1;
+  const canEdit = Number(detalhe.status) === 2;
 
   // campos editáveis — info geral
   const [clienteId,   setClienteId]   = useState(detalhe.cliente_id);

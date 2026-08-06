@@ -25,7 +25,7 @@ function fmtData(s: string) {
   return `${dd}/${m}/${y}`;
 }
 
-const STATUS_LABEL: Record<number, string> = { 1: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
+const STATUS_LABEL: Record<number, string> = { 2: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
 const STATUS_CLS: Record<number, string> = {
   1: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   3: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',

@@ -31,9 +31,9 @@ function fmtData(s: string) {
   return `${dd}/${m}/${y}`;
 }
 
-const STATUS_LABEL: Record<number, string> = { 1: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
+const STATUS_LABEL: Record<number, string> = { 2: 'Aberta', 3: 'Entregue', 4: 'Cancelada' };
 const STATUS_CLS: Record<number, string> = {
-  1: 'bg-blue-100 text-blue-700',
+  2: 'bg-blue-100 text-blue-700',
   3: 'bg-green-100 text-green-700',
   4: 'bg-red-100 text-red-700',
 };
@@ -149,7 +149,7 @@ export default function TeleEntregasView({ entregas, total, filtros }: Props) {
               className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
             >
               <option value="">Aberta + Entregue</option>
-              <option value="1">Aberta</option>
+              <option value="2">Aberta</option>
               <option value="3">Entregue</option>
               <option value="4">Cancelada</option>
               <option value="99">Todas</option>
@@ -252,7 +252,7 @@ export default function TeleEntregasView({ entregas, total, filtros }: Props) {
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </Link>
-                      {e.status === 1 && (
+                      {e.status === 2 && (
                         <>
                           <Button
                             size="icon" variant="ghost"
