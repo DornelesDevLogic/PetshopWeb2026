@@ -13,6 +13,8 @@ export interface NavItem {
   submenu?: SubmenuItem[];
   /** Agrupamento visual no menu lateral — vira o separador com o nome do grupo. */
   grupo?: string;
+  /** Atalho de criação rápida — aparece ao passar o mouse por 2s no item do menu. */
+  quickCreateHref?: string;
 }
 
 const RELATORIOS_SUBMENU: SubmenuItem[] = [
@@ -29,7 +31,7 @@ const RELATORIOS_SUBMENU: SubmenuItem[] = [
 // (a duplicação já causou o item "Dashboards" ficar faltando no mobile).
 export const NAV_ITEMS: NavItem[] = [
   { href: '/home',          label: 'Início',        icon: Home          },
-  { href: '/agenda',        label: 'Agenda',        icon: CalendarDays  },
+  { href: '/agenda',        label: 'Agenda',        icon: CalendarDays,  quickCreateHref: '/agenda/nova' },
   { href: '/clientes',      label: 'Clientes',      icon: Users,         grupo: 'Comercial' },
   { href: '/animais',       label: 'Animais',       icon: PawPrint      },
   { href: '/consultas',     label: 'Consultas',     icon: Stethoscope   },

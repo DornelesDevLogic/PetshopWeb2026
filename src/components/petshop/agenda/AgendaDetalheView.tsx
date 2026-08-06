@@ -219,6 +219,7 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
           </h2>
           <InfoRow label="Data"         value={d.data} />
           <InfoRow label="Hora"         value={d.hora} />
+          <InfoRow label="Término"      value={d.data_entrega?.split(' ')[1]?.slice(0, 5)} />
           <InfoRow label="Profissional" value={d.profissional} />
           <InfoRow label="Serviço"      value={d.servico} />
           {d.obs && <InfoRow label="Obs"  value={d.obs} />}

@@ -30,6 +30,10 @@ export interface AnamneseField {
   options?: AnamneseLookupOption[];
   /** ocupa a linha inteira do grid (memos geralmente) */
   full?:   boolean;
+  /** limite de caracteres do campo no banco (colunas VARCHAR curtas do
+   * legado, ex.: DIAGNOSTIC_PROVISORIO tem só 60) — sem isso, salvar dá
+   * erro de SQL "Data too large" em vez de avisar o usuário. */
+  maxLength?: number;
 }
 
 export interface AnamneseGroup {
@@ -109,14 +113,14 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
       { key: 'freq_cardiaca',     label: 'Freq. Cardíaca (Bpm)',      type: 'number' },
       { key: 'freq_respiratoria', label: 'Freq. Resp. (FR/min)',      type: 'number' },
       { key: 'exame_tpc',         label: 'T.P.C (Seg)',               type: 'number' },
-      { key: 'exame_lfn',         label: 'L.F.N',                     type: 'text' },
-      { key: 'hidratacao',        label: 'Hidratação',                type: 'text' },
-      { key: 'pressao_arterial',  label: 'Pressão Arterial',          type: 'text' },
+      { key: 'exame_lfn',         label: 'L.F.N',                     type: 'text', maxLength: 100 },
+      { key: 'hidratacao',        label: 'Hidratação',                type: 'text', maxLength: 100 },
+      { key: 'pressao_arterial',  label: 'Pressão Arterial',          type: 'text', maxLength: 100 },
       { key: 'pulso_arterial',    label: 'Pulso Arterial', type: 'select', options: LK_PULSO },
       { key: 'comportamento',     label: 'Comportamento',  type: 'select', options: LK_COMPORTAMENTO },
       { key: 'mucosas',           label: 'Mucosas',        type: 'select', options: LK_MUCOSAS },
       { key: 'nivel_consciencia', label: 'Nível de Consciência', type: 'select', options: LK_NIVEL_CONSCIENCIA },
-      { key: 'convenio',          label: 'Convênio',       type: 'text' },
+      { key: 'convenio',          label: 'Convênio',       type: 'text', maxLength: 40 },
       { key: 'obs_gerais',        label: 'Observações Gerais',  type: 'memo', full: true },
       { key: 'texto',             label: 'Resumo Anamnese Geral', type: 'memo', full: true },
     ],
@@ -144,8 +148,8 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     key: 'fezes', label: 'Fezes',
     abaKey: 'aba_fezes', obrigKey: 'fezes_obrigatorio', impKey: 'def_imp_fezes',
     fields: [
-      { key: 'fezes_odor',         label: 'Odor',         type: 'text' },
-      { key: 'fezes_consistencia', label: 'Consistência', type: 'text' },
+      { key: 'fezes_odor',         label: 'Odor',         type: 'text', maxLength: 20 },
+      { key: 'fezes_consistencia', label: 'Consistência', type: 'text', maxLength: 30 },
       { key: 'fezes_aparencia',    label: 'Aparência',    type: 'memo', full: true },
       { key: 'fezes_parasitas',    label: 'Parasitas',    type: 'memo', full: true },
       { key: 'fezes_obs',          label: 'Observações Fezes', type: 'memo', full: true },
@@ -155,8 +159,8 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     key: 'urina', label: 'Urina',
     abaKey: 'aba_urina', obrigKey: 'urina_obrigatorio', impKey: 'def_imp_urina',
     fields: [
-      { key: 'uri_odor',    label: 'Odor',         type: 'text' },
-      { key: 'uri_miccao',  label: 'Micção',       type: 'text' },
+      { key: 'uri_odor',    label: 'Odor',         type: 'text', maxLength: 15 },
+      { key: 'uri_miccao',  label: 'Micção',       type: 'text', maxLength: 20 },
       { key: 'uri_aspecto', label: 'Aspecto',      type: 'memo', full: true },
       { key: 'uri_obs',     label: 'Observação Urina', type: 'memo', full: true },
     ],
@@ -165,7 +169,7 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     key: 'alimentacao', label: 'Alimentação',
     abaKey: 'aba_alimentacao', obrigKey: 'alimentacao_obrigatorio', impKey: 'def_imp_aliment',
     fields: [
-      { key: 'aliment_tipo',       label: 'Alimentação',  type: 'text' },
+      { key: 'aliment_tipo',       label: 'Alimentação',  type: 'text', maxLength: 30 },
       { key: 'aliment_frequencia', label: 'Frequência',   type: 'memo', full: true },
       { key: 'aliment_quantidade', label: 'Quantidade',   type: 'memo', full: true },
       { key: 'aliment_obs',        label: 'Observações Alimentação', type: 'memo', full: true },
@@ -175,8 +179,8 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     key: 'habitat', label: 'Habitat',
     abaKey: 'aba_habitat', obrigKey: 'habitat_obrigatorio', impKey: 'def_imp_habitat',
     fields: [
-      { key: 'habitat_local',       label: 'Local',       type: 'text' },
-      { key: 'habitat_convivencia', label: 'Convivência', type: 'text' },
+      { key: 'habitat_local',       label: 'Local',       type: 'text', maxLength: 30 },
+      { key: 'habitat_convivencia', label: 'Convivência', type: 'text', maxLength: 30 },
       { key: 'habitat_obs',         label: 'Observação Habitat', type: 'memo', full: true },
     ],
   },
@@ -184,8 +188,8 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     key: 'pele', label: 'Pele',
     abaKey: 'aba_pele', obrigKey: 'pele_obrigatorio', impKey: 'def_imp_pele',
     fields: [
-      { key: 'pele_pelos',         label: 'Pelos',        type: 'text' },
-      { key: 'pele_ectoparasitas', label: 'Ectoparasitas',type: 'text' },
+      { key: 'pele_pelos',         label: 'Pelos',        type: 'text', maxLength: 20 },
+      { key: 'pele_ectoparasitas', label: 'Ectoparasitas',type: 'text', maxLength: 20 },
       { key: 'pele_obs',           label: 'Observações Pele', type: 'memo', full: true },
     ],
   },
@@ -208,9 +212,9 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     abaKey: 'aba_diagnostico', obrigKey: 'diagnostico_obrigatorio', impKey: 'def_imp_diagnostico',
     resumido: true,
     fields: [
-      { key: 'diagnostico',         label: 'Diagnóstico Provisório', type: 'text' },
+      { key: 'diagnostico',         label: 'Diagnóstico Provisório', type: 'text', maxLength: 60 },
       { key: 'diagnostico_obs',     label: 'Observações Diagnóstico Provisório', type: 'memo', full: true },
-      { key: 'diagnostico_def',     label: 'Diagnóstico Definitivo', type: 'text' },
+      { key: 'diagnostico_def',     label: 'Diagnóstico Definitivo', type: 'text', maxLength: 60 },
       { key: 'diagnostico_def_obs', label: 'Observações Diagnóstico Definitivo', type: 'memo', full: true },
     ],
   },
@@ -219,7 +223,7 @@ export const GRUPOS_ANAMNESE: AnamneseGroup[] = [
     abaKey: 'aba_prognostico', obrigKey: 'prognostico_obrigatorio', impKey: 'def_imp_prognostico',
     resumido: true,
     fields: [
-      { key: 'prognostico',     label: 'Prognóstico', type: 'text' },
+      { key: 'prognostico',     label: 'Prognóstico', type: 'text', maxLength: 25 },
       { key: 'prognostico_obs', label: 'Observações Prognóstico', type: 'memo', full: true },
     ],
   },

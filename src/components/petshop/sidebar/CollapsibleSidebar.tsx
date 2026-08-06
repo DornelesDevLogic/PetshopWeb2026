@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { PawPrint, LogOut, UserCircle2, SlidersHorizontal, ChevronLeft, ChevronDown, ChevronRight, Menu, Loader2 } from 'lucide-react';
+import { PawPrint, LogOut, UserCircle2, SlidersHorizontal, ChevronLeft, ChevronDown, ChevronRight, Menu, Loader2, Plus } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
 
@@ -127,7 +127,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
         open ? 'px-3' : 'px-2',
       )}>
         <div className="flex flex-col gap-1">
-          {todos.map(({ href, label, icon: Icon, submenu, grupo }, i) => {
+          {todos.map(({ href, label, icon: Icon, submenu, grupo, quickCreateHref }, i) => {
             const active = pathname.startsWith(href) && (!submenu || pathname === href);
             const mostraDivisor = grupo && grupo !== todos[i - 1]?.grupo;
 
@@ -201,7 +201,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
 
             const carregando = pendingHref === href;
             return (
-              <div key={href}>
+              <div key={href} className="relative group">
                 {divisor}
                 <button
                   type="button"
@@ -227,6 +227,26 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
                     {label}
                   </span>
                 </button>
+
+                {/* Atalho de criação rápida — só aparece depois de ~2s com o
+                    mouse parado em cima do item (transition-delay, sem timer). */}
+                {quickCreateHref && (
+                  <button
+                    type="button"
+                    title={`Novo em ${label}`}
+                    onClick={() => navegar(quickCreateHref)}
+                    className={cn(
+                      'absolute right-1.5 top-1/2 -translate-y-1/2 z-20',
+                      'flex h-6 w-6 items-center justify-center rounded-full',
+                      'bg-primary text-primary-foreground shadow-md hover:scale-110',
+                      'opacity-0 scale-75 pointer-events-none',
+                      'transition-all duration-200',
+                      'group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto group-hover:delay-[2000ms]',
+                    )}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}

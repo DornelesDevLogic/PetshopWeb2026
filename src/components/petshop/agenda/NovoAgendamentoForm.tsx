@@ -1010,6 +1010,8 @@ export default function NovoAgendamentoForm({
           vend_filial:    Number(vendFilial) || undefined,
           obs:            obsTexto,
           peso:           Number(pesoInput) > 0 ? Number(pesoInput) : undefined,
+          data_previsao:  dataPrevisao || undefined,
+          data_entrega:   dataEntrega  || undefined,
         });
         if (res.error) { setErrorMsg(res.error); return; }
 

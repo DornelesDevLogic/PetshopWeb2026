@@ -20,6 +20,8 @@ interface EditarAgendaParams {
   vend_filial?:   number;
   obs?:           string;
   peso?:          number;
+  data_previsao?: string;
+  data_entrega?:  string;
 }
 
 export async function editarAgenda(
@@ -39,6 +41,8 @@ export async function editarAgenda(
   if (params.vend_id)       body.vend_id        = params.vend_id;
   if (params.vend_filial)   body.vend_filial    = params.vend_filial;
   if (params.obs !== undefined) body.obs         = params.obs;
+  if (params.data_previsao) body.data_previsao   = params.data_previsao;
+  if (params.data_entrega)  body.data_entrega    = params.data_entrega;
   if (params.peso && params.peso > 0) {
     body.peso          = params.peso;
     body.animal_id     = params.animal_id;

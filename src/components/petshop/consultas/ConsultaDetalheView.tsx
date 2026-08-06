@@ -32,7 +32,8 @@ import {
   adicionarItemNaAgenda,
   type ProdutoResultado,
 } from '@/app/(petshop)/agenda/nova/actions';
-import { excluirItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
+import { excluirItemAgenda, atualizarItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
+import EditableValor from '@/components/petshop/EditableValor';
 import {
   verificarRegrasProdutos, criarEstimativa,
   type RegraProduto,
@@ -73,6 +74,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 
 interface Props {
   consulta:        ConsultaDetalhe;
@@ -193,6 +195,7 @@ export default function ConsultaDetalheView({
   const [proOpts, setProOpts]              = useState<ProdutoResultado[]>([]);
   const [proSel, setProSel]                = useState<ProdutoResultado | null>(null);
   const [proQtd, setProQtd]                = useState('1');
+  const [proValor, setProValor]            = useState('');
   const [salvandoItem, setSalvandoItem]    = useState(false);
   const [erroItem, setErroItem]            = useState('');
   // ── Estimativa (lembrete de recompra) — mesmo padrão da Pré-venda/Tele-entrega ──
@@ -226,6 +229,7 @@ export default function ConsultaDetalheView({
     setProSel(p);
     setBuscaPro(p.nome_produto);
     setProOpts([]);
+    setProValor(p.preco.toFixed(2));
     setProDias(null);
     // verifica regra de estimativa (lembrete de recompra) — igual Pré-venda/Tele-entrega
     const regras = await verificarRegrasProdutos([p.id_dadospro]).catch(() => []);
@@ -237,6 +241,8 @@ export default function ConsultaDetalheView({
     if (!proSel) return;
     if (proRegra && proDias === null) return; // deve escolher prazo primeiro
     const qtd = parseFloat(proQtd) || 1;
+    const valor = parseFloat(proValor);
+    if (!valor || valor <= 0) { setErroItem('Informe um valor válido (maior que zero).'); return; }
     setSalvandoItem(true);
     setErroItem('');
 
@@ -268,11 +274,10 @@ export default function ConsultaDetalheView({
     const r = await adicionarItemNaAgenda(
       alvoAgendaId, consulta.filial,
       proSel.id_dadospro, proSel.cod_filial,
-      qtd, proSel.preco, 0, proSel.nome_produto,
+      qtd, valor, 0, proSel.nome_produto,
       proSel.nome_produto, proSel.preco, proSel.cod_pro,
     );
-    setSalvandoItem(false);
-    if (r.error) { setErroItem(r.error); return; }
+    if (r.error) { setSalvandoItem(false); setErroItem(r.error); return; }
 
     // cria a estimativa se um prazo foi escolhido
     if (proRegra && (proDias ?? 0) > 0 && animal) {
@@ -293,12 +298,12 @@ export default function ConsultaDetalheView({
       }).catch(() => null);
     }
 
-    setItensAgenda((prev) => [...prev, {
-      id_item: 0, cod_pro: proSel.cod_pro, produto: proSel.nome_produto,
-      descricao: proSel.nome_produto, unidade: proSel.unidade,
-      qtd: String(qtd), valor: String(proSel.preco),
-    }]);
-    setBuscaPro(''); setProOpts([]); setProSel(null); setProQtd('1');
+    // Recarrega do servidor (em vez de só empilhar localmente) pra pegar o
+    // id_item real — sem isso o item recém-lançado não podia ser editado
+    // (EditableValor) nem excluído até a página ser recarregada.
+    buscarItensAgenda(alvoAgendaId, consulta.filial).then(setItensAgenda);
+    setSalvandoItem(false);
+    setBuscaPro(''); setProOpts([]); setProSel(null); setProQtd('1'); setProValor('');
     setProRegra(null); setProDias(null);
   }
 
@@ -308,6 +313,17 @@ export default function ConsultaDetalheView({
     const r = await excluirItemAgenda(agendaId, item.id_item, consulta.filial);
     if (r.error) { setErroItem(r.error); return; }
     setItensAgenda((prev) => prev.filter((i) => i.id_item !== item.id_item));
+  }
+
+  async function alterarValorItemAgenda(it: ItemAgendaConsulta, novoValor: number) {
+    if (!agendaId || !it.id_item) return;
+    const res = await atualizarItemAgenda(
+      agendaId, it.id_item, consulta.filial,
+      Number(it.qtd) || 1, novoValor, 0, it.descricao || it.produto,
+    );
+    if (!res.error) {
+      setItensAgenda((prev) => prev.map((x) => x.id_item === it.id_item ? { ...x, valor: String(novoValor) } : x));
+    }
   }
 
   // ── Prontuário / Vacina add forms ─────────────────────────────────────────
@@ -375,11 +391,23 @@ export default function ConsultaDetalheView({
             </SelectContent>
           </Select>
         ) : (
-          <Input
-            value={valEdit}
-            onChange={(e) => setField(f.key, e.target.value)}
-            inputMode={f.type === 'number' ? 'decimal' : undefined}
-          />
+          <>
+            <Input
+              value={valEdit}
+              onChange={(e) => setField(f.key, e.target.value)}
+              inputMode={f.type === 'number' ? 'decimal' : undefined}
+              maxLength={f.maxLength}
+            />
+            {f.maxLength && (
+              <p className={cn(
+                'text-[11px]',
+                String(valEdit ?? '').length >= f.maxLength ? 'text-destructive' : 'text-muted-foreground',
+              )}>
+                {String(valEdit ?? '').length}/{f.maxLength} caracteres
+                {String(valEdit ?? '').length >= f.maxLength && ' — limite atingido, use o campo de Observações para continuar'}
+              </p>
+            )}
+          </>
         )}
       </div>
     );
@@ -402,9 +430,17 @@ export default function ConsultaDetalheView({
             </div>
             <div className={cn('space-y-1', editando && 'sm:col-span-1')}>
               <Label className="text-xs">Motivo da Consulta</Label>
-              {editando
-                ? <Input value={editData.motivo} onChange={(e) => setField('motivo', e.target.value)} />
-                : <p className="text-sm font-medium">{consulta.motivo || '—'}</p>}
+              {editando ? (
+                <>
+                  <Input value={editData.motivo} onChange={(e) => setField('motivo', e.target.value)} maxLength={60} />
+                  <p className={cn(
+                    'text-[11px]',
+                    String(editData.motivo ?? '').length >= 60 ? 'text-destructive' : 'text-muted-foreground',
+                  )}>
+                    {String(editData.motivo ?? '').length}/60 caracteres
+                  </p>
+                </>
+              ) : <p className="text-sm font-medium">{consulta.motivo || '—'}</p>}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Peso (kg)</Label>
@@ -563,7 +599,10 @@ export default function ConsultaDetalheView({
           <div className="flex-1 min-w-0 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Animal</p>
-              <p className="font-medium">{consulta.animal}</p>
+              <p className="font-medium flex items-center gap-1.5">
+                {consulta.animal}
+                <MicrochipBadge value={animal?.apelido ?? ''} className="text-[11px]" />
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Espécie / Raça</p>
@@ -677,16 +716,27 @@ export default function ConsultaDetalheView({
 
           {proSel && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-end gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
-                  <p className="text-xs text-muted-foreground">R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Tabela: R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <Input
-                  type="number" min="0.01" step="0.01" value={proQtd}
-                  onChange={(e) => setProQtd(e.target.value)}
-                  className="w-20"
-                />
+                <div className="w-24 space-y-0.5">
+                  <Label className="text-[10px] text-muted-foreground">Valor (R$)</Label>
+                  <Input
+                    type="number" min="0.01" step="0.01" value={proValor}
+                    onChange={(e) => setProValor(e.target.value)}
+                  />
+                </div>
+                <div className="w-16 space-y-0.5">
+                  <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                  <Input
+                    type="number" min="0.01" step="0.01" value={proQtd}
+                    onChange={(e) => setProQtd(e.target.value)}
+                  />
+                </div>
                 <Button
                   type="button" size="sm" onClick={handleAddItemAgenda}
                   disabled={salvandoItem || (proRegra !== null && proDias === null)}
@@ -750,7 +800,18 @@ export default function ConsultaDetalheView({
                 <div key={it.id_item || i} className="flex items-center justify-between px-3 py-2 text-sm">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{it.descricao || it.produto}</p>
-                    <p className="text-xs text-muted-foreground">{it.qtd} {it.unidade} · R$ {parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      {it.qtd} {it.unidade} · R${' '}
+                      {isAberto && it.id_item ? (
+                        <EditableValor
+                          valor={parseFloat(it.valor || '0')}
+                          fmt={(v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          onCommit={(v) => alterarValorItemAgenda(it, v)}
+                        />
+                      ) : (
+                        parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                      )}
+                    </p>
                   </div>
                   {isAberto && !!it.id_item && (
                     <Button type="button" variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-red-600" onClick={() => handleRemoverItemAgenda(it)}>
