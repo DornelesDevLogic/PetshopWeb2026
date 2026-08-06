@@ -182,7 +182,11 @@ export default function ConsultaDetalheView({
   }
 
   // ── Produtos / Medicamentos lançados na agenda vinculada ──────────────────
-  const temAgenda = consulta.agenda_id > 0;
+  // Estado local (em vez de derivar direto de consulta.agenda_id): permite
+  // criar a agenda "por trás" na primeira tentativa de adicionar um produto,
+  // sem esperar um refresh de página pra refletir o vínculo recém-criado.
+  const [agendaId, setAgendaId]            = useState(consulta.agenda_id);
+  const temAgenda = agendaId > 0;
   const [itensAgenda, setItensAgenda]      = useState<ItemAgendaConsulta[]>([]);
   const [carregandoItens, setCarregandoItens] = useState(temAgenda);
   const [buscaPro, setBuscaPro]            = useState('');
@@ -196,12 +200,13 @@ export default function ConsultaDetalheView({
   const [proDias, setProDias]              = useState<number | null>(null);
 
   useEffect(() => {
-    if (!temAgenda) return;
-    buscarItensAgenda(consulta.agenda_id, consulta.filial)
+    if (!agendaId) return;
+    setCarregandoItens(true);
+    buscarItensAgenda(agendaId, consulta.filial)
       .then(setItensAgenda)
       .finally(() => setCarregandoItens(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consulta.agenda_id, consulta.filial]);
+  }, [agendaId, consulta.filial]);
 
   const buscaProRef = useRef(buscaPro);
   buscaProRef.current = buscaPro;
@@ -234,8 +239,34 @@ export default function ConsultaDetalheView({
     const qtd = parseFloat(proQtd) || 1;
     setSalvandoItem(true);
     setErroItem('');
+
+    // Consulta "tradicional" ainda sem agenda vinculada: cria (e vincula) a
+    // agenda agora, na primeira tentativa de adicionar um produto — sem
+    // exigir um clique separado antes.
+    let alvoAgendaId = agendaId;
+    if (!alvoAgendaId) {
+      const rAgenda = await criarAgendaParaConsulta({
+        consultaId:       consulta.id,
+        filial:           consulta.filial,
+        animalId:         consulta.animal_id,
+        animalNome:       consulta.animal,
+        proprietarioId:   consulta.proprietario_id,
+        proprietarioNome: consulta.proprietario,
+        veterinarioId:    consulta.veterinario_id,
+        veterinarioNome:  consulta.veterinario,
+        data:             consulta.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      });
+      if (rAgenda.error || !rAgenda.agendaId) {
+        setSalvandoItem(false);
+        setErroItem(rAgenda.error || 'Não foi possível criar a agenda.');
+        return;
+      }
+      alvoAgendaId = rAgenda.agendaId;
+      setAgendaId(alvoAgendaId);
+    }
+
     const r = await adicionarItemNaAgenda(
-      consulta.agenda_id, consulta.filial,
+      alvoAgendaId, consulta.filial,
       proSel.id_dadospro, proSel.cod_filial,
       qtd, proSel.preco, 0, proSel.nome_produto,
       proSel.nome_produto, proSel.preco, proSel.cod_pro,
@@ -257,7 +288,7 @@ export default function ConsultaDetalheView({
         qtd,
         dataCompra:    new Date().toISOString().split('T')[0],
         dias:          proDias!,
-        orcaId:        consulta.agenda_id,
+        orcaId:        alvoAgendaId,
         orcaFilial:    consulta.filial,
       }).catch(() => null);
     }
@@ -274,7 +305,7 @@ export default function ConsultaDetalheView({
   async function handleRemoverItemAgenda(item: ItemAgendaConsulta) {
     if (!item.id_item) return;
     if (!confirm(`Remover "${item.descricao || item.produto}"?`)) return;
-    const r = await excluirItemAgenda(consulta.agenda_id, item.id_item, consulta.filial);
+    const r = await excluirItemAgenda(agendaId, item.id_item, consulta.filial);
     if (r.error) { setErroItem(r.error); return; }
     setItensAgenda((prev) => prev.filter((i) => i.id_item !== item.id_item));
   }
@@ -449,15 +480,15 @@ export default function ConsultaDetalheView({
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
               {fmtData(consulta.data)}
-              {consulta.agenda_id > 0 && (
+              {agendaId > 0 && (
                 <>
                   <span>·</span>
                   <Link
-                    href={`/agenda/${consulta.agenda_id}`}
+                    href={`/agenda/${agendaId}`}
                     target="_blank"
                     className="text-primary hover:underline"
                   >
-                    Agenda #{consulta.agenda_id}
+                    Agenda #{agendaId}
                   </Link>
                 </>
               )}
@@ -599,15 +630,19 @@ export default function ConsultaDetalheView({
         </div>
       </div>
 
-      {/* Produtos / Medicamentos — vinculados diretamente à agenda de origem */}
-      {temAgenda && (
+      {/* Produtos / Medicamentos — vinculados diretamente à agenda de origem;
+          se a consulta ainda não tiver agenda, ela é criada e vinculada
+          automaticamente na primeira tentativa de adicionar um produto. */}
+      {(temAgenda || isAberto) && (
         <div className="rounded-xl border bg-card p-5 space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <Package className="h-3.5 w-3.5" />
             Produtos / Medicamentos
           </h2>
           <p className="text-xs text-muted-foreground -mt-2">
-            Lançados aqui ficam vinculados à agenda #{consulta.agenda_id} para faturar no Frente de Caixa.
+            {temAgenda
+              ? `Lançados aqui ficam vinculados à agenda #${agendaId} para faturar no Frente de Caixa.`
+              : 'Ao adicionar o primeiro produto, uma agenda é criada automaticamente para faturar no Frente de Caixa.'}
           </p>
 
           {isAberto && (
@@ -705,7 +740,7 @@ export default function ConsultaDetalheView({
 
           {erroItem && <p className="text-xs text-destructive">{erroItem}</p>}
 
-          {carregandoItens ? (
+          {!temAgenda ? null : carregandoItens ? (
             <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Carregando itens já lançados...</p>
           ) : itensAgenda.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum produto lançado ainda.</p>
@@ -726,35 +761,6 @@ export default function ConsultaDetalheView({
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {!temAgenda && isAberto && (
-        <div className="rounded-xl border bg-card p-5 space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-            <Package className="h-3.5 w-3.5" />
-            Produtos / Medicamentos
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Essa consulta ainda não tem uma agenda vinculada pra lançar produtos e faturar no Frente de Caixa.
-          </p>
-          <Button type="button" size="sm" disabled={isPending} onClick={() => act(async () => {
-            const r = await criarAgendaParaConsulta({
-              consultaId:       consulta.id,
-              filial:           consulta.filial,
-              animalId:         consulta.animal_id,
-              animalNome:       consulta.animal,
-              proprietarioId:   consulta.proprietario_id,
-              proprietarioNome: consulta.proprietario,
-              veterinarioId:    consulta.veterinario_id,
-              veterinarioNome:  consulta.veterinario,
-              data:             consulta.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-            });
-            return r.error ? { error: r.error } : {};
-          })}>
-            {isPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
-            Adicionar Produto
-          </Button>
         </div>
       )}
 

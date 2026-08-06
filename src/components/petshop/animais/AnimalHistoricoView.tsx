@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  ArrowLeft, PawPrint, Calendar, ShoppingBag, Stethoscope,
+  ArrowLeft, PawPrint, Calendar, ShoppingBag, Stethoscope, CalendarPlus,
   Search, X, ChevronUp, ChevronDown, Eye, Loader2, ExternalLink, BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -136,9 +136,9 @@ export default function AnimalHistoricoView({
   const [sortCol,      setSortCol]      = useState<string>('data');
   const [sortAsc,      setSortAsc]      = useState(false);
 
-  // ── Seleção de estimativas → Iniciar Consulta ──
+  // ── Seleção de estimativas → Iniciar Consulta / Criar Agenda ──
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
-  const [iniciarConsultaAberto, setIniciarConsultaAberto] = useState(false);
+  const [dialogAtendimento, setDialogAtendimento] = useState<'consulta' | 'agenda' | null>(null);
   function toggleSelecionada(id: number) {
     setSelecionadas((prev) => {
       const next = new Set(prev);
@@ -505,10 +505,16 @@ export default function AnimalHistoricoView({
               <p className="text-xs text-muted-foreground">
                 Selecione itens abaixo pra já lançar na consulta, ou inicie sem nenhum selecionado.
               </p>
-              <Button size="sm" variant="outline" onClick={() => setIniciarConsultaAberto(true)}>
-                <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
-                Iniciar Consulta
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => setDialogAtendimento('agenda')}>
+                  <CalendarPlus className="h-3.5 w-3.5 mr-1.5" />
+                  Criar Agenda
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setDialogAtendimento('consulta')}>
+                  <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+                  Iniciar Consulta
+                </Button>
+              </div>
             </div>
             {estimativasFilt.length === 0
               ? <EmptyState icon={<BellRing className="h-8 w-8 opacity-30" />} msg="Nenhuma estimativa registrada." />
@@ -563,7 +569,11 @@ export default function AnimalHistoricoView({
             <Button variant="outline" size="sm" onClick={() => setSelecionadas(new Set())}>
               Limpar seleção
             </Button>
-            <Button size="sm" onClick={() => setIniciarConsultaAberto(true)}>
+            <Button variant="outline" size="sm" onClick={() => setDialogAtendimento('agenda')}>
+              <CalendarPlus className="h-3.5 w-3.5 mr-1.5" />
+              Criar Agenda
+            </Button>
+            <Button size="sm" onClick={() => setDialogAtendimento('consulta')}>
               <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
               Iniciar Consulta
             </Button>
@@ -822,14 +832,15 @@ export default function AnimalHistoricoView({
       </div>
     )}
 
-    {iniciarConsultaAberto && (
+    {dialogAtendimento && (
       <IniciarConsultaDialog
         animal={animal}
         filial={filial}
         estimativas={estimativas.filter((e) => selecionadas.has(e.id))}
         profissionais={profissionais}
         servicos={servicos}
-        onClose={() => setIniciarConsultaAberto(false)}
+        modo={dialogAtendimento}
+        onClose={() => setDialogAtendimento(null)}
       />
     )}
     </>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AgendaItem, Profissional, Servico, STATUS_AGENDA } from '@/types/petshop';
@@ -23,10 +23,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  List, CalendarDays, Search, X, Plus, ArrowUpDown, History,
+  List, CalendarDays, Search, X, Plus, ArrowUpDown, History, Loader2, Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HistoricoAnimalModal from '@/components/petshop/agenda/HistoricoAnimalModal';
+import CupomPreviewModal from '@/components/petshop/relatorios/CupomPreviewModal';
+import type { CupomEspelho } from '@/components/petshop/relatorios/RelatorioEspelhoCupons';
+import { buscarItensCupom, buscarPagamentosCupom, type ItemCupomEspelho, type PagamentoCupom } from '@/app/(petshop)/relatorios/espelho-cupons/actions';
+import { buscarCupomDaAgenda } from '@/app/(petshop)/agenda/lista/actions';
+
+/** Converte DD/MM/YYYY (formato que o backend retorna em CupomEspelho.data) para YYYY-MM-DD */
+function dataParaIso(s: string) {
+  if (!s || !s.includes('/')) return s;
+  const [d, m, y] = s.split('/');
+  return `${y}-${m}-${d}`;
+}
 
 export interface Filtros {
   dataDe:   string;
@@ -87,16 +98,83 @@ export default function AgendaListaView({
   items, profissionais, servicos, filtros, filial, filialHome, filiais = [],
 }: Props) {
   const router = useRouter();
-  const [busca,  setBusca]  = useState(filtros.busca);
-  const [animal, setAnimal] = useState(filtros.animal);
-  const [numero, setNumero] = useState(filtros.numero);
+  const [isPending, startTransition] = useTransition();
+
+  // Filtros ficam "em rascunho" no estado local — só valem de fato quando o
+  // usuário clica em "Pesquisar" (ou aperta Enter). Antes, cada mudança de
+  // filtro (incluindo digitar num campo de data com período grande) disparava
+  // uma busca na hora, o que ficava lento/confuso sem nenhum indicativo de
+  // carregamento. Filial e "Limpar filtros" continuam imediatos, por serem
+  // troca de contexto/reset, não critério de busca.
+  const [dataDe,  setDataDe]  = useState(filtros.dataDe);
+  const [dataAte, setDataAte] = useState(filtros.dataAte);
+  const [prevDe,  setPrevDe]  = useState(filtros.prevDe);
+  const [prevAte, setPrevAte] = useState(filtros.prevAte);
+  const [status,  setStatus]  = useState(filtros.status || 'todos');
+  const [profId,  setProfId]  = useState(filtros.profId || 'todos');
+  const [servId,  setServId]  = useState(filtros.servId || 'todos');
+  const [busca,   setBusca]   = useState(filtros.busca);
+  const [animal,  setAnimal]  = useState(filtros.animal);
+  const [numero,  setNumero]  = useState(filtros.numero);
+  const [orderBy, setOrderBy] = useState(filtros.orderBy || 'abertura');
   const [historicoDe, setHistoricoDe] = useState<AgendaItem | null>(null);
-  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
   const outraFilial = !!filialHome && filial !== filialHome;
 
-  function navegar(mudancas: Partial<Filtros> & { filial?: number | null }) {
-    const f = { ...filtros, busca, animal, numero, ...mudancas };
+  // ── Cupom da venda (F6 do legado) ──────────────────────────────────────────
+  const [buscandoCupomDe, setBuscandoCupomDe] = useState<number | null>(null);
+  const [candidatosCupom, setCandidatosCupom] = useState<{ agendaId: number; lista: CupomEspelho[] } | null>(null);
+  const [erroCupom, setErroCupom] = useState('');
+  const [cupomAberto, setCupomAberto] = useState<CupomEspelho | null>(null);
+  const [itensCupom, setItensCupom] = useState<ItemCupomEspelho[]>([]);
+  const [pagamentosCupom, setPagamentosCupom] = useState<PagamentoCupom[]>([]);
+  const [carregandoItensCupom, setCarregandoItensCupom] = useState(false);
+  const [carregandoPagCupom, setCarregandoPagCupom] = useState(false);
+
+  function abrirCupom(c: CupomEspelho) {
+    setCandidatosCupom(null);
+    setCupomAberto(c);
+    setCarregandoItensCupom(true);
+    buscarItensCupom(c.numero_cupom, c.filial, dataParaIso(c.data))
+      .then(setItensCupom)
+      .finally(() => setCarregandoItensCupom(false));
+    setCarregandoPagCupom(true);
+    buscarPagamentosCupom(c.numero_cupom, c.filial, c.caixa, c.digito)
+      .then(setPagamentosCupom)
+      .finally(() => setCarregandoPagCupom(false));
+  }
+
+  async function handleVerCupom(i: AgendaItem) {
+    setErroCupom('');
+    setBuscandoCupomDe(i.id);
+    const candidatos = await buscarCupomDaAgenda(i.id, i.filial);
+    setBuscandoCupomDe(null);
+    if (candidatos.length === 0) {
+      setErroCupom(`Nenhum cupom encontrado para a agenda #${i.id}.`);
+      return;
+    }
+    if (candidatos.length === 1) { abrirCupom(candidatos[0]); return; }
+    setCandidatosCupom({ agendaId: i.id, lista: candidatos });
+  }
+
+  // Re-sincroniza o rascunho quando a URL muda por fora (voltar/avançar do
+  // navegador, ou um link externo apontando pra /agenda/lista com filtros).
+  useEffect(() => {
+    setDataDe(filtros.dataDe);   setDataAte(filtros.dataAte);
+    setPrevDe(filtros.prevDe);   setPrevAte(filtros.prevAte);
+    setStatus(filtros.status || 'todos');
+    setProfId(filtros.profId || 'todos');
+    setServId(filtros.servId || 'todos');
+    setBusca(filtros.busca);     setAnimal(filtros.animal);
+    setNumero(filtros.numero);   setOrderBy(filtros.orderBy || 'abertura');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filtros.dataDe, filtros.dataAte, filtros.prevDe, filtros.prevAte,
+    filtros.status, filtros.profId, filtros.servId,
+    filtros.busca, filtros.animal, filtros.numero, filtros.orderBy,
+  ]);
+
+  function irPara(overrides: Partial<Filtros> & { filial?: number | null }) {
+    const f = { dataDe, dataAte, prevDe, prevAte, status, profId, servId, busca, animal, numero, orderBy, ...overrides };
     const sp = new URLSearchParams();
     if (f.dataDe)  sp.set('data_de',  f.dataDe);
     if (f.dataAte) sp.set('data_ate', f.dataAte);
@@ -109,14 +187,20 @@ export default function AgendaListaView({
     if (f.animal) sp.set('animal', f.animal);
     if (f.numero) sp.set('numero', f.numero);
     if (f.orderBy && f.orderBy !== 'abertura') sp.set('order_by', f.orderBy);
-    const filialAlvo = 'filial' in mudancas ? mudancas.filial : filial;
+    const filialAlvo = 'filial' in overrides ? overrides.filial : filial;
     if (filialAlvo && filialAlvo !== filialHome) sp.set('filial', String(filialAlvo));
-    router.push(`/agenda/lista?${sp.toString()}`);
+    startTransition(() => router.push(`/agenda/lista?${sp.toString()}`));
   }
 
-  function navegarDebounced(mudancas: Partial<Filtros>) {
-    if (debRef.current) clearTimeout(debRef.current);
-    debRef.current = setTimeout(() => navegar(mudancas), 450);
+  function handlePesquisar(e?: React.FormEvent) {
+    e?.preventDefault();
+    irPara({});
+  }
+
+  function limparFiltros() {
+    setPrevDe(''); setPrevAte(''); setBusca(''); setAnimal(''); setNumero('');
+    setServId('todos'); setProfId('todos'); setStatus('todos');
+    irPara({ prevDe: '', prevAte: '', busca: '', animal: '', numero: '', servId: '', profId: 'todos', status: 'todos' });
   }
 
   // ── Cores por serviço (mesma legenda da agenda) ──
@@ -137,7 +221,7 @@ export default function AgendaListaView({
   const totalGeral  = tot.abertas + tot.efetivadas + tot.canceladas;
   const vTotalGeral = tot.vAbertas + tot.vEfetivadas + tot.vCanceladas;
 
-  const grupoAtual = grupoDeStatus(filtros.status);
+  const grupoAtual = grupoDeStatus(status);
 
   return (
     <div className="p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto">
@@ -165,7 +249,7 @@ export default function AgendaListaView({
       </div>
 
       {/* ── Filtros ── */}
-      <div className="rounded-xl border bg-card p-4 space-y-3">
+      <form onSubmit={handlePesquisar} className="rounded-xl border bg-card p-4 space-y-3">
 
         {/* Linha 1: Datas */}
         <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-3', filiais.length > 1 ? 'lg:grid-cols-9' : 'lg:grid-cols-8')}>
@@ -174,7 +258,7 @@ export default function AgendaListaView({
               <label className="text-[11px] text-muted-foreground">Filial</label>
               <Select
                 value={String(filial ?? filialHome ?? '')}
-                onValueChange={(v) => v && navegar({ filial: Number(v) === filialHome ? null : Number(v) })}
+                onValueChange={(v) => v && irPara({ filial: Number(v) === filialHome ? null : Number(v) })}
                 items={filiais.map((f) => ({ value: String(f.id), label: f.nome }))}
               >
                 <SelectTrigger className={cn('h-8 text-xs w-full', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
@@ -194,8 +278,8 @@ export default function AgendaListaView({
             </label>
             <Input
               type="date"
-              value={filtros.dataDe}
-              onChange={(e) => navegar({ dataDe: e.target.value })}
+              value={dataDe}
+              onChange={(e) => setDataDe(e.target.value)}
               className="h-8 text-xs"
             />
           </div>
@@ -203,8 +287,8 @@ export default function AgendaListaView({
             <label className="text-[11px] text-muted-foreground">até</label>
             <Input
               type="date"
-              value={filtros.dataAte}
-              onChange={(e) => navegar({ dataAte: e.target.value })}
+              value={dataAte}
+              onChange={(e) => setDataAte(e.target.value)}
               className="h-8 text-xs"
             />
           </div>
@@ -214,8 +298,8 @@ export default function AgendaListaView({
             </label>
             <Input
               type="date"
-              value={filtros.prevDe}
-              onChange={(e) => navegar({ prevDe: e.target.value })}
+              value={prevDe}
+              onChange={(e) => setPrevDe(e.target.value)}
               className="h-8 text-xs"
               placeholder="Qualquer"
             />
@@ -224,8 +308,8 @@ export default function AgendaListaView({
             <label className="text-[11px] text-muted-foreground">até</label>
             <Input
               type="date"
-              value={filtros.prevAte}
-              onChange={(e) => navegar({ prevAte: e.target.value })}
+              value={prevAte}
+              onChange={(e) => setPrevAte(e.target.value)}
               className="h-8 text-xs"
               placeholder="Qualquer"
             />
@@ -234,8 +318,8 @@ export default function AgendaListaView({
           <div className="space-y-1">
             <label className="text-[11px] text-muted-foreground">Profissional</label>
             <Select
-              value={filtros.profId || 'todos'}
-              onValueChange={(v) => v && navegar({ profId: v === 'todos' ? 'todos' : v })}
+              value={profId || 'todos'}
+              onValueChange={(v) => v && setProfId(v)}
             >
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue placeholder="Todos" />
@@ -252,8 +336,8 @@ export default function AgendaListaView({
           <div className="space-y-1">
             <label className="text-[11px] text-muted-foreground">Serviço</label>
             <Select
-              value={filtros.servId || 'todos'}
-              onValueChange={(v) => v && navegar({ servId: v === 'todos' ? '' : v })}
+              value={servId || 'todos'}
+              onValueChange={(v) => v && setServId(v === 'todos' ? '' : v)}
             >
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue placeholder="Todos" />
@@ -271,7 +355,7 @@ export default function AgendaListaView({
             <label className="text-[11px] text-muted-foreground">Nº Agenda</label>
             <Input
               value={numero}
-              onChange={(e) => { setNumero(e.target.value); navegarDebounced({ numero: e.target.value }); }}
+              onChange={(e) => setNumero(e.target.value)}
               placeholder="Ex: 283500"
               inputMode="numeric"
               className="h-8 text-xs font-mono"
@@ -284,8 +368,8 @@ export default function AgendaListaView({
               Ordenar por
             </label>
             <Select
-              value={filtros.orderBy || 'abertura'}
-              onValueChange={(v) => v && navegar({ orderBy: v })}
+              value={orderBy || 'abertura'}
+              onValueChange={(v) => v && setOrderBy(v)}
             >
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue />
@@ -306,12 +390,12 @@ export default function AgendaListaView({
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
                 value={busca}
-                onChange={(e) => { setBusca(e.target.value); navegarDebounced({ busca: e.target.value }); }}
+                onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar por cliente ou profissional..."
                 className="flex-1 min-w-0 text-xs bg-transparent outline-none"
               />
               {busca && (
-                <button onClick={() => { setBusca(''); navegar({ busca: '' }); }}>
+                <button type="button" onClick={() => setBusca('')}>
                   <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
@@ -323,19 +407,12 @@ export default function AgendaListaView({
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
                 value={animal}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setAnimal(v);
-                  // só busca a partir da 3ª letra (ou ao limpar o campo)
-                  if (v.trim().length === 0 || v.trim().length >= 3) {
-                    navegarDebounced({ animal: v });
-                  }
-                }}
-                placeholder="Buscar por nome do animal... (mín. 3 letras)"
+                onChange={(e) => setAnimal(e.target.value)}
+                placeholder="Buscar por nome do animal..."
                 className="flex-1 min-w-0 text-xs bg-transparent outline-none"
               />
               {animal && (
-                <button onClick={() => { setAnimal(''); navegar({ animal: '' }); }}>
+                <button type="button" onClick={() => setAnimal('')}>
                   <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
@@ -354,7 +431,8 @@ export default function AgendaListaView({
           ].map(({ key, label, statusValue }) => (
             <button
               key={key}
-              onClick={() => navegar({ status: statusValue })}
+              type="button"
+              onClick={() => setStatus(statusValue)}
               className={cn(
                 'h-7 px-3 rounded-full text-xs font-medium border transition-colors',
                 grupoAtual === key
@@ -374,15 +452,16 @@ export default function AgendaListaView({
             </button>
           ))}
 
+          <Button type="submit" size="sm" disabled={isPending} className="h-7 px-4">
+            {isPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Search className="h-3.5 w-3.5 mr-1.5" />}
+            Pesquisar
+          </Button>
+
           {/* Limpar filtros */}
           {(filtros.prevDe || filtros.prevAte || filtros.busca || filtros.animal || filtros.numero || filtros.servId || (filtros.profId && filtros.profId !== 'todos')) && (
             <button
-              onClick={() => {
-                setBusca('');
-                setAnimal('');
-                setNumero('');
-                navegar({ prevDe: '', prevAte: '', busca: '', animal: '', numero: '', servId: '', profId: 'todos', status: 'todos' });
-              }}
+              type="button"
+              onClick={limparFiltros}
               className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <X className="h-3 w-3" />
@@ -390,10 +469,15 @@ export default function AgendaListaView({
             </button>
           )}
         </div>
-      </div>
+      </form>
 
       {/* ── Grid ── */}
-      {(items ?? []).length === 0 ? (
+      {isPending ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
+          <Loader2 className="h-8 w-8 mb-2 animate-spin" />
+          <p className="text-sm">Pesquisando...</p>
+        </div>
+      ) : (items ?? []).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
           <List className="h-10 w-10 mb-2" />
           <p className="text-sm">Nenhuma agenda encontrada para os filtros.</p>
@@ -413,6 +497,7 @@ export default function AgendaListaView({
                 <TableHead className="px-2">Profissional</TableHead>
                 <TableHead className="text-right w-24 px-2">Total</TableHead>
                 <TableHead className="text-center w-28 px-1">Status</TableHead>
+                <TableHead className="text-center w-12 px-1">Cupom</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -460,6 +545,21 @@ export default function AgendaListaView({
                         {st.label}
                       </span>
                     </TableCell>
+                    <TableCell className="text-center px-1">
+                      {i.status === 3 && (
+                        <button
+                          type="button"
+                          title="Ver cupom da venda"
+                          disabled={buscandoCupomDe === i.id}
+                          onClick={(e) => { e.stopPropagation(); handleVerCupom(i); }}
+                          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors disabled:opacity-50"
+                        >
+                          {buscandoCupomDe === i.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Receipt className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -504,6 +604,58 @@ export default function AgendaListaView({
           clienteNome={historicoDe.cliente || '—'}
           filial={historicoDe.filial}
           onClose={() => setHistoricoDe(null)}
+        />
+      )}
+
+      {erroCupom && (
+        <div
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border border-destructive/30 bg-card px-4 py-2.5 text-sm text-destructive shadow-lg"
+          onClick={() => setErroCupom('')}
+        >
+          <Receipt className="h-4 w-4 shrink-0" />
+          {erroCupom}
+        </div>
+      )}
+
+      {/* Mais de um cupom bateu na janela de datas — deixa o usuário escolher */}
+      {candidatosCupom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setCandidatosCupom(null)}>
+          <div className="w-full max-w-md rounded-xl bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-primary" />
+                Mais de um cupom encontrado — agenda #{candidatosCupom.agendaId}
+              </h2>
+              <button type="button" onClick={() => setCandidatosCupom(null)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-96 overflow-y-auto divide-y">
+              {candidatosCupom.lista.map((c) => (
+                <button
+                  key={c.numero_cupom}
+                  type="button"
+                  onClick={() => abrirCupom(c)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/50"
+                >
+                  <span className="font-mono text-xs text-muted-foreground">#{c.numero_cupom}</span>
+                  <span className="flex-1 text-xs">{fmtData(c.data)} {c.hora?.slice(0, 5)}</span>
+                  <span className="font-medium">R$ {fmtMoeda(c.valor_liquido)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cupomAberto && (
+        <CupomPreviewModal
+          cupom={cupomAberto}
+          itens={itensCupom}
+          pagamentos={pagamentosCupom}
+          carregandoItens={carregandoItensCupom}
+          carregandoPagamentos={carregandoPagCupom}
+          onClose={() => setCupomAberto(null)}
         />
       )}
     </div>

@@ -4,14 +4,14 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Animal, Profissional, Servico } from '@/types/petshop';
 import { verificarRegrasProdutos, type Estimativa, type RegraProduto } from '@/app/(petshop)/estimativas/actions';
-import { criarConsultaDeEstimativas } from '@/app/(petshop)/animais/[id]/historico/iniciar-consulta-actions';
+import { criarConsultaDeEstimativas, criarAgendaDeEstimativas } from '@/app/(petshop)/animais/[id]/historico/iniciar-consulta-actions';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Stethoscope, X, AlertCircle, Loader2, Package, Bell } from 'lucide-react';
+import { Stethoscope, CalendarPlus, X, AlertCircle, Loader2, Package, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -20,11 +20,13 @@ interface Props {
   estimativas:   Estimativa[];
   profissionais: Profissional[];
   servicos:      Servico[];
+  /** 'consulta' cria Agenda + Consulta vinculada; 'agenda' cria só a Agenda. */
+  modo:          'consulta' | 'agenda';
   onClose:       () => void;
 }
 
 export default function IniciarConsultaDialog({
-  animal, filial, estimativas, profissionais, servicos, onClose,
+  animal, filial, estimativas, profissionais, servicos, modo, onClose,
 }: Props) {
   const router = useRouter();
   const hoje = new Date().toISOString().split('T')[0];
@@ -82,33 +84,45 @@ export default function IniciarConsultaDialog({
     const servico = servicos.find((s) => String(s.id) === servicoId);
     if (!vet || !servico) return;
 
+    const dadosComuns = {
+      animalId:      animal.id,
+      animalFilial:  animal.filial,
+      animalNome:    animal.nome,
+      clienteId:     animal.id_cliente,
+      clienteFilial: animal.filial_cliente,
+      clienteNome:   animal.nome_cliente,
+      vetId:         vet.id,
+      vetFilial:     vet.filial,
+      vetNome:       vet.nome,
+      servicoId:     servico.id,
+      servicoFilial: servico.filial,
+      servicoNome:   servico.descricao,
+      data,
+      itens: estimativas.map((e) => ({
+        id:         e.id,
+        dadosproId: e.dadospro_id,
+        descPro:    e.produto,
+        qtd:        e.qtd,
+        dias:       prazos[e.id] ?? 0,
+      })),
+    };
+
     startT(async () => {
-      const r = await criarConsultaDeEstimativas({
-        animalId:      animal.id,
-        animalFilial:  animal.filial,
-        animalNome:    animal.nome,
-        clienteId:     animal.id_cliente,
-        clienteFilial: animal.filial_cliente,
-        clienteNome:   animal.nome_cliente,
-        vetId:         vet.id,
-        vetFilial:     vet.filial,
-        vetNome:       vet.nome,
-        servicoId:     servico.id,
-        servicoFilial: servico.filial,
-        servicoNome:   servico.descricao,
-        data,
-        itens: estimativas.map((e) => ({
-          id:         e.id,
-          dadosproId: e.dadospro_id,
-          descPro:    e.produto,
-          qtd:        e.qtd,
-          dias:       prazos[e.id] ?? 0,
-        })),
-      });
+      if (modo === 'agenda') {
+        const r = await criarAgendaDeEstimativas(dadosComuns);
+        if (!r.agendaId) { setErro(r.error || 'Não foi possível criar a agenda.'); return; }
+        router.push(`/agenda/${r.agendaId}`);
+        return;
+      }
+      const r = await criarConsultaDeEstimativas(dadosComuns);
       if (!r.consultaId) { setErro(r.error || 'Não foi possível iniciar a consulta.'); return; }
       router.push(`/consultas/${r.consultaId}`);
     });
   }
+
+  const titulo        = modo === 'agenda' ? 'Criar Agenda' : 'Iniciar Consulta';
+  const rotuloVet      = modo === 'agenda' ? 'Profissional *' : 'Veterinário *';
+  const rotuloConfirmar = modo === 'agenda' ? 'Criar Agenda' : 'Iniciar Consulta';
 
   return (
     <div
@@ -120,8 +134,10 @@ export default function IniciarConsultaDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
           <div className="flex items-center gap-2">
-            <Stethoscope className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">Iniciar Consulta</h2>
+            {modo === 'agenda'
+              ? <CalendarPlus className="h-4 w-4 text-primary" />
+              : <Stethoscope className="h-4 w-4 text-primary" />}
+            <h2 className="font-semibold">{titulo}</h2>
           </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted">
             <X className="h-4 w-4" />
@@ -133,9 +149,15 @@ export default function IniciarConsultaDialog({
           {etapa === 'form' ? (
             <>
               <p className="text-sm text-muted-foreground">
-                {estimativas.length > 0
-                  ? <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, já com os itens abaixo lançados — prontos para faturar no Frente de Caixa.</>
-                  : <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, sem produtos pré-lançados — você pode adicionar durante o atendimento.</>}
+                {modo === 'agenda' ? (
+                  estimativas.length > 0
+                    ? <>Isso cria uma nova Agenda para <b>{animal.nome}</b>, já com os itens abaixo lançados — prontos para faturar no Frente de Caixa.</>
+                    : <>Isso cria uma nova Agenda para <b>{animal.nome}</b>, sem produtos pré-lançados — você pode adicionar depois.</>
+                ) : (
+                  estimativas.length > 0
+                    ? <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, já com os itens abaixo lançados — prontos para faturar no Frente de Caixa.</>
+                    : <>Isso cria uma nova Agenda e uma Consulta para <b>{animal.nome}</b>, sem produtos pré-lançados — você pode adicionar durante o atendimento.</>
+                )}
               </p>
 
               {estimativas.length > 0 && (
@@ -151,7 +173,7 @@ export default function IniciarConsultaDialog({
               )}
 
               <div className="space-y-1.5">
-                <Label>Veterinário *</Label>
+                <Label>{rotuloVet}</Label>
                 <Select value={vetId} onValueChange={(v) => { if (v) setVetId(v); }} items={(profissionais ?? []).map((p) => ({ value: String(p.id), label: p.nome }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
@@ -248,7 +270,7 @@ export default function IniciarConsultaDialog({
           <Button onClick={handleConfirmar} disabled={isPending}>
             {isPending
               ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{etapa === 'form' ? 'Verificando...' : 'Gravando...'}</>
-              : etapa === 'form' ? 'Continuar' : 'Iniciar Consulta'}
+              : etapa === 'form' ? 'Continuar' : rotuloConfirmar}
           </Button>
         </div>
       </div>

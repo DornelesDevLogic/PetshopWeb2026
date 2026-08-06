@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Vendedor, Cliente } from '@/types/petshop';
 import { buscarClientes } from '@/app/(petshop)/agenda/nova/actions';
 import { buscarItensCupom, buscarPagamentosCupom, type ItemCupomEspelho, type PagamentoCupom } from '@/app/(petshop)/relatorios/espelho-cupons/actions';
+import CupomPreviewModal from '@/components/petshop/relatorios/CupomPreviewModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -472,70 +473,14 @@ export default function RelatorioEspelhoCupons({ cupons, vendedores, filial, fil
 
       {/* Recibo — visualização do cupom individual (equivalente ao preview do Retaguarda) */}
       {cupomRecibo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden" onClick={() => setCupomRecibo(null)}>
-          <div className="w-full max-w-sm rounded-xl bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-primary" /> Cupom #{cupomRecibo.numero_cupom}
-              </h2>
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={() => window.print()} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Imprimir">
-                  <Printer className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={() => setCupomRecibo(null)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto p-4 font-mono text-xs space-y-3">
-              <div className="text-center space-y-0.5">
-                <p className="font-semibold text-sm">Filial {cupomRecibo.filial}</p>
-                <p>{fmtData(cupomRecibo.data)} {cupomRecibo.hora?.slice(0, 5)} · Caixa <strong>{cupomRecibo.caixa}</strong></p>
-                <p>{cupomRecibo.modelo === '65' ? 'NFC-e' : cupomRecibo.modelo === '55' ? 'NF-e' : cupomRecibo.modelo}</p>
-                {cupomRecibo.cancelado && <p className="text-red-600 font-semibold">*** CANCELADO ***</p>}
-              </div>
-
-              <div className="border-t border-dashed" />
-
-              <p>Cliente: {cupomRecibo.cliente || 'Consumidor'}</p>
-              <p>Vendedor: {cupomRecibo.vendedor || '—'}</p>
-
-              <div className="border-t border-dashed" />
-
-              {carregandoItens.has(cupomRecibo.numero_cupom) ? (
-                <p className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Carregando itens...</p>
-              ) : (
-                (itensPorCupom[cupomRecibo.numero_cupom] ?? []).map((it, i) => (
-                  <div key={i} className={cn('flex justify-between gap-2', it.cancelado && 'opacity-50 line-through')}>
-                    <span className="truncate">{it.qtd}x {it.descricao}</span>
-                    <span className="shrink-0">{fmtMoeda(it.total)}</span>
-                  </div>
-                ))
-              )}
-
-              <div className="border-t border-dashed" />
-
-              <div className="flex justify-between"><span>Total bruto</span><span>{fmtMoeda(cupomRecibo.valor_total)}</span></div>
-              <div className="flex justify-between"><span>Desconto</span><span>-{fmtMoeda(cupomRecibo.desconto)}</span></div>
-              <div className="flex justify-between"><span>Acréscimo</span><span>+{fmtMoeda(cupomRecibo.acrescimo)}</span></div>
-              <div className="flex justify-between font-semibold text-sm"><span>TOTAL</span><span>{fmtMoeda(cupomRecibo.valor_liquido)}</span></div>
-
-              <div className="border-t border-dashed" />
-
-              <p className="font-semibold">Formas de pagamento</p>
-              {carregandoPagamentos.has(cupomRecibo.numero_cupom) ? (
-                <p className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Carregando...</p>
-              ) : (pagamentosPorCupom[cupomRecibo.numero_cupom] ?? []).length === 0 ? (
-                <p className="text-muted-foreground">Nenhuma forma registrada.</p>
-              ) : (
-                (pagamentosPorCupom[cupomRecibo.numero_cupom] ?? []).map((p, i) => (
-                  <div key={i} className="flex justify-between"><span>{p.descricao}</span><span>{fmtMoeda(p.valor)}</span></div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        <CupomPreviewModal
+          cupom={cupomRecibo}
+          itens={itensPorCupom[cupomRecibo.numero_cupom] ?? []}
+          pagamentos={pagamentosPorCupom[cupomRecibo.numero_cupom] ?? []}
+          carregandoItens={carregandoItens.has(cupomRecibo.numero_cupom)}
+          carregandoPagamentos={carregandoPagamentos.has(cupomRecibo.numero_cupom)}
+          onClose={() => setCupomRecibo(null)}
+        />
       )}
     </div>
   );

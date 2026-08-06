@@ -17,7 +17,18 @@ export default async function AnimaisPage({ searchParams }: PageProps) {
   // Maiúsculo: os nomes ficam gravados em CAIXA ALTA no legado, e o CONTAINING
   // do Firebird não dobra maiúscula/minúscula de forma confiável para
   // caracteres acentuados (ex.: "ã" minúsculo não batia com "Ã" armazenado).
-  const b = busca.toUpperCase().replace(/'/g, "''");
+  // "nomepet/nomecliente" (ou vice-versa): cada trecho separado por "/" tem
+  // que aparecer em QUALQUER um dos dois campos — não necessariamente cada
+  // um no seu campo "certo" — pra achar tanto "chaves/logicbox" quanto
+  // "logicbox/chaves".
+  const termos = busca
+    .split('/')
+    .map((t) => t.trim().toUpperCase().replace(/'/g, "''"))
+    .filter((t) => t.length >= 2);
+  const termosBusca = termos.length > 0 ? termos : [busca.toUpperCase().replace(/'/g, "''")];
+  const condicaoBusca = termosBusca
+    .map((t) => `(a.NOME CONTAINING '${t}' OR a.PET_NOME_CLI CONTAINING '${t}')`)
+    .join(' AND ');
   const animaisRes = busca.length >= 2
     ? await apiFetch<AnimalResponse>(
         `/api/petshop/animais${qs({
@@ -25,7 +36,7 @@ export default async function AnimaisPage({ searchParams }: PageProps) {
           limit:   200,
           // Convenção do legado: ATIVO=1 significa INATIVO (invertido).
           filter1: 'a.ATIVO<>1',
-          filter2: `(a.NOME CONTAINING '${b}' OR a.PET_NOME_CLI CONTAINING '${b}')`,
+          filter2: condicaoBusca,
         })}`,
       ).catch(() => empty)
     : empty;

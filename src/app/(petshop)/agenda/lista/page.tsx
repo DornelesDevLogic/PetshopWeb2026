@@ -66,10 +66,12 @@ async function AgendaListaContent({ searchParams }: Props) {
   // não altera a filial padrão da sessão, só o que é exibido nesta tela.
   const filialVisualizada = Number(searchParams.filial) || filialHome;
 
-  // status '1' no filtro rápido representa "Em aberto" (status 1 e 2 no backend).
-  // Quando o usuário clicar em "Em aberto" enviamos status=1; o backend filtra
-  // por STATUS in (1,2) se receber status=1 (comportamento do legado).
-  const statusApi = status === 'todos' ? undefined : status;
+  // O backend só deixa de aplicar o filtro padrão "só em aberto" (STATUS IN
+  // (1,2)) quando recebe status="todos" literalmente na querystring — omitir
+  // o parâmetro (o que `qs()` faz com `undefined`) é tratado como "sem
+  // status escolhido ainda" e cai nesse mesmo filtro padrão. Por isso aqui
+  // sempre manda o valor real, nunca `undefined`, mesmo quando é "todos".
+  const statusApi = status;
 
   // Ordernação: 'previsao' → ordena por data_entrega, padrão → data_previsao
   const orderByApi = orderBy === 'previsao' ? 'data_entrega' : undefined;

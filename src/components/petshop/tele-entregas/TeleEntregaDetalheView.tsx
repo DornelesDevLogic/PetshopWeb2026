@@ -181,6 +181,21 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
 
   // ---------- editar item ----------
 
+  // Sincroniza VALOR/SUB_TOTAL/VAL_PRODUTOS da ORCA com a soma real dos itens
+  // — sem isso, adicionar/editar/remover um item só atualizava a tela, e o
+  // cabeçalho ficava com o total desatualizado pra quem lê a ORCA direto
+  // (ex.: Frente de Caixa), igual ao que já foi corrigido na Agenda.
+  async function persistirTotais(lista: Array<{ qtd: number; valor: number }>) {
+    const totalProdutos = lista.reduce((s, i) => s + i.qtd * i.valor, 0);
+    const totalFinal = totalProdutos + (Number(frete) || 0) - (detalhe.desconto || 0);
+    await atualizarTeleEntrega({
+      id: detalhe.id,
+      sub_total: totalProdutos,
+      val_produtos: totalProdutos,
+      valor: totalFinal,
+    }).catch(() => null);
+  }
+
   function abrirEdicaoItem(item: ItemEntrega) {
     setEditItemDlg(item);
     setEditQtd(String(item.qtd));
@@ -198,7 +213,9 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
     const r = await atualizarItemEntrega({ id_item: editItemDlg.id_item, qtd, valor });
     setSalvando(false);
     if (r.CodStatus === 1) {
-      setItens(prev => prev.map(i => i.id_item === editItemDlg.id_item ? { ...i, qtd, valor } : i));
+      const novaLista = itens.map(i => i.id_item === editItemDlg.id_item ? { ...i, qtd, valor } : i);
+      setItens(novaLista);
+      await persistirTotais(novaLista);
       setEditItemDlg(null);
     } else {
       setEditErro(r.DescricaoStatus);
@@ -280,6 +297,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
     }
     setSalvando(false);
     if (r.CodStatus === 1) {
+      await persistirTotais([...itens, { qtd, valor }]);
       setProdDlg(null);
       setTimeout(() => inputProdRef.current?.focus(), 0);
       router.refresh();
@@ -291,7 +309,9 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
   async function handleAlterarValorItem(idItem: number, novoValor: number) {
     const r = await atualizarItemEntrega({ id_item: idItem, valor: novoValor });
     if (r.CodStatus === 1) {
-      setItens(prev => prev.map(i => i.id_item === idItem ? { ...i, valor: novoValor } : i));
+      const novaLista = itens.map(i => i.id_item === idItem ? { ...i, valor: novoValor } : i);
+      setItens(novaLista);
+      await persistirTotais(novaLista);
     } else {
       setErro(r.DescricaoStatus);
     }
@@ -301,7 +321,9 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
     if (!confirm('Remover este item?')) return;
     const r = await removerItemEntrega(idItem);
     if (r.CodStatus === 1) {
-      setItens(prev => prev.filter(i => i.id_item !== idItem));
+      const novaLista = itens.filter(i => i.id_item !== idItem);
+      setItens(novaLista);
+      await persistirTotais(novaLista);
     } else {
       setErro(r.DescricaoStatus);
     }
@@ -311,6 +333,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
 
   async function salvarEdicao(depoisImprimir = false) {
     setSalvando(true); setErro(''); setSucesso('');
+    const freteVal = Number(frete) || 0;
     const body: Record<string, unknown> = {
       id:           detalhe.id,
       cliente_id:   clienteId,
@@ -320,9 +343,12 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
       hora:         horaPedido,
       endereco, bairro, cep, nro_endereco: nroEndereco,
       formapgto, condpgto, dados: obs,
-      valor_frete:  Number(frete) || 0,
+      valor_frete:  freteVal,
       data_entrega: dataEntrega,
       hora_entrega: horaEntrega,
+      // Frete mudando aqui também precisa recalcular o VALOR total —
+      // sub_total/val_produtos não mudam (só dependem dos itens).
+      valor: totalProdutos + freteVal - (detalhe.desconto || 0),
     };
     if (vendedorId) {
       const vend = vendedores.find(v => String(v.id) === vendedorId && String(v.filial) === vendedorFilial);

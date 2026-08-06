@@ -13,12 +13,17 @@ interface FotoResponse {
 // os outros pelo resto da janela de cache.
 // "Sem foto" muda muito pouco (só quando alguém cadastra a 1ª foto do
 // animal) — pode ficar cacheado mais tempo que uma foto já existente
-// (que pode ser trocada pelo usuário). 2h e 1h respectivamente, tanto no
-// cache do processo quanto no Cache-Control devolvido ao navegador — assim
-// o navegador para de nem perguntar de novo dentro dessa janela.
-// Cache compartilhado com as actions de upload/remoção (lib/fotoCache) —
-// elas invalidam a entrada na hora, senão um upload bem-sucedido continua
-// servindo "sem foto" por até TTL_SEM_FOTO_MS.
+// (que pode ser trocada pelo usuário). 2h e 1h respectivamente — mas isso
+// vale só pro cache do PROCESSO (server), que é invalidado na hora por
+// lib/fotoCache quando alguém sobe/remove a foto. O Cache-Control devolvido
+// ao NAVEGADOR precisa ser bem mais curto: o navegador cacheia pela URL
+// exata (com o "v=" incluso), e como cada tela usa seu próprio esquema de
+// cache-busting (algumas nem usam), um 404 "sem foto" cacheado por horas no
+// navegador continua aparecendo depois do upload já ter sido salvo no
+// servidor — foi exatamente o bug relatado (upload funciona no backend,
+// tela continua mostrando "sem foto" ao reabrir). Com max-age curto aqui,
+// o navegador volta a perguntar pro nosso servidor logo, que responde na
+// hora pelo cache em memória (sem bater no backend de novo).
 
 export async function GET(
   _req: NextRequest,
@@ -26,7 +31,7 @@ export async function GET(
 ) {
   const semFoto = () => new NextResponse(null, {
     status: 404,
-    headers: { 'Cache-Control': 'public, max-age=7200, stale-while-revalidate=86400' },
+    headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' },
   });
 
   const id = Number(params.id);
