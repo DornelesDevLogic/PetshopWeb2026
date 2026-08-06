@@ -159,7 +159,7 @@ export default function LoginForm({ filiais, filialPadrao, erroFiliais }: Props)
         Primeiro acesso? Registrar este dispositivo
       </Link>
 
-      <p className="text-center text-xs text-muted-foreground">Versão 1.0.8</p>
+      <p className="text-center text-xs text-muted-foreground">Versão 1.0.9</p>
     </form>
   );
 }
