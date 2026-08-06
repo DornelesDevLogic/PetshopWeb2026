@@ -13,6 +13,24 @@ export async function buscarClientes(q: string): Promise<Cliente[]> {
   return res.dados.slice(0, 10);
 }
 
+export interface AnimalBuscaItem {
+  id: number; filial: number; nome: string; apelido: string;
+  especie: string; raca: string; sexo: string; ativo: number; obito: number;
+  id_cliente: number; nome_cliente: string;
+}
+
+/** Busca por nome do pet — sozinho encontra qualquer pet com esse nome; com
+ * `q2` exige que o segundo termo também apareça (em qualquer campo: nome do
+ * pet, apelido ou nome do dono) — usada pra "dono/pet" ou "pet/dono", igual
+ * à Agenda. Numa petshop o "cliente" de verdade, na prática, é o pet. */
+export async function buscarAnimaisPorNome(q: string, q2?: string): Promise<AnimalBuscaItem[]> {
+  if (!q.trim()) return [];
+  const res = await apiFetch<{ dados: AnimalBuscaItem[]; Count: number }>(
+    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), q2: q2?.trim() || undefined, filial: getFilial() })}`,
+  ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0 }));
+  return (res.dados ?? []).filter((a) => a.obito !== 1).slice(0, 10);
+}
+
 /** Carrega animais de um cliente */
 export async function buscarAnimais(clienteId: number): Promise<Animal[]> {
   if (!clienteId) return [];

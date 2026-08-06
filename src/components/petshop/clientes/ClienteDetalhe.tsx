@@ -13,6 +13,7 @@ import {
   ArrowLeft, CalendarDays, Phone, Mail, MapPin, PawPrint, User, History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 
 interface Props {
   cliente:  Cliente;
@@ -49,12 +50,12 @@ function AnimalCard({
         <PawPrint className="h-4 w-4" />
       </Link>
       <div className="flex-1 min-w-0">
-        <Link href={`/animais/${a.id}`} className="font-medium leading-tight hover:underline hover:text-primary">
-          {a.nome}
-          {a.apelido && a.apelido !== a.nome && (
-            <span className="ml-1 text-xs text-muted-foreground font-normal">({a.apelido})</span>
-          )}
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <Link href={`/animais/${a.id}`} className="font-medium leading-tight hover:underline hover:text-primary">
+            {a.nome}
+          </Link>
+          <MicrochipBadge value={a.apelido} className="text-[11px]" />
+        </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           {[a.especie, a.raca, sexo, a.castrado === 1 ? 'Castrado' : ''].filter(Boolean).join(' · ')}
         </div>

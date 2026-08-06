@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   criarTeleEntrega, adicionarItemEntrega,
-  buscarClientesTele, buscarProdutosTele, buscarClienteDetalhe,
+  buscarClientesTele, buscarClientesPorPet, buscarProdutosTele, buscarClienteDetalhe,
   buscarSugestoesTele,
   type ClienteBuscaItem, type ProdutoBuscaItem, type SugestaoItem,
 } from '@/app/(petshop)/tele-entregas/actions';
@@ -132,7 +132,11 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
     if (clienteDebRef.current) clearTimeout(clienteDebRef.current);
     if (!clienteQuery || clienteQuery.length < 2) { setClienteOpcoes([]); setClienteAberto(false); return; }
     clienteDebRef.current = setTimeout(async () => {
-      const r = await buscarClientesTele(clienteQuery);
+      // "dono/pet" ou "pet/dono": busca combinada via nome do animal
+      const [parteA, parteB] = clienteQuery.split('/').map((s) => s.trim());
+      const r = parteA && parteB && parteA.length >= 2 && parteB.length >= 2
+        ? await buscarClientesPorPet(parteA, parteB)
+        : await buscarClientesTele(clienteQuery);
       setClienteOpcoes(r);
       setClienteAberto(r.length > 0);
       setClienteFocusIdx(-1);

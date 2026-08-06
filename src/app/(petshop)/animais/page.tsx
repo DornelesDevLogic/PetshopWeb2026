@@ -37,6 +37,10 @@ export default async function AnimaisPage({ searchParams }: PageProps) {
           // Convenção do legado: ATIVO=1 significa INATIVO (invertido).
           filter1: 'a.ATIVO<>1',
           filter2: condicaoBusca,
+          // O parametro "filial" acima não é aplicado pelo endpoint generico
+          // de listagem — sem este filtro explicito, num banco multi-tenant
+          // (LOGICBOXMULTI) a busca misturaria pets/donos de outras empresas.
+          filter3: `a.PET_FILIAL=${getFilial()}`,
         })}`,
       ).catch(() => empty)
     : empty;

@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   buscarClientes,
+  buscarAnimaisPorNome,
   buscarAnimais,
+  type AnimalBuscaItem,
   createConsulta,
   buscarItensAgenda,
   type ItemAgendaConsulta,
@@ -20,6 +22,9 @@ import {
   verificarRegrasProdutos, criarEstimativa,
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
+import { updateCliente, buscarCep, buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
+import { updateAnimal } from '@/app/(petshop)/animais/[id]/actions';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 import { Cliente, Animal, Profissional } from '@/types/petshop';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +49,8 @@ import {
   Plus,
   Trash2,
   Bell,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -91,9 +98,12 @@ function animalMinimo(id: number, filial: number, nome: string, clienteId: numbe
 export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props) {
   const router = useRouter();
 
-  // ── Cliente ──
+  // ── Cliente ── (busca única, igual à Agenda: mistura cliente + pet, e
+  // "dono/pet" ou "pet/dono" busca combinada — resultado do pet vem em
+  // destaque âmbar, igual à Agenda)
   const [clienteQ, setClienteQ]            = useState('');
-  const [clienteRes, setClienteRes]        = useState<Cliente[]>([]);
+  type ResultadoBusca = { tipo: 'cliente'; cliente: Cliente } | { tipo: 'pet'; animal: AnimalBuscaItem };
+  const [resultados, setResultados]        = useState<ResultadoBusca[]>([]);
   const [clienteSel, setClienteSel]        = useState<Cliente | null>(
     agendaOrigem ? clienteMinimo(agendaOrigem.clienteId, agendaOrigem.clienteFilial, agendaOrigem.clienteNome) : null,
   );
@@ -108,6 +118,58 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
       : null,
   );
   const [isLoadingAnimais, startAnimais]   = useTransition();
+
+  // ── Edição inline de cliente / animal (mesmo padrão da Agenda) ──
+  const [editClienteOpen, setEditClienteOpen] = useState(false);
+  const [editAnimalOpen,  setEditAnimalOpen]  = useState(false);
+  const [salvandoCli,     setSalvandoCli]     = useState(false);
+  const [salvandoAni,     setSalvandoAni]     = useState(false);
+  const [erroCli,         setErroCli]         = useState('');
+  const [erroAni,         setErroAni]         = useState('');
+
+  // Campos controlados do painel de edição do cliente
+  const [cliNome,     setCliNome]     = useState('');
+  const [cliCelular,  setCliCelular]  = useState('');
+  const [cliTelefone, setCliTelefone] = useState('');
+  const [cliEmail,    setCliEmail]    = useState('');
+  const [cliCpf,      setCliCpf]      = useState('');
+  const [cliCep,      setCliCep]      = useState('');
+  const [cliEndereco,     setCliEndereco]     = useState('');
+  const [cliNumero,       setCliNumero]       = useState('');
+  const [cliComplemento,  setCliComplemento]  = useState('');
+  const [cliBairro,       setCliBairro]       = useState('');
+  const [cliCidade,       setCliCidade]       = useState('');
+  const [cliUf,           setCliUf]           = useState('');
+  const [cliCepLoading,    setCliCepLoading]    = useState(false);
+  const [cliCepMsg,        setCliCepMsg]        = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
+  const [cliPanelLoading,  setCliPanelLoading]  = useState(false);
+
+  async function handleCliCepBlur() {
+    const limpo = cliCep.replace(/\D/g, '');
+    if (limpo.length !== 8) return;
+    setCliCepLoading(true);
+    setCliCepMsg(null);
+    const r = await buscarCep(limpo);
+    setCliCepLoading(false);
+    if (r) {
+      setCliEndereco(r.logradouro);
+      setCliBairro(r.bairro);
+      setCliCidade(r.cidade);
+      setCliUf(r.uf);
+      setCliCepMsg({ tipo: 'ok', texto: 'Endereço preenchido automaticamente.' });
+    } else {
+      setCliCepMsg({ tipo: 'erro', texto: 'CEP não encontrado. Preencha manualmente.' });
+    }
+  }
+
+  // Campos controlados do painel de edição do animal
+  const [aniNome,      setAniNome]      = useState('');
+  const [aniSexo,      setAniSexo]      = useState('');
+  const [aniCastrado,  setAniCastrado]  = useState('0');
+  const [aniNasc,      setAniNasc]      = useState('');
+  const [aniCor,       setAniCor]       = useState('');
+  const [aniObs,       setAniObs]       = useState('');
+  const [aniMicrochip, setAniMicrochip] = useState('');
 
   // ── Veterinário ──
   const [vetId, setVetId]                  = useState(agendaOrigem?.vetId ? String(agendaOrigem.vetId) : '');
@@ -223,33 +285,65 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
   useEffect(() => {
     if (clienteSel) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (clienteQ.length === 0) { setClienteRes([]); return; }
-    if (clienteQ.length < 3) return;
+    const texto = clienteQ.trim();
+    if (texto.length === 0) { setResultados([]); return; }
+
+    // "dono/pet" ou "pet/dono" — a ordem não importa, só pets aparecem
+    // (em destaque âmbar), igual à Agenda.
+    if (texto.includes('/')) {
+      const [parteA, parteB] = texto.split('/').map((s) => s.trim());
+      if (!parteA || !parteB || parteA.length < 2 || parteB.length < 2) { setResultados([]); return; }
+      debounceRef.current = setTimeout(() => {
+        startBusca(async () => {
+          const pets = await buscarAnimaisPorNome(parteA, parteB);
+          setResultados(pets.map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })));
+        });
+      }, 300);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }
+
+    if (texto.length < 3) { setResultados([]); return; }
     debounceRef.current = setTimeout(() => {
       startBusca(async () => {
-        const lista = await buscarClientes(clienteQ);
-        setClienteRes(lista);
+        const [clientes, pets] = await Promise.all([
+          buscarClientes(texto),
+          buscarAnimaisPorNome(texto),
+        ]);
+        setResultados([
+          ...clientes.slice(0, 6).map((c): ResultadoBusca => ({ tipo: 'cliente', cliente: c })),
+          ...pets.slice(0, 6).map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })),
+        ]);
       });
     }, 400);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [clienteQ, clienteSel]);
 
-  function selecionarCliente(c: Cliente) {
+  function selecionarCliente(c: Cliente, animalPreSel?: Animal) {
     setClienteSel(c);
-    setClienteRes([]);
+    setResultados([]);
     setClienteQ('');
-    setAnimalSel(null);
-    setAnimais([]);
+    setAnimalSel(animalPreSel ?? null);
+    setAnimais(animalPreSel ? [animalPreSel] : []);
     startAnimais(async () => {
       const lista = await buscarAnimais(c.id);
       setAnimais(lista);
+      if (animalPreSel) {
+        setAnimalSel(lista.find((a) => a.id === animalPreSel.id) ?? animalPreSel);
+      }
     });
+  }
+
+  /** Selecionou um pet no resultado da busca — já resolve o dono. */
+  function selecionarPet(item: AnimalBuscaItem) {
+    const clienteParcial = clienteMinimo(item.id_cliente, item.filial, item.nome_cliente);
+    const animalParcial  = animalMinimo(item.id, item.filial, item.nome, item.id_cliente);
+    selecionarCliente(clienteParcial, animalParcial);
   }
 
   function limparCliente() {
     if (agendaOrigem) return; // não desvincula o proprietário quando veio de uma agenda
     setClienteSel(null);
-    setClienteRes([]);
+    setResultados([]);
     setAnimais([]);
     setAnimalSel(null);
   }
@@ -336,17 +430,174 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
           </h2>
 
           {clienteSel ? (
-            <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
-              <div>
-                <p className="font-medium">{clienteSel.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {clienteSel.celular || clienteSel.telefone || clienteSel.cpf_cnpj || '—'}
-                </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+                <div>
+                  <p className="font-medium">{clienteSel.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {clienteSel.celular || clienteSel.telefone || clienteSel.cpf_cnpj || '—'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button" variant="ghost" size="icon"
+                    title="Editar cliente"
+                    onClick={async () => {
+                      if (editClienteOpen) { setEditClienteOpen(false); return; }
+                      setErroCli('');
+                      setCliPanelLoading(true);
+                      setEditClienteOpen(true);
+                      const completo = await buscarClienteCompleto(clienteSel.id).catch(() => null);
+                      const c = completo ?? clienteSel;
+                      setCliNome(c.nome ?? '');
+                      setCliCelular(c.celular ?? '');
+                      setCliTelefone(c.telefone ?? '');
+                      setCliEmail(c.email ?? '');
+                      setCliCpf(c.cpf_cnpj ?? '');
+                      setCliCep(c.cep ?? '');
+                      setCliEndereco(c.endereco ?? '');
+                      setCliNumero(c.numero ?? '');
+                      setCliComplemento(c.complemento ?? '');
+                      setCliBairro(c.bairro ?? '');
+                      setCliCidade(c.cidade ?? '');
+                      setCliUf(c.uf ?? '');
+                      setCliCepMsg(null);
+                      setCliPanelLoading(false);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {!agendaOrigem && (
+                    <Button type="button" variant="ghost" size="icon" onClick={limparCliente}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              {!agendaOrigem && (
-                <Button type="button" variant="ghost" size="icon" onClick={limparCliente}>
-                  <X className="h-4 w-4" />
-                </Button>
+
+              {/* Painel inline de edição rápida do cliente */}
+              {editClienteOpen && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-2">
+                    Editar dados do cliente
+                    {cliPanelLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+                  </p>
+                  {erroCli && <p className="text-xs text-destructive">{erroCli}</p>}
+                  <div className={`grid grid-cols-2 gap-3 transition-opacity ${cliPanelLoading ? 'opacity-40 pointer-events-none' : ''}`}>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Nome *</Label>
+                      <Input value={cliNome} onChange={e => setCliNome(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Celular</Label>
+                      <Input value={cliCelular} onChange={e => setCliCelular(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone</Label>
+                      <Input value={cliTelefone} onChange={e => setCliTelefone(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">E-mail</Label>
+                      <Input type="email" value={cliEmail} onChange={e => setCliEmail(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CPF / CNPJ</Label>
+                      <Input value={cliCpf} onChange={e => setCliCpf(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP</Label>
+                      <div className="relative">
+                        <Input
+                          value={cliCep}
+                          onChange={e => { setCliCep(e.target.value); setCliCepMsg(null); }}
+                          onBlur={handleCliCepBlur}
+                          placeholder="00000-000"
+                          maxLength={9}
+                          className="h-8 text-sm pr-7"
+                        />
+                        {cliCepLoading && (
+                          <Loader2 className="absolute right-2 top-1.5 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      {cliCepMsg && (
+                        <p className={`text-[11px] ${cliCepMsg.tipo === 'ok' ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {cliCepMsg.texto}
+                        </p>
+                      )}
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Endereço</Label>
+                      <Input value={cliEndereco} onChange={e => setCliEndereco(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número</Label>
+                      <Input value={cliNumero} onChange={e => setCliNumero(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Complemento</Label>
+                      <Input value={cliComplemento} onChange={e => setCliComplemento(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bairro</Label>
+                      <Input value={cliBairro} onChange={e => setCliBairro(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cidade</Label>
+                      <Input value={cliCidade} onChange={e => setCliCidade(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">UF</Label>
+                      <Input value={cliUf} onChange={e => setCliUf(e.target.value)} maxLength={2} className="h-8 text-sm uppercase" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEditClienteOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={salvandoCli || !cliNome.trim()}
+                      onClick={async () => {
+                        setSalvandoCli(true); setErroCli('');
+                        const fd = new FormData();
+                        fd.set('nome',            cliNome);
+                        fd.set('celular',         cliCelular);
+                        fd.set('telefone',        cliTelefone);
+                        fd.set('email',           cliEmail);
+                        fd.set('cpf_cnpj',        cliCpf);
+                        fd.set('cep',             cliCep);
+                        fd.set('endereco',        cliEndereco);
+                        fd.set('numero',          cliNumero);
+                        fd.set('complemento',     cliComplemento);
+                        fd.set('bairro',          cliBairro);
+                        fd.set('cidade',          cliCidade);
+                        fd.set('uf',              cliUf);
+                        fd.set('pessoa',          clienteSel.pessoa        ?? 'F');
+                        fd.set('status_ativo',    String(clienteSel.status_ativo ?? 0));
+                        fd.set('ibge',            '');
+                        fd.set('ie',              clienteSel.ie            ?? '');
+                        fd.set('data_nascimento', clienteSel.data_nascimento ?? '');
+                        fd.set('comentario',      clienteSel.comentario    ?? '');
+                        fd.set('nome_fantasia',   clienteSel.nome_fantasia ?? '');
+                        const res = await updateCliente(clienteSel.id, fd);
+                        setSalvandoCli(false);
+                        if (res.error) { setErroCli(res.error); return; }
+                        setClienteSel(prev => prev ? {
+                          ...prev,
+                          nome: cliNome, celular: cliCelular, telefone: cliTelefone,
+                          email: cliEmail, cpf_cnpj: cliCpf, cep: cliCep,
+                          endereco: cliEndereco, numero: cliNumero, complemento: cliComplemento,
+                          bairro: cliBairro, cidade: cliCidade, uf: cliUf,
+                        } : prev);
+                        setEditClienteOpen(false);
+                      }}
+                    >
+                      {salvandoCli ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -354,7 +605,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  placeholder="Nome, CPF ou telefone..."
+                  placeholder="Pesquisa do pet ou proprietário..."
                   value={clienteQ}
                   onChange={(e) => setClienteQ(e.target.value)}
                   className="pl-9 pr-9"
@@ -364,23 +615,64 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
-              {clienteQ.length > 0 && clienteQ.length < 3 && (
-                <p className="text-xs text-muted-foreground">Digite ao menos 3 letras para pesquisar...</p>
-              )}
-              {clienteRes.length > 0 && (
+              {(() => {
+                const texto = clienteQ.trim();
+                if (texto.includes('/')) {
+                  const [a, b] = texto.split('/').map((s) => s.trim());
+                  if (!a || a.length < 2 || !b || b.length < 2) {
+                    return <p className="text-xs text-muted-foreground">Digite pelo menos 2 letras em cada lado da barra...</p>;
+                  }
+                  return null;
+                }
+                if (texto.length > 0 && texto.length < 3) {
+                  return <p className="text-xs text-muted-foreground">Digite ao menos 3 letras para pesquisar...</p>;
+                }
+                return null;
+              })()}
+
+              {resultados.length > 0 && (
                 <div className="rounded-md border divide-y bg-card shadow-sm overflow-hidden">
-                  {clienteRes.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => selecionarCliente(c)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors"
-                    >
-                      <p className="font-medium text-sm">{c.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.celular || c.telefone || c.cpf_cnpj || '—'}
-                      </p>
-                    </button>
+                  {resultados.map((r, i) => (
+                    r.tipo === 'cliente' ? (
+                      <button
+                        key={`cli-${r.cliente.id}-${i}`}
+                        type="button"
+                        onClick={() => selecionarCliente(r.cliente)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors flex items-start gap-3"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 mt-0.5">
+                          <User className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{r.cliente.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.cliente.celular || r.cliente.telefone || r.cliente.cpf_cnpj || 'Cliente'}
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      <button
+                        key={`pet-${r.animal.id}-${i}`}
+                        type="button"
+                        onClick={() => selecionarPet(r.animal)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors flex items-start gap-3"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 mt-0.5">
+                          <PawPrint className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm flex items-center gap-1.5">
+                            {r.animal.nome}
+                            <MicrochipBadge value={r.animal.apelido} className="text-[11px]" />
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {[r.animal.especie, r.animal.raca].filter(Boolean).join(' · ')}
+                            {' — '}
+                            <span className="font-medium text-foreground/70">{r.animal.nome_cliente}</span>
+                          </p>
+                        </div>
+                      </button>
+                    )
                   ))}
                 </div>
               )}
@@ -403,7 +695,10 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
 
           {agendaOrigem && animalSel ? (
             <div className="rounded-lg border bg-muted/40 px-4 py-3">
-              <p className="font-medium text-sm">{animalSel.nome}</p>
+              <p className="font-medium text-sm flex items-center gap-1.5">
+                {animalSel.nome}
+                <MicrochipBadge value={animalSel.apelido} className="text-[11px]" />
+              </p>
             </div>
           ) : !clienteSel ? (
             <p className="text-sm text-muted-foreground">Selecione um proprietário primeiro.</p>
@@ -414,26 +709,156 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
           ) : animais.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum animal cadastrado para este cliente.</p>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-2">
-              {animais.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => setAnimalSel(animalSel?.id === a.id ? null : a)}
-                  className={cn(
-                    'text-left rounded-lg border px-3 py-2.5 transition-colors',
-                    animalSel?.id === a.id
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'hover:bg-muted/40',
-                  )}
-                >
-                  <p className="font-medium text-sm">{a.nome}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {[a.especie, a.raca, a.sexo === 'M' ? 'Macho' : a.sexo === 'F' ? 'Fêmea' : '']
-                      .filter(Boolean).join(' · ')}
+            <div className="space-y-2">
+              <div className="grid sm:grid-cols-2 gap-2">
+                {animais.map((a) => (
+                  <div key={a.id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = animalSel?.id === a.id ? null : a;
+                        setAnimalSel(next);
+                        if (editAnimalOpen && animalSel?.id !== a.id) setEditAnimalOpen(false);
+                      }}
+                      className={cn(
+                        'w-full text-left rounded-lg border px-3 py-2.5 transition-colors pr-8',
+                        animalSel?.id === a.id
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <p className="font-medium text-sm flex items-center gap-1.5">
+                        {a.nome}
+                        <MicrochipBadge value={a.apelido} className="text-[11px]" />
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {[a.especie, a.raca, a.sexo === 'M' ? 'Macho' : a.sexo === 'F' ? 'Fêmea' : '']
+                          .filter(Boolean).join(' · ')}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar animal"
+                      onClick={() => {
+                        setAnimalSel(a);
+                        const abrindo = animalSel?.id !== a.id || !editAnimalOpen;
+                        if (abrindo) {
+                          setAniNome(a.nome ?? '');
+                          setAniSexo(a.sexo ?? '');
+                          setAniCastrado(String(a.castrado ?? 0));
+                          setAniNasc(a.data_nascimento?.slice(0, 10) ?? '');
+                          setAniCor(a.cor ?? '');
+                          setAniObs(a.obs ?? '');
+                          setAniMicrochip(a.apelido ?? '');
+                        }
+                        setEditAnimalOpen(abrindo);
+                        setErroAni('');
+                      }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 hover:bg-muted"
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Painel inline de edição rápida do animal */}
+              {editAnimalOpen && animalSel && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                    Editar dados de {animalSel.nome}
                   </p>
-                </button>
-              ))}
+                  {erroAni && <p className="text-xs text-destructive">{erroAni}</p>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Nome *</Label>
+                      <Input value={aniNome} onChange={e => setAniNome(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Microchip</Label>
+                      <Input value={aniMicrochip} onChange={e => setAniMicrochip(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Sexo</Label>
+                      <select value={aniSexo} onChange={e => setAniSexo(e.target.value)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="">—</option>
+                        <option value="M">Macho</option>
+                        <option value="F">Fêmea</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Castrado</Label>
+                      <select value={aniCastrado} onChange={e => setAniCastrado(e.target.value)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm">
+                        <option value="0">Não</option>
+                        <option value="1">Sim</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Data de Nascimento</Label>
+                      <Input type="date" value={aniNasc} onChange={e => setAniNasc(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cor</Label>
+                      <Input value={aniCor} onChange={e => setAniCor(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Observações</Label>
+                      <Input value={aniObs} onChange={e => setAniObs(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEditAnimalOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={salvandoAni || !aniNome.trim()}
+                      onClick={async () => {
+                        setSalvandoAni(true); setErroAni('');
+                        const fd = new FormData();
+                        fd.set('nome',            aniNome);
+                        fd.set('sexo',            aniSexo);
+                        fd.set('castrado',        aniCastrado);
+                        fd.set('data_nascimento', aniNasc);
+                        fd.set('cor',             aniCor);
+                        fd.set('obs',             aniObs);
+                        fd.set('apelido',         aniMicrochip);
+                        fd.set('peso',            animalSel.peso          ?? '');
+                        fd.set('tipo_animal',     animalSel.tipo_animal   ?? '');
+                        fd.set('id_especie',      String(animalSel.id_especie ?? 0));
+                        fd.set('especie',         animalSel.especie       ?? '');
+                        fd.set('id_raca',         String(animalSel.id_raca   ?? 0));
+                        fd.set('raca',            animalSel.raca          ?? '');
+                        fd.set('id_pelo',         String(animalSel.id_pelo   ?? 0));
+                        fd.set('pelo',            animalSel.pelo          ?? '');
+                        fd.set('controla_racao',  '0');
+                        fd.set('obito',           String(animalSel.obito  ?? 0));
+                        // Convenção do legado: ATIVO=1 significa INATIVO — default seguro é 0 (ativo)
+                        fd.set('ativo',           String(animalSel.ativo  ?? 0));
+                        const res = await updateAnimal(animalSel.id, animalSel.id_cliente, {}, fd);
+                        setSalvandoAni(false);
+                        if (res.error) { setErroAni(res.error); return; }
+                        const updated: Animal = {
+                          ...animalSel,
+                          nome: aniNome, sexo: aniSexo,
+                          castrado: aniCastrado === '1' ? 1 : 0,
+                          data_nascimento: aniNasc, cor: aniCor, obs: aniObs,
+                          apelido: aniMicrochip,
+                        };
+                        setAnimais(prev => prev.map(x => x.id === animalSel.id ? updated : x));
+                        setAnimalSel(updated);
+                        setEditAnimalOpen(false);
+                      }}
+                    >
+                      {salvandoAni ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

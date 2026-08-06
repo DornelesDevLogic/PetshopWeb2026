@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { PawPrint, Cake, ChevronRight, Phone, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 
 interface Props {
   animais:         Animal[];
@@ -205,10 +206,10 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes, b
                         onClick={() => router.push(`/animais/${a.id}`)}
                       >
                         <TableCell>
-                          <p className="font-medium">{a.nome}</p>
-                          {a.apelido && (
-                            <p className="text-xs text-muted-foreground">"{a.apelido}"</p>
-                          )}
+                          <p className="font-medium flex items-center gap-1.5">
+                            {a.nome}
+                            <MicrochipBadge value={a.apelido} className="text-[11px]" />
+                          </p>
                         </TableCell>
                         <TableCell>
                           <p className="text-sm">{a.especie}</p>
@@ -295,12 +296,12 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes, b
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Link href={`/animais/${a.id}`} className="font-medium hover:text-primary">
-                            {a.nome}
-                          </Link>
-                          {a.apelido && (
-                            <p className="text-xs text-muted-foreground">"{a.apelido}"</p>
-                          )}
+                          <p className="flex items-center gap-1.5">
+                            <Link href={`/animais/${a.id}`} className="font-medium hover:text-primary">
+                              {a.nome}
+                            </Link>
+                            <MicrochipBadge value={a.apelido} className="text-[11px]" />
+                          </p>
                         </TableCell>
                         <TableCell>
                           <p className="text-sm">{a.especie}</p>

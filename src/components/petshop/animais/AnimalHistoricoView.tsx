@@ -19,6 +19,7 @@ import {
   Search, X, ChevronUp, ChevronDown, Eye, Loader2, ExternalLink, BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 import IniciarConsultaDialog from './IniciarConsultaDialog';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -272,11 +273,9 @@ export default function AnimalHistoricoView({
         </Button>
         <div className="flex items-center gap-2 min-w-0">
           <PawPrint className="h-5 w-5 text-primary shrink-0" />
-          <h1 className="text-xl font-semibold truncate">
+          <h1 className="text-xl font-semibold truncate flex items-center gap-1.5">
             Histórico — {animal.nome}
-            {animal.apelido && animal.apelido !== animal.nome && (
-              <span className="ml-1 font-normal text-muted-foreground text-base">"{animal.apelido}"</span>
-            )}
+            <MicrochipBadge value={animal.apelido} className="text-sm" />
           </h1>
         </div>
         <Link href={`/animais/${animal.id}`} className="ml-auto">

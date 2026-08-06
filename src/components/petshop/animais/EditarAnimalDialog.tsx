@@ -209,11 +209,11 @@ export default function EditarAnimalDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ea-apelido" className="text-sm">Apelido</Label>
+                  <Label htmlFor="ea-apelido" className="text-sm">Microchip</Label>
                   <Input
                     id="ea-apelido" name="apelido"
                     defaultValue={animal.apelido}
-                    placeholder="Como é chamado"
+                    placeholder="Número do microchip"
                     className="h-9"
                   />
                 </div>

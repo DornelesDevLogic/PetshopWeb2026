@@ -174,6 +174,28 @@ export async function buscarClientesPrevenda(q: string): Promise<ClienteBuscaIte
   return (res.dados ?? []).slice(0, 10);
 }
 
+interface AnimalBuscaItemPre {
+  id: number; filial: number; nome: string; apelido: string;
+  id_cliente: number; nome_cliente: string;
+}
+
+/** Busca combinada "dono/pet" ou "pet/dono" — encontra o cliente via nome
+ * do animal, pra quando só se sabe o nome do pet (ou os dois juntos). */
+export async function buscarClientesPrevendaPorPet(termoA: string, termoB: string): Promise<ClienteBuscaItem[]> {
+  if (!termoA.trim() || !termoB.trim()) return [];
+  const res = await apiFetch<{ dados: AnimalBuscaItemPre[]; Count: number }>(
+    `/api/petshop/animais/busca-rapida${qs({ q: termoA.trim(), q2: termoB.trim(), filial: getFilial() })}`,
+  ).catch(() => ({ dados: [] as AnimalBuscaItemPre[], Count: 0 }));
+  const vistos = new Set<number>();
+  const clientes: ClienteBuscaItem[] = [];
+  for (const a of res.dados ?? []) {
+    if (vistos.has(a.id_cliente)) continue;
+    vistos.add(a.id_cliente);
+    clientes.push({ id: a.id_cliente, filial: a.filial, nome: a.nome_cliente, telefone: '', celular: '' });
+  }
+  return clientes.slice(0, 10);
+}
+
 export interface ClienteDetalhe {
   id: number; filial: number; nome: string;
   endereco: string; numero: string; bairro: string; cep: string;

@@ -30,6 +30,7 @@ import AnimalFotoUpload from '@/components/petshop/animais/AnimalFotoUpload';
 import EditarAnimalDialog from '@/components/petshop/animais/EditarAnimalDialog';
 import PesoHistorico from '@/components/petshop/animais/PesoHistorico';
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 
 interface Props {
   animal:    Animal;
@@ -98,9 +99,7 @@ export default function AnimalDetalheView({ animal, historico, especies, racas, 
           <h1 className="text-xl font-semibold flex items-center gap-2">
             <PawPrint className="h-5 w-5 text-primary" />
             {animal.nome}
-            {animal.apelido && (
-              <span className="text-base font-normal text-muted-foreground">"{animal.apelido}"</span>
-            )}
+            <MicrochipBadge value={animal.apelido} className="text-sm" />
           </h1>
         </div>
 

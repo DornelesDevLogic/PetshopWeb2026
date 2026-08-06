@@ -87,57 +87,28 @@ export interface AnimalBuscaItem {
 
 interface AnimalBuscaResponse { dados: AnimalBuscaItem[]; Count: number }
 
-/** Busca animais por nome do pet (retorna o animal + dados do dono) */
-export async function buscarPorPet(q: string, filialParam?: number): Promise<AnimalBuscaItem[]> {
+/** Busca animais por nome do pet (retorna o animal + dados do dono). `q2`,
+ * quando informado, exige que o resultado bata TAMBÉM com esse segundo termo
+ * (em qualquer um dos campos) — usado pra busca combinada "dono/pet". */
+export async function buscarPorPet(q: string, filialParam?: number, q2?: string): Promise<AnimalBuscaItem[]> {
   if (!q.trim()) return [];
   const res = await apiFetch<AnimalBuscaResponse>(
-    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), filial: filialParam || getFilial() })}`,
+    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), q2: q2?.trim() || undefined, filial: filialParam || getFilial() })}`,
   ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0 }));
   return res.dados;
 }
 
 /**
- * Busca combinada: "pet / dono" ou "dono / pet"
- * Busca pets pelo primeiro termo e filtra pelo segundo no nome do dono,
- * depois repete invertendo — e mescla os resultados.
+ * Busca combinada: "pet / dono" ou "dono / pet" — a ordem não importa, o
+ * backend exige que os dois termos apareçam (em qualquer campo: nome do
+ * pet, apelido ou nome do dono), já escopado pela filial atual.
  */
 export async function buscarCombinado(
   termoA: string,
   termoB: string,
   filialParam?: number,
 ): Promise<AnimalBuscaItem[]> {
-  const normalize = (s: string) => s.trim().toLowerCase();
-  const nA = normalize(termoA);
-  const nB = normalize(termoB);
-
-  // Busca em paralelo: pets pelo termoA e pets pelo termoB
-  const [porA, porB] = await Promise.all([
-    buscarPorPet(termoA, filialParam),
-    buscarPorPet(termoB, filialParam),
-  ]);
-
-  const seen = new Set<number>();
-  const resultado: AnimalBuscaItem[] = [];
-
-  // porA → filtra onde nome_cliente contém termoB
-  for (const a of porA) {
-    if (seen.has(a.id)) continue;
-    if (a.nome_cliente.toLowerCase().includes(nB)) {
-      seen.add(a.id);
-      resultado.push(a);
-    }
-  }
-
-  // porB → filtra onde nome_cliente contém termoA (ordem invertida)
-  for (const a of porB) {
-    if (seen.has(a.id)) continue;
-    if (a.nome_cliente.toLowerCase().includes(nA)) {
-      seen.add(a.id);
-      resultado.push(a);
-    }
-  }
-
-  return resultado.slice(0, 10);
+  return (await buscarPorPet(termoA, filialParam, termoB)).slice(0, 10);
 }
 
 // ─── Produtos ────────────────────────────────────────────────────────────────

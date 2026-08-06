@@ -65,6 +65,7 @@ import {
 // Label e Select ainda usados nos dialogs de produto inline
 
 import { cn } from '@/lib/utils';
+import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 
 interface ProdutoPendente extends ProdutoResultado {
@@ -243,6 +244,7 @@ export default function NovoAgendamentoForm({
   const [aniNasc,      setAniNasc]      = useState('');
   const [aniCor,       setAniCor]       = useState('');
   const [aniObs,       setAniObs]       = useState('');
+  const [aniMicrochip, setAniMicrochip] = useState('');
 
   // ── Carrega animais de um cliente ──
   const carregarAnimais = useCallback(async (
@@ -1385,11 +1387,9 @@ export default function NovoAgendamentoForm({
                           <PawPrint className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                          <p className="font-medium text-sm">
+                          <p className="font-medium text-sm flex items-center gap-1.5">
                             {r.animal.nome}
-                            {r.animal.apelido && r.animal.apelido !== r.animal.nome && (
-                              <span className="ml-1 font-normal text-muted-foreground">({r.animal.apelido})</span>
-                            )}
+                            <MicrochipBadge value={r.animal.apelido} className="text-[11px]" />
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {[r.animal.especie, r.animal.raca].filter(Boolean).join(' · ')}
@@ -1460,7 +1460,10 @@ export default function NovoAgendamentoForm({
                           : 'hover:bg-muted/40',
                       )}
                     >
-                      <p className="font-medium text-sm">{a.nome}</p>
+                      <p className="font-medium text-sm flex items-center gap-1.5">
+                        {a.nome}
+                        <MicrochipBadge value={a.apelido} className="text-[11px]" />
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {[a.especie, a.raca, a.sexo === 'M' ? 'Macho' : a.sexo === 'F' ? 'Fêmea' : '']
                           .filter(Boolean).join(' · ')}
@@ -1480,6 +1483,7 @@ export default function NovoAgendamentoForm({
                           setAniNasc(a.data_nascimento?.slice(0, 10) ?? '');
                           setAniCor(a.cor ?? '');
                           setAniObs(a.obs ?? '');
+                          setAniMicrochip(a.apelido ?? '');
                         }
                         setEditAnimalOpen(abrindo);
                         setErroAni('');
@@ -1503,6 +1507,10 @@ export default function NovoAgendamentoForm({
                     <div className="col-span-2 space-y-1">
                       <Label className="text-xs">Nome *</Label>
                       <Input value={aniNome} onChange={e => setAniNome(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Microchip</Label>
+                      <Input value={aniMicrochip} onChange={e => setAniMicrochip(e.target.value)} className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Sexo</Label>
@@ -1551,7 +1559,7 @@ export default function NovoAgendamentoForm({
                         fd.set('data_nascimento', aniNasc);
                         fd.set('cor',             aniCor);
                         fd.set('obs',             aniObs);
-                        fd.set('apelido',         animalSel.apelido       ?? '');
+                        fd.set('apelido',         aniMicrochip);
                         fd.set('peso',            animalSel.peso          ?? '');
                         fd.set('tipo_animal',     animalSel.tipo_animal   ?? '');
                         fd.set('id_especie',      String(animalSel.id_especie ?? 0));
@@ -1572,6 +1580,7 @@ export default function NovoAgendamentoForm({
                           nome: aniNome, sexo: aniSexo,
                           castrado: aniCastrado === '1' ? 1 : 0,
                           data_nascimento: aniNasc, cor: aniCor, obs: aniObs,
+                          apelido: aniMicrochip,
                         };
                         setAnimais(prev => prev.map(a => a.id === animalSel.id ? updated : a));
                         setAnimalSel(updated);

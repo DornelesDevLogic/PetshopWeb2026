@@ -358,8 +358,8 @@ export default function NovoAnimalDialog({
               <Input id="na-nome" name="nome" required placeholder="Nome do animal" className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="na-apelido" className="text-sm">Apelido</Label>
-              <Input id="na-apelido" name="apelido" placeholder="Como é chamado" className="h-9" />
+              <Label htmlFor="na-apelido" className="text-sm">Microchip</Label>
+              <Input id="na-apelido" name="apelido" placeholder="Número do microchip" className="h-9" />
             </div>
           </div>
         </div>

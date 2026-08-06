@@ -12,6 +12,7 @@ import {
   criarPreVenda,
   adicionarItemPreVenda,
   buscarClientesPrevenda,
+  buscarClientesPrevendaPorPet,
   buscarAnimaisPrevenda,
   buscarProdutosPrevenda,
   ClienteBuscaItem,
@@ -99,7 +100,12 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
   useEffect(() => {
     if (buscaCli.length < 2) { setClienteOpts([]); return; }
     const t = setTimeout(async () => {
-      setClienteOpts(await buscarClientesPrevenda(buscaCli));
+      // "dono/pet" ou "pet/dono": busca combinada via nome do animal
+      const [parteA, parteB] = buscaCli.split('/').map((s) => s.trim());
+      const r = parteA && parteB && parteA.length >= 2 && parteB.length >= 2
+        ? await buscarClientesPrevendaPorPet(parteA, parteB)
+        : await buscarClientesPrevenda(buscaCli);
+      setClienteOpts(r);
     }, 300);
     return () => clearTimeout(t);
   }, [buscaCli]);

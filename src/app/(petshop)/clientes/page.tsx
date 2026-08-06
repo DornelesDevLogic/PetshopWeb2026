@@ -32,7 +32,7 @@ function montarClienteParcial(a: AnimalBusca): ClienteResponse['dados'][number] 
     id:              a.id_cliente,
     filial:          a.filial,
     nome:            a.nome_cliente,
-    nome_fantasia:   [a.nome, a.apelido && a.apelido !== a.nome ? `(${a.apelido})` : '', a.especie]
+    nome_fantasia:   [a.nome, a.apelido ? `microchip: ${a.apelido}` : '', a.especie]
       .filter(Boolean).join(' · '),
     cpf_cnpj:        '',
     telefone:        '',
@@ -63,9 +63,9 @@ function montarClienteParcial(a: AnimalBusca): ClienteResponse['dados'][number] 
   };
 }
 
-async function buscarPorPet(termo: string): Promise<AnimalBusca[]> {
+async function buscarPorPet(termo: string, termo2?: string): Promise<AnimalBusca[]> {
   const res = await apiFetch<AnimalBuscaResponse>(
-    `/api/petshop/animais/busca-rapida${qs({ q: termo, filial: getFilial() })}`,
+    `/api/petshop/animais/busca-rapida${qs({ q: termo, q2: termo2, filial: getFilial() })}`,
   ).catch(() => ({ dados: [], Count: 0 }));
   return res.dados ?? [];
 }
@@ -102,33 +102,13 @@ export default async function ClientesPage({ searchParams }: Props) {
   const termo = (q || qPet).trim();
 
   if (termo.includes('/')) {
-    // Sintaxe "dono / pet" — busca cruzada entre nome do dono e nome do pet
+    // Sintaxe "dono / pet" ou "pet / dono" — a ordem não importa, o backend
+    // exige que os dois termos apareçam (em qualquer campo), já escopado
+    // pela filial atual.
     const [parteA, parteB] = termo.split('/').map((s) => s.trim());
 
     if (parteA && parteB) {
-      const nA = parteA.toLowerCase();
-      const nB = parteB.toLowerCase();
-
-      const [porPet, porDono] = await Promise.all([
-        buscarPorPet(parteB),
-        buscarPorPet(parteA),
-      ]);
-
-      const seenAnimal = new Set<number>();
-      const animais: AnimalBusca[] = [];
-
-      for (const a of porPet) {
-        if (a.nome_cliente.toLowerCase().includes(nA) && !seenAnimal.has(a.id)) {
-          seenAnimal.add(a.id);
-          animais.push(a);
-        }
-      }
-      for (const a of porDono) {
-        if (a.nome.toLowerCase().includes(nB) && !seenAnimal.has(a.id)) {
-          seenAnimal.add(a.id);
-          animais.push(a);
-        }
-      }
+      const animais = await buscarPorPet(parteA, parteB);
 
       const seenCli = new Set<number>();
       for (const a of animais) {
