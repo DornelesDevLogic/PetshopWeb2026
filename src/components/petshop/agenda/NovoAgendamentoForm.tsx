@@ -259,6 +259,7 @@ export default function NovoAgendamentoForm({
       if (preSelId !== undefined) {
         const encontrado = lista.find((a) => a.id === preSelId) ?? preSelAnimal ?? null;
         setAnimalSel(encontrado);
+        aplicarObsAutomaticaDoPet(encontrado);
       }
     } catch {
       setAnimais([]);
@@ -468,6 +469,27 @@ export default function NovoAgendamentoForm({
 
   const [obsTexto, setObsTexto] = useState('');
   const [obsFlags, setObsFlags] = useState<Record<string, boolean>>({});
+
+  // ── Observação da agenda = cópia da Observação do pet (só na criação) ──
+  const obsTextoRef  = useRef('');
+  const obsAutoPetRef = useRef<string | null>(null);
+  useEffect(() => { obsTextoRef.current = obsTexto; }, [obsTexto]);
+
+  /**
+   * Copia a Observação cadastrada no pet pra Observação da agenda ao
+   * selecioná-lo — nunca na edição (não mexe em observação já salva), e só
+   * se o usuário não tiver digitado nada além do que já veio de outro pet
+   * (evita apagar texto manual ao trocar de animal antes de gravar).
+   */
+  function aplicarObsAutomaticaDoPet(animal: Animal | null) {
+    if (modo === 'editar') return;
+    const obsPet = (animal?.obs ?? '').trim();
+    const atual  = obsTextoRef.current;
+    if (atual.trim() === '' || atual === obsAutoPetRef.current) {
+      setObsTexto(obsPet);
+      obsAutoPetRef.current = obsPet;
+    }
+  }
   useEffect(() => {
     if (modo !== 'editar' || !agendaInicial) return;
 
@@ -1453,6 +1475,7 @@ export default function NovoAgendamentoForm({
                         const next = animalSel?.id === a.id ? null : a;
                         setAnimalSel(next);
                         setPesoInput(next?.peso ? String(next.peso) : '');
+                        aplicarObsAutomaticaDoPet(next);
                         if (editAnimalOpen && animalSel?.id !== a.id) setEditAnimalOpen(false);
                       }}
                       className={cn(
@@ -1477,6 +1500,7 @@ export default function NovoAgendamentoForm({
                       onClick={() => {
                         setAnimalSel(a);
                         setPesoInput(a.peso ? String(a.peso) : '');
+                        aplicarObsAutomaticaDoPet(a);
                         const abrindo = animalSel?.id !== a.id || !editAnimalOpen;
                         if (abrindo) {
                           setAniNome(a.nome ?? '');

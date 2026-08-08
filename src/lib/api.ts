@@ -181,8 +181,13 @@ async function apiFetchSemCache<T>(url: string, path_: string, metodo: string, i
 
   if (!res.ok) {
     const body = await res.text().catch(() => res.statusText);
-    logLinha('ERRO', `${metodo} ${path_} — HTTP ${res.status} (${ms}ms): ${body.slice(0, 500)}`
-      + (init?.body ? ` | enviado=${init.body}` : ''));
+    // "Sem foto" é resposta normal (404 de propósito no backend), não erro —
+    // logar isso só faz ruído no log e atrapalha achar problema de verdade.
+    const semFotoEsperado = res.status === 404 && path_.startsWith('/api/petshop/animais/foto');
+    if (!semFotoEsperado) {
+      logLinha('ERRO', `${metodo} ${path_} — HTTP ${res.status} (${ms}ms): ${body.slice(0, 500)}`
+        + (init?.body ? ` | enviado=${init.body}` : ''));
+    }
     throw new Error(`Backend ${res.status}: ${body}`);
   }
 

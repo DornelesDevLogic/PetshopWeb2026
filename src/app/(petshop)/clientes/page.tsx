@@ -70,21 +70,36 @@ async function buscarPorPet(termo: string, termo2?: string): Promise<AnimalBusca
   return res.dados ?? [];
 }
 
-/** Nomes dos pets ativos do cliente, para exibir embaixo do nome nos resultados de busca */
-async function buscarNomesPetsDoCliente(clienteId: number, filial: number): Promise<string> {
+/**
+ * Nomes dos pets ativos de todos os clientes da lista, pra exibir embaixo do
+ * nome nos resultados de busca — 1 request só (IN) em vez de 1 por cliente:
+ * uma busca com muitos resultados chegava a disparar dezenas de chamadas
+ * paralelas e estourava o rate limit do backend.
+ */
+async function buscarPetsDeClientes(clienteIds: number[], filial: number): Promise<Map<number, string[]>> {
+  const mapa = new Map<number, string[]>();
+  if (clienteIds.length === 0) return mapa;
   const res = await apiFetch<AnimalBuscaResponse>(
-    `/api/petshop/animais${qs({ filial, limit: 20, filter1: `a.PET_FK_ID_CLIENTE=${clienteId} AND a.ATIVO<>1` })}`,
+    `/api/petshop/animais${qs({
+      filial,
+      limit: clienteIds.length * 20,
+      filter1: `a.PET_FK_ID_CLIENTE IN (${clienteIds.join(',')}) AND a.ATIVO<>1`,
+    })}`,
   ).catch(() => ({ dados: [], Count: 0 }));
-  return (res.dados ?? []).map((a) => a.nome).filter(Boolean).join(', ');
+  for (const a of res.dados ?? []) {
+    const lista = mapa.get(a.id_cliente) ?? [];
+    lista.push(a.nome);
+    mapa.set(a.id_cliente, lista);
+  }
+  return mapa;
 }
 
-/** Preenche pets_resumo em paralelo para uma lista de clientes já montada */
+/** Preenche pets_resumo para uma lista de clientes já montada */
 async function anexarPetsResumo(clientes: ClienteResponse['dados']): Promise<void> {
-  await Promise.all(
-    clientes.map(async (c) => {
-      c.pets_resumo = await buscarNomesPetsDoCliente(c.id, c.filial);
-    }),
-  );
+  const mapa = await buscarPetsDeClientes(clientes.map((c) => c.id), getFilial());
+  for (const c of clientes) {
+    c.pets_resumo = (mapa.get(c.id) ?? []).filter(Boolean).join(', ');
+  }
 }
 
 export default async function ClientesPage({ searchParams }: Props) {
