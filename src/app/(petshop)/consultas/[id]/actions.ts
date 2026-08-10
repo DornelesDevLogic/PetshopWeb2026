@@ -57,6 +57,8 @@ export async function criarAgendaParaConsulta(dados: {
   proprietarioNome:string;
   veterinarioId:   number;
   veterinarioNome: string;
+  vendedorId:      number;
+  vendedorFilial:  number;
   data:            string; // yyyy-mm-dd
 }): Promise<{ error?: string; agendaId?: number }> {
   const filial = dados.filial || getFilial();
@@ -95,6 +97,8 @@ export async function criarAgendaParaConsulta(dados: {
         prof_id:        dados.veterinarioId,
         prof_filial:    filial,
         prof_nome:      dados.veterinarioNome,
+        vend_id:        dados.vendedorId,
+        vend_filial:    dados.vendedorFilial,
         servico_id:     servicoId || undefined,
         servico_filial: servicoId ? filial : undefined,
         servico_nome:   servicoNome,

@@ -21,6 +21,7 @@ import {
   ConfigAnamnese,
   Animal,
   AnexoExame,
+  Vendedor,
 } from '@/types/petshop';
 import AnexosExame from '@/components/petshop/consultas/AnexosExame';
 import {
@@ -85,6 +86,7 @@ interface Props {
   animal:          Animal | null;
   anexos:          AnexoExame[];
   clienteTelefone?: string;
+  vendedores:      Vendedor[];
 }
 
 /** Monta o link wa.me a partir de um telefone (com ou sem formatação) + mensagem */
@@ -130,7 +132,7 @@ const textareaCls =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none';
 
 export default function ConsultaDetalheView({
-  consulta, prontuarios, exames, vacinas, config, animal, anexos, clienteTelefone,
+  consulta, prontuarios, exames, vacinas, config, animal, anexos, clienteTelefone, vendedores,
 }: Props) {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState('');
@@ -189,6 +191,10 @@ export default function ConsultaDetalheView({
   // sem esperar um refresh de página pra refletir o vínculo recém-criado.
   const [agendaId, setAgendaId]            = useState(consulta.agenda_id);
   const temAgenda = agendaId > 0;
+  // Vendedor exigido antes de criar a agenda "por trás" — sem isso a agenda
+  // nascia sem vendedor (sem tela nenhuma pra corrigir depois).
+  const [vendedorId, setVendedorId]        = useState('');
+  const [vendedorFilial, setVendedorFilial] = useState('');
   const [itensAgenda, setItensAgenda]      = useState<ItemAgendaConsulta[]>([]);
   const [carregandoItens, setCarregandoItens] = useState(temAgenda);
   const [buscaPro, setBuscaPro]            = useState('');
@@ -243,6 +249,7 @@ export default function ConsultaDetalheView({
     const qtd = parseFloat(proQtd) || 1;
     const valor = parseFloat(proValor);
     if (!valor || valor <= 0) { setErroItem('Informe um valor válido (maior que zero).'); return; }
+    if (!agendaId && !vendedorId) { setErroItem('Selecione o vendedor antes de adicionar o produto.'); return; }
     setSalvandoItem(true);
     setErroItem('');
 
@@ -260,6 +267,8 @@ export default function ConsultaDetalheView({
         proprietarioNome: consulta.proprietario,
         veterinarioId:    consulta.veterinario_id,
         veterinarioNome:  consulta.veterinario,
+        vendedorId:       Number(vendedorId),
+        vendedorFilial:   Number(vendedorFilial) || consulta.filial,
         data:             consulta.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       });
       if (rAgenda.error || !rAgenda.agendaId) {
@@ -683,6 +692,35 @@ export default function ConsultaDetalheView({
               ? `Lançados aqui ficam vinculados à agenda #${agendaId} para faturar no Frente de Caixa.`
               : 'Ao adicionar o primeiro produto, uma agenda é criada automaticamente para faturar no Frente de Caixa.'}
           </p>
+
+          {!temAgenda && isAberto && (
+            <div className="space-y-1">
+              <Label className="text-xs">
+                Vendedor <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={vendedorId ? `${vendedorFilial}:${vendedorId}` : ''}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  const [fil, id] = v.split(':');
+                  setVendedorId(id ?? '');
+                  setVendedorFilial(fil ?? '');
+                }}
+              >
+                <SelectTrigger className={cn('h-9', !vendedorId && 'border-destructive/50')}>
+                  <SelectValue placeholder="Selecione o vendedor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendedores.map((v) => (
+                    <SelectItem key={`${v.filial}:${v.id}`} value={`${v.filial}:${v.id}`}>{v.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Obrigatório antes de lançar o primeiro produto — vai junto na agenda criada.
+              </p>
+            </div>
+          )}
 
           {isAberto && (
             <div className="relative">

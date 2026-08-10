@@ -8,6 +8,7 @@ import {
   AnimalResponse,
   Animal,
   AnexoExameResponse,
+  VendedorResponse,
 } from '@/types/petshop';
 import ConsultaDetalheView from '@/components/petshop/consultas/ConsultaDetalheView';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
@@ -33,8 +34,9 @@ export default async function ConsultaDetalhePage({ params }: Props) {
   const emptyAnimal: AnimalResponse          = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
 
   const emptyAnexo: AnexoExameResponse = { dados: [], Count: 0 };
+  const emptyVendedor: VendedorResponse = { dados: [], Count: 0, StartsAt: '', EndsAt: '' };
 
-  const [prontuariosRes, examesRes, vacinasRes, configRes, animalRes, anexosRes, cliente] = await Promise.all([
+  const [prontuariosRes, examesRes, vacinasRes, configRes, animalRes, anexosRes, cliente, vendedoresRes] = await Promise.all([
     apiFetch<ProntuarioResponse>(
       `/api/petshop/prontuarios${qs({ consulta_id: id, filial: getFilial() })}`,
     ).catch(() => emptyProntuario),
@@ -60,6 +62,10 @@ export default async function ConsultaDetalhePage({ params }: Props) {
     ).catch(() => emptyAnexo),
 
     buscarClienteCompleto(consulta.proprietario_id),
+
+    apiFetch<VendedorResponse>(
+      `/api/petshop/vendedores${qs({ filial: getFilial(), limit: 200 })}`,
+    ).catch(() => emptyVendedor),
   ]);
 
   const animal: Animal | null = animalRes.dados[0] ?? null;
@@ -75,6 +81,7 @@ export default async function ConsultaDetalhePage({ params }: Props) {
       animal={animal}
       anexos={anexosRes.dados ?? []}
       clienteTelefone={clienteTelefone}
+      vendedores={vendedoresRes.dados}
     />
   );
 }
