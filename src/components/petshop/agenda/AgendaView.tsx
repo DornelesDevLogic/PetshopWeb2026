@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { reagendarHorario, buscarDadosEmpresa, atualizarStatus } from '@/app/(petshop)/agenda/[id]/actions';
+import AnimalFoto from '@/components/petshop/animais/AnimalFoto';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { buscarObsComanda } from '@/app/(petshop)/configuracoes/actions';
 import { useAgendaRealtime } from '@/hooks/useAgendaRealtime';
@@ -338,13 +339,9 @@ function CardAgendamento({ item, corServico, isDragging, onDragStart, onDragEnd,
       {compact ? (
         /* ── Modo compacto (card muito pequeno) ────────────────────────── */
         <div className="flex items-center gap-1.5 min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/petshop/animais/${item.animal_id}/foto`}
-            alt=""
-            loading="lazy"
+          <AnimalFoto
+            animalId={item.animal_id}
             className="h-6 w-6 rounded-full object-cover shrink-0 border border-white/80 shadow-sm"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="font-bold truncate leading-tight">{item.animal}</span>
           <span className="shrink-0 font-mono text-gray-500 ml-auto">{startStr}</span>
@@ -371,13 +368,9 @@ function CardAgendamento({ item, corServico, isDragging, onDragStart, onDragEnd,
 
           {/* Linha 2: foto + nome + dono */}
           <div className="flex items-center gap-2 min-w-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/petshop/animais/${item.animal_id}/foto`}
-              alt=""
-              loading="lazy"
+            <AnimalFoto
+              animalId={item.animal_id}
               className="h-10 w-10 rounded-full object-cover shrink-0 border-2 border-white shadow-sm"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm leading-tight truncate text-gray-900">{item.animal}</p>

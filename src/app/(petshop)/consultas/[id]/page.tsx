@@ -13,7 +13,7 @@ import {
 import ConsultaDetalheView from '@/components/petshop/consultas/ConsultaDetalheView';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { notFound } from 'next/navigation';
-import ErroCarregarConsulta from '@/components/petshop/consultas/ErroCarregarConsulta';
+import ErroCarregarDados from '@/components/petshop/ErroCarregarDados';
 
 interface Props {
   params: { id: string };
@@ -35,9 +35,11 @@ export default async function ConsultaDetalhePage({ params }: Props) {
     );
   } catch (e) {
     return (
-      <ErroCarregarConsulta
+      <ErroCarregarDados
         mensagem={e instanceof Error ? e.message : 'Erro desconhecido ao buscar os dados da consulta.'}
         retryHref={`/consultas/${id}`}
+        voltarHref="/consultas"
+        voltarLabel="Voltar para Consultas"
       />
     );
   }
