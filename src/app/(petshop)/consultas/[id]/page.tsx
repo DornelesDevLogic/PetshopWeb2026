@@ -13,6 +13,7 @@ import {
 import ConsultaDetalheView from '@/components/petshop/consultas/ConsultaDetalheView';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { notFound } from 'next/navigation';
+import ErroCarregarConsulta from '@/components/petshop/consultas/ErroCarregarConsulta';
 
 interface Props {
   params: { id: string };
@@ -22,11 +23,26 @@ export default async function ConsultaDetalhePage({ params }: Props) {
   const id = Number(params.id);
   if (!id) notFound();
 
-  const consulta = await apiFetch<ConsultaDetalhe>(
-    `/api/petshop/consultas/detalhe${qs({ id, filial: getFilial() })}`,
-  ).catch(() => null);
+  // Erros de conexão/backend (timeout, 500, etc.) não devem virar "404 não
+  // encontrada" — isso mascara o problema real e o torna impossível de
+  // diagnosticar depois (ex: consulta 17151, dado gravado mas tela mostrou
+  // 404). Captura aqui pra mostrar a mensagem real; só CodStatus -5 (backend
+  // confirmou que não existe) vira notFound() de verdade.
+  let consulta: ConsultaDetalhe;
+  try {
+    consulta = await apiFetch<ConsultaDetalhe>(
+      `/api/petshop/consultas/detalhe${qs({ id, filial: getFilial() })}`,
+    );
+  } catch (e) {
+    return (
+      <ErroCarregarConsulta
+        mensagem={e instanceof Error ? e.message : 'Erro desconhecido ao buscar os dados da consulta.'}
+        retryHref={`/consultas/${id}`}
+      />
+    );
+  }
 
-  if (!consulta || consulta.CodStatus === -5) notFound();
+  if (consulta.CodStatus === -5) notFound();
 
   const emptyProntuario: ProntuarioResponse = { consulta_id: id, dados: [], Count: 0, StartsAt: '', EndsAt: '' };
   const emptyExame: ExameResponse            = { consulta_id: id, dados: [], Count: 0, StartsAt: '', EndsAt: '' };
