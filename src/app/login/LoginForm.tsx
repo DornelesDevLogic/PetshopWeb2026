@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PawPrint, AlertCircle, Loader2, Building2, User, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { FRONTEND_VERSION } from '@/lib/version';
 
 export interface FilialOption {
   id: number;
@@ -159,7 +160,7 @@ export default function LoginForm({ filiais, filialPadrao, erroFiliais }: Props)
         Primeiro acesso? Registrar este dispositivo
       </Link>
 
-      <p className="text-center text-xs text-muted-foreground">Versão 1.1.5</p>
+      <p className="text-center text-xs text-muted-foreground">Versão {FRONTEND_VERSION}</p>
     </form>
   );
 }

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { PawPrint, LogOut, UserCircle2, SlidersHorizontal, ChevronLeft, ChevronDown, ChevronRight, Menu, Loader2, Plus } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
+import { FRONTEND_VERSION } from '@/lib/version';
 
 const links = NAV_ITEMS;
 
@@ -299,15 +300,16 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
           <ThemeToggle collapsed={!open} compact />
         </div>
 
-        {/* ── Versão do backend ───────────────────────────────────────────── */}
-        {backendVersion && (
-          <div
-            title={`API PetShop v${backendVersion}`}
-            className="flex items-center justify-center text-[9px] text-muted-foreground/50 overflow-hidden"
-          >
-            <span className="font-mono">v{backendVersion.split('.').slice(0, 2).join('.')}</span>
-          </div>
-        )}
+        {/* ── Versão do frontend + backend — só números, sem rótulo ────────── */}
+        <div
+          title={`petshop_web v${FRONTEND_VERSION}${backendVersion ? ` · API v${backendVersion}` : ''}`}
+          className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground/50 overflow-hidden"
+        >
+          <span className="font-mono">v{FRONTEND_VERSION}</span>
+          {backendVersion && (
+            <span className="font-mono">· v{backendVersion.split('.').slice(0, 2).join('.')}</span>
+          )}
+        </div>
       </div>
 
       {/* ── Botão colapsar ────────────────────────────────────────────────── */}
