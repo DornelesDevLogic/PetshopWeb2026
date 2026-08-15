@@ -70,7 +70,30 @@ export interface AgendaDetalhe extends AgendaItem {
   vend_id:         number;
   vend_filial:     number;
   vend_nome:       string;
-  CodStatus?:      number;   // -5 = não encontrado
+  pode_editar:     boolean;  // false = só o criador da agenda ou um Supervisor podem editar
+  CodStatus?:      number;   // -5 = não encontrado, -6 = sem permissão
+}
+
+/** Uma linha do histórico de edições (ANALYTICS.FDB, AGENDA_HISTORICO) — ver GetAgendaHistoricoEdicoes */
+export interface AgendaHistoricoItem {
+  id_historico:    number;
+  usuario_codigo:  string;
+  usuario_nome:    string;
+  data_hora:       string;   // ISO
+  operacao:        string;   // INSERT | UPDATE | CANCELADO | STATUS | REAGENDADO
+  campo:           string;
+  valor_anterior:  string;
+  valor_novo:      string;
+  cliente_nome:    string;
+  animal_nome:     string;
+  contexto:        string;
+}
+
+export interface AgendaHistoricoResponse {
+  agenda_id:       number;
+  dados:           AgendaHistoricoItem[];
+  CodStatus:       number;   // -7 = sem permissão (não-Supervisor), -1 = indisponível
+  DescricaoStatus?: string;
 }
 
 /** Item de serviço da agenda (PRODORCA) */
@@ -804,4 +827,14 @@ export interface RelatorioVendasSecaoResponse {
   total_geral: number;
   StartsAt:    string;
   EndsAt:      string;
+}
+
+export interface Secao {
+  id:        number;
+  descricao: string;
+}
+
+export interface SecaoResponse {
+  dados: Secao[];
+  Count: number;
 }

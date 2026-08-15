@@ -109,6 +109,32 @@ export async function updateAnimal(
   return {};
 }
 
+/** Atualização enxuta de um único campo (microchip) sem precisar montar o
+ * formulário inteiro de `updateAnimal` — o backend faz UPDATE parcial via
+ * COALESCE (Controllers.PetShop.PutAnimal), então enviar só id/filial/apelido
+ * não mexe em mais nada do cadastro do animal. Usado na tela de Consulta,
+ * que não tem o restante dos dados do animal carregado pra editar. */
+export async function updateAnimalApelido(
+  animalId: number,
+  filial: number,
+  apelido: string,
+): Promise<{ error?: string }> {
+  let res: ApiWrite;
+  try {
+    res = await apiFetch<ApiWrite>('/api/petshop/animais', {
+      method: 'PUT',
+      body: JSON.stringify({ id: animalId, filial, apelido }),
+    });
+  } catch {
+    return { error: 'Não foi possível conectar ao servidor.' };
+  }
+
+  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+
+  revalidatePath(`/animais/${animalId}`);
+  return {};
+}
+
 export async function deactivateAnimal(
   animalId: number,
   clienteId: number,

@@ -1,9 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { RelatorioVendasSecaoResponse, RelatorioVendasSecaoItem } from '@/types/petshop';
+import { RelatorioVendasSecaoResponse, RelatorioVendasSecaoItem, Secao } from '@/types/petshop';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -14,12 +17,23 @@ import {
 } from '@/components/ui/table';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import AcoesRelatorio from '@/components/petshop/relatorios/AcoesRelatorio';
+import { exportarCsv } from '@/lib/exportarCsv';
 
 interface Props {
   dados:   RelatorioVendasSecaoResponse;
   dataIni: string;
   dataFim: string;
+  secoes:  Secao[];
+  secaoId: string;
+}
+
+function fmtData(s: string) {
+  if (!s) return '—';
+  if (s.includes('/')) return s.slice(0, 10);
+  const [y, m, d] = s.split('-');
+  return d ? `${d}/${m}/${y}` : s;
 }
 
 function fmtMoeda(v: number) {
@@ -42,24 +56,45 @@ function agruparPorSecao(itens: RelatorioVendasSecaoItem[]) {
   return Object.values(grupos);
 }
 
-export default function RelatorioVendasSecao({ dados, dataIni, dataFim }: Props) {
+export default function RelatorioVendasSecao({ dados, dataIni, dataFim, secoes, secaoId }: Props) {
   const router = useRouter();
   const [di, setDi] = useState(dataIni);
   const [df, setDf] = useState(dataFim);
+  const [secao, setSecao] = useState(secaoId || 'todas');
   const [, startTransition] = useTransition();
 
+  const [impressoEm, setImpressoEm] = useState('');
+  useEffect(() => { setImpressoEm(new Date().toLocaleString('pt-BR')); }, []);
+
   function gerar() {
-    startTransition(() =>
-      router.push(`/relatorios/vendas-secao?data_ini=${di}&data_fim=${df}`),
-    );
+    const sp = new URLSearchParams();
+    sp.set('data_ini', di);
+    sp.set('data_fim', df);
+    if (secao !== 'todas') sp.set('secao_id', secao);
+    startTransition(() => router.push(`/relatorios/vendas-secao?${sp.toString()}`));
   }
 
   const grupos = agruparPorSecao(dados.dados);
 
+  function exportar() {
+    exportarCsv(
+      `vendas_por_secao_${di}_a_${df}`,
+      [
+        { titulo: 'Seção',        valor: (r) => r.secao },
+        { titulo: 'Cód. Produto', valor: (r) => r.cod_prod },
+        { titulo: 'Produto',      valor: (r) => r.produto },
+        { titulo: 'Qtd',          valor: (r) => fmtQtd(r.qtd_total) },
+        { titulo: 'Preço Unit.',  valor: (r) => r.valorliq.toFixed(2).replace('.', ',') },
+        { titulo: 'Total',        valor: (r) => r.total.toFixed(2).replace('.', ',') },
+      ],
+      dados.dados ?? [],
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 print:hidden">
         <Link href="/relatorios">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -72,8 +107,20 @@ export default function RelatorioVendasSecao({ dados, dataIni, dataFim }: Props)
         </h1>
       </div>
 
+      {/* Cabeçalho de impressão */}
+      <div className="hidden print:block space-y-1">
+        <h1 className="text-lg font-bold flex items-center gap-2">
+          <ShoppingBag className="h-5 w-5" /> Vendas por Seção
+        </h1>
+        <p className="text-xs">
+          Período: {fmtData(di)} a {fmtData(df)}
+          {secao !== 'todas' && ` · Seção: ${secoes.find((s) => String(s.id) === secao)?.descricao ?? secao}`}
+        </p>
+        <p className="text-xs text-muted-foreground">Impresso em {impressoEm}</p>
+      </div>
+
       {/* Filtros */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap print:hidden">
         <div className="flex items-center gap-2">
           <Input
             type="date"
@@ -89,13 +136,26 @@ export default function RelatorioVendasSecao({ dados, dataIni, dataFim }: Props)
             onChange={(e) => setDf(e.target.value)}
           />
         </div>
+
+        <Select value={secao} onValueChange={(v) => setSecao(v ?? 'todas')}
+          items={[{ value: 'todas', label: 'Todas as seções' }, ...secoes.map((s) => ({ value: String(s.id), label: s.descricao }))]}>
+          <SelectTrigger className="h-9 text-sm w-52"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as seções</SelectItem>
+            {secoes.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.descricao}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         <Button onClick={gerar} size="sm">Gerar</Button>
 
-        {dados.Count > 0 && (
-          <span className="ml-auto text-sm text-muted-foreground">
-            {dados.Count} {dados.Count === 1 ? 'item' : 'itens'} · {grupos.length} seções
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {dados.Count > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {dados.Count} {dados.Count === 1 ? 'item' : 'itens'} · {grupos.length} seções
+            </span>
+          )}
+          <AcoesRelatorio onExportar={exportar} />
+        </div>
       </div>
 
       {/* Total Geral */}

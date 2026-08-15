@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  List, CalendarDays, Search, X, Plus, ArrowUpDown, History, Loader2, Receipt,
+  List, CalendarDays, Search, X, Plus, ArrowUpDown, History, Loader2, Receipt, Eye, Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HistoricoAnimalModal from '@/components/petshop/agenda/HistoricoAnimalModal';
@@ -498,6 +498,7 @@ export default function AgendaListaView({
                 <TableHead className="text-right w-24 px-2">Total</TableHead>
                 <TableHead className="text-center w-28 px-1">Status</TableHead>
                 <TableHead className="text-center w-12 px-1">Cupom</TableHead>
+                <TableHead className="text-center w-20 px-1">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -559,6 +560,26 @@ export default function AgendaListaView({
                             : <Receipt className="h-3.5 w-3.5" />}
                         </button>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center px-1">
+                      <span className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          title="Visualizar"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/agenda/${i.id}`); }}
+                          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Editar"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/agenda/${i.id}/editar`); }}
+                          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
                     </TableCell>
                   </TableRow>
                 );

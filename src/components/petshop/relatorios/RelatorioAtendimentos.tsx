@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/table';
 import { ArrowLeft, CalendarClock, ChevronDown, ChevronUp, Search, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AcoesRelatorio from '@/components/petshop/relatorios/AcoesRelatorio';
+import { exportarCsv } from '@/lib/exportarCsv';
 
 export interface ItemRelatorioAgenda {
   id_orca: number; filial: number; situacao: string; tipo_servico: string;
@@ -129,10 +131,39 @@ export default function RelatorioAtendimentos({ itens, profissionais, vendedores
 
   const totalGeral = useMemo(() => itens.reduce((s, i) => s + i.total_item, 0), [itens]);
 
+  const [impressoEm, setImpressoEm] = useState('');
+  useEffect(() => { setImpressoEm(new Date().toLocaleString('pt-BR')); }, []);
+
+  function exportar() {
+    exportarCsv(
+      `agendas_${dataDe}_a_${dataFim}`,
+      [
+        { titulo: 'Agenda',       valor: (r) => r.id_orca },
+        { titulo: 'Data',         valor: (r) => fmtData(r.data) },
+        { titulo: 'Hora',         valor: (r) => r.hora?.slice(0, 5) || '' },
+        { titulo: 'Situação',     valor: (r) => r.situacao },
+        { titulo: 'Cliente',      valor: (r) => r.cliente },
+        { titulo: 'Animal',       valor: (r) => r.animal },
+        { titulo: 'Produto/Serviço', valor: (r) => r.desc_pro },
+        { titulo: 'Cód. Produto', valor: (r) => r.cod_prod },
+        { titulo: 'Qtd',          valor: (r) => r.qtd },
+        { titulo: 'Preço Unit.',  valor: (r) => r.preco_tabela.toFixed(2).replace('.', ',') },
+        { titulo: 'Desc.%',       valor: (r) => r.desconto },
+        { titulo: 'Preço Líq.',   valor: (r) => r.valorliq.toFixed(2).replace('.', ',') },
+        { titulo: 'Total',        valor: (r) => r.total_item.toFixed(2).replace('.', ',') },
+        { titulo: 'Seção',        valor: (r) => r.desc_secao },
+        { titulo: 'Grupo',        valor: (r) => r.desc_grupo },
+        { titulo: 'Profissional', valor: (r) => r.profissional },
+        { titulo: 'Vendedor',     valor: (r) => r.nome_vend },
+      ],
+      itens,
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 print:hidden">
         <Link href="/relatorios">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -145,8 +176,23 @@ export default function RelatorioAtendimentos({ itens, profissionais, vendedores
         </h1>
       </div>
 
+      {/* Cabeçalho de impressão */}
+      <div className="hidden print:block space-y-1">
+        <h1 className="text-lg font-bold flex items-center gap-2">
+          <CalendarClock className="h-5 w-5" /> Relatório de Agendas
+        </h1>
+        <p className="text-xs">
+          Período: {fmtData(dataDe)} a {fmtData(dataFim)}
+          {atendenteId !== 'todos' && ` · Atendente: ${vendedores.find((v) => String(v.id) === atendenteId)?.nome ?? atendenteId}`}
+          {situacao !== 'todas' && ` · Situação: ${situacao}`}
+          {tipoServico !== 'todos' && ` · Serviço: ${tipoServico}`}
+          {vetId !== 'todos' && ` · Vet/Téc: ${profissionais.find((p) => String(p.id) === vetId)?.nome ?? vetId}`}
+        </p>
+        <p className="text-xs text-muted-foreground">Impresso em {impressoEm}</p>
+      </div>
+
       {/* Filtros — mesmos do sistema legado */}
-      <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="rounded-xl border bg-card p-4 space-y-3 print:hidden">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Entre datas</label>
@@ -268,10 +314,13 @@ export default function RelatorioAtendimentos({ itens, profissionais, vendedores
         <span className="text-sm text-muted-foreground">
           {agendasAgrupadas.length} agenda{agendasAgrupadas.length === 1 ? '' : 's'} · {itens.length} item{itens.length === 1 ? '' : 's'} · Total: <strong className="text-primary">{fmtMoeda(totalGeral)}</strong>
         </span>
-        <Button variant="outline" size="sm" onClick={() => setDetalhado((v) => !v)}>
-          {detalhado ? <ChevronUp className="h-3.5 w-3.5 mr-1.5" /> : <ChevronDown className="h-3.5 w-3.5 mr-1.5" />}
-          {detalhado ? '- Detalhes' : '+ Detalhes'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <AcoesRelatorio onExportar={exportar} />
+          <Button variant="outline" size="sm" onClick={() => setDetalhado((v) => !v)} className="print:hidden">
+            {detalhado ? <ChevronUp className="h-3.5 w-3.5 mr-1.5" /> : <ChevronDown className="h-3.5 w-3.5 mr-1.5" />}
+            {detalhado ? '- Detalhes' : '+ Detalhes'}
+          </Button>
+        </div>
       </div>
 
       {/* Resultado */}

@@ -1,4 +1,5 @@
 import { apiFetch, getFilial } from '@/lib/api';
+import { isSupervisor } from '@/lib/session';
 import { AgendaDetalhe, AgendaItensResponse } from '@/types/petshop';
 import AgendaDetalheView from '@/components/petshop/agenda/AgendaDetalheView';
 import { notFound } from 'next/navigation';
@@ -48,6 +49,7 @@ export default async function AgendaDetalhePage({ params, searchParams }: Props)
       detalhe={detalhe}
       itens={itensRes.dados}
       avisosProdutos={searchParams.aviso === 'produtos'}
+      ehSupervisor={isSupervisor()}
     />
   );
 }

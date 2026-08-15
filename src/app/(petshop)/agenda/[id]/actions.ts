@@ -3,7 +3,31 @@
 import { revalidatePath } from 'next/cache';
 import { apiFetch, qs, getFilial } from '@/lib/api';
 import { agendaHub } from '@/lib/agenda-events';
-import { ApiWrite, DadosEmpresa } from '@/types/petshop';
+import { ApiWrite, DadosEmpresa, AgendaHistoricoResponse, AgendaHistoricoItem } from '@/types/petshop';
+import { isSupervisor } from '@/lib/session';
+
+// ─── Histórico de edições (ANALYTICS.FDB) ───────────────────────────────────
+
+/**
+ * Busca o histórico de edições de uma agenda. Gate de Supervisor checado nos
+ * dois lados: aqui (evita nem chamar o backend se não for supervisor) e no
+ * backend (GetAgendaHistoricoEdicoes, CodStatus -7) — a regra de verdade é a
+ * do backend, esta checagem aqui é só pra não gastar uma chamada à toa.
+ */
+export async function buscarHistoricoEdicoes(
+  id: number,
+  filial: number = getFilial(),
+): Promise<{ itens: AgendaHistoricoItem[]; erro?: string }> {
+  if (!isSupervisor()) {
+    return { itens: [], erro: 'Apenas usuários com nível Supervisor podem consultar o histórico de edições.' };
+  }
+  const res = await apiFetch<AgendaHistoricoResponse>(
+    `/api/petshop/agenda/historico-edicoes${qs({ id, filial })}`,
+  ).catch(() => null);
+  if (!res) return { itens: [], erro: 'Não foi possível conectar ao servidor.' };
+  if (res.CodStatus !== 1) return { itens: [], erro: res.DescricaoStatus || 'Erro ao buscar histórico.' };
+  return { itens: res.dados };
+}
 
 // ─── Dados da empresa (cabeçalho de impressão) ──────────────────────────────
 

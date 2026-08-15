@@ -116,12 +116,42 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 
 type TabId = 'agendas' | 'compras' | 'consultas' | 'estimativas';
 
-const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'agendas',     label: 'Agendamentos',  icon: <Calendar    className="h-4 w-4" /> },
-  { id: 'compras',     label: 'Compras / NF',  icon: <ShoppingBag className="h-4 w-4" /> },
-  { id: 'consultas',   label: 'Consultas',     icon: <Stethoscope className="h-4 w-4" /> },
-  { id: 'estimativas', label: 'Estimativas',   icon: <BellRing    className="h-4 w-4" /> },
+const TABS: { id: TabId; label: string; icon: React.ReactNode; cor: string }[] = [
+  { id: 'agendas',     label: 'Agendamentos',  icon: <Calendar    className="h-4 w-4" />, cor: 'blue'   },
+  { id: 'compras',     label: 'Compras / NF',  icon: <ShoppingBag className="h-4 w-4" />, cor: 'amber'  },
+  { id: 'consultas',   label: 'Consultas',     icon: <Stethoscope className="h-4 w-4" />, cor: 'violet' },
+  { id: 'estimativas', label: 'Estimativas',   icon: <BellRing    className="h-4 w-4" />, cor: 'rose'   },
 ];
+
+/** Classes tailwind por cor de aba — geradas explicitamente (não montadas
+ * com template string, que o Tailwind não detecta no build). Mesmo efeito
+ * "divisória de fichário" do modal de Histórico do Animal: toda aba já
+ * nasce colorida, a ativa fica sólida e em destaque. */
+const TAB_CORES: Record<string, {
+  ativoBg: string; ativoTexto: string; ativoBadge: string;
+  inativoBg: string; inativoTexto: string; inativoBadge: string;
+}> = {
+  blue: {
+    ativoBg: 'bg-blue-500 dark:bg-blue-600', ativoTexto: 'text-white', ativoBadge: 'bg-white/25 text-white',
+    inativoBg: 'bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-950',
+    inativoTexto: 'text-blue-700 dark:text-blue-300', inativoBadge: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  },
+  violet: {
+    ativoBg: 'bg-violet-500 dark:bg-violet-600', ativoTexto: 'text-white', ativoBadge: 'bg-white/25 text-white',
+    inativoBg: 'bg-violet-50 dark:bg-violet-950/50 hover:bg-violet-100 dark:hover:bg-violet-950',
+    inativoTexto: 'text-violet-700 dark:text-violet-300', inativoBadge: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  },
+  amber: {
+    ativoBg: 'bg-amber-500 dark:bg-amber-600', ativoTexto: 'text-white', ativoBadge: 'bg-white/25 text-white',
+    inativoBg: 'bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-950',
+    inativoTexto: 'text-amber-700 dark:text-amber-300', inativoBadge: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  },
+  rose: {
+    ativoBg: 'bg-rose-500 dark:bg-rose-600', ativoTexto: 'text-white', ativoBadge: 'bg-white/25 text-white',
+    inativoBg: 'bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-950',
+    inativoTexto: 'text-rose-700 dark:text-rose-300', inativoBadge: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+  },
+};
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
@@ -328,25 +358,30 @@ export default function AnimalHistoricoView({
       {/* ── Abas ── */}
       <div className="rounded-xl border bg-card overflow-hidden">
 
-        {/* Tab bar */}
-        <div className="flex border-b bg-muted/20 overflow-x-auto">
-          {TABS.map((t) => (
-            <button key={t.id} type="button"
-              onClick={() => { setTab(t.id); setSortCol('data'); setSortAsc(false); }}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
-                tab === t.id
-                  ? 'border-primary text-primary bg-background'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40',
-              )}>
-              {t.icon}
-              {t.label}
-              <span className={cn('ml-0.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold',
-                tab === t.id ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
-                {contadores[t.id]}
-              </span>
-            </button>
-          ))}
+        {/* Tab bar — divisórias de fichário: cada uma já nasce colorida,
+            a ativa fica sólida e em destaque */}
+        <div className="flex gap-1.5 px-2 pt-2 border-b bg-muted/20 overflow-x-auto">
+          {TABS.map((t) => {
+            const cores = TAB_CORES[t.cor];
+            const ativa = tab === t.id;
+            return (
+              <button key={t.id} type="button"
+                onClick={() => { setTab(t.id); setSortCol('data'); setSortAsc(false); }}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap rounded-t-lg transition-all -mb-px',
+                  ativa
+                    ? cn(cores.ativoBg, cores.ativoTexto, 'shadow-md scale-105 relative z-10')
+                    : cn(cores.inativoBg, cores.inativoTexto, 'opacity-90 hover:opacity-100'),
+                )}>
+                {t.icon}
+                {t.label}
+                <span className={cn('ml-0.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold',
+                  ativa ? cores.ativoBadge : cores.inativoBadge)}>
+                  {contadores[t.id]}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ── Aba: Agendamentos ── */}

@@ -33,7 +33,11 @@ export default async function PetShopLayout({ children }: { children: React.Reac
   const nomeExibicao = nomeFantasia || user?.filial_nome || '';
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // print:h-auto/print:overflow-visible: sem isso, a altura fixa da tela
+    // (h-screen) recorta o conteúdo na impressão em vez de deixar o
+    // navegador quebrar o relatório em várias páginas A4 (só saía o que
+    // cabia na "tela" — o resto do filtro sumia, sem nem gerar página 2).
+    <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible">
       <AcessoTracker />
 
       {/* ── Sidebar colapsável (desktop) ──────────────────────────────────── */}
@@ -47,9 +51,9 @@ export default async function PetShopLayout({ children }: { children: React.Reac
       />
 
       {/* ── Área de conteúdo ──────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden print:overflow-visible">
         <MobileHeader filial={getFilial()} filialNome={nomeExibicao} user={user} logoUrl={logoUrl} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto print:overflow-visible print:h-auto">
           {children}
         </main>
       </div>

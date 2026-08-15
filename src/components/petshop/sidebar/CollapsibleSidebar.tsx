@@ -26,6 +26,20 @@ const TIPO_LABEL: Record<string, string> = {
   S: 'Supervisor', G: 'Gerente', F: 'Ger. Especial', O: 'Operador',
 };
 
+// Cache em nível de módulo: evita refazer a chamada em remontagens do
+// sidebar (ex: double-invoke de efeitos do StrictMode em dev) — o valor
+// é o mesmo durante toda a sessão do processo no browser.
+let backendVersionCache: Promise<string> | null = null;
+function buscarBackendVersion(): Promise<string> {
+  if (!backendVersionCache) {
+    backendVersionCache = fetch('/api/backend-version')
+      .then((r) => r.json())
+      .then((d: { versao?: string }) => d.versao ?? '')
+      .catch(() => '');
+  }
+  return backendVersionCache;
+}
+
 export default function CollapsibleSidebar({ filial, filialNome, supervisor, user, logoutAction, logoUrl }: Props) {
   const pathname  = usePathname();
   const router    = useRouter();
@@ -52,10 +66,9 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
   // renderização de nenhuma tela do sistema.
   const [backendVersion, setBackendVersion] = useState('');
   useEffect(() => {
-    fetch('/api/backend-version')
-      .then((r) => r.json())
-      .then((d: { versao?: string }) => setBackendVersion(d.versao ?? ''))
-      .catch(() => {});
+    let ativo = true;
+    buscarBackendVersion().then((v) => { if (ativo) setBackendVersion(v); });
+    return () => { ativo = false; };
   }, []);
 
   // Se navegar para dentro de Relatórios por outro caminho (ex: link direto), expande sozinho.
@@ -77,7 +90,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
         onClick={() => setOpen(true)}
         title="Abrir menu"
         className={cn(
-          'hidden md:flex fixed top-2.5 left-2.5 z-40 h-9 w-9 items-center justify-center',
+          'hidden md:flex fixed top-2.5 left-2.5 z-40 h-9 w-9 items-center justify-center print:hidden',
           'rounded-lg border bg-background shadow-md',
           'text-foreground hover:bg-muted transition-colors',
         )}
@@ -90,7 +103,7 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r border-border/70 bg-background/80 backdrop-blur-xl relative',
+        'hidden md:flex flex-col border-r border-border/70 bg-background/80 backdrop-blur-xl relative print:hidden',
         'transition-[width] duration-300 ease-in-out overflow-hidden',
         'w-56',
       )}

@@ -15,8 +15,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Receipt, ChevronDown, ChevronUp, Search, X, Loader2, Eye, Printer } from 'lucide-react';
+import { ArrowLeft, Receipt, ChevronDown, ChevronUp, Search, X, Loader2, Eye, Printer, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { exportarCsv } from '@/lib/exportarCsv';
 
 export interface CupomEspelho {
   numero_cupom:  number;
@@ -171,6 +172,27 @@ export default function RelatorioEspelhoCupons({ cupons, vendedores, filial, fil
 
   const totalGeral = useMemo(() => cupons.reduce((s, c) => s + c.valor_liquido, 0), [cupons]);
 
+  function exportar() {
+    exportarCsv(
+      `espelho_cupons_${dataDe}_a_${dataAte}`,
+      [
+        { titulo: 'Cupom',    valor: (c) => c.numero_cupom },
+        { titulo: 'Caixa',    valor: (c) => c.caixa },
+        { titulo: 'Data',     valor: (c) => fmtData(c.data) },
+        { titulo: 'Hora',     valor: (c) => c.hora?.slice(0, 5) || '' },
+        { titulo: 'Modelo',   valor: (c) => c.modelo === '65' ? 'NFC-e' : c.modelo === '55' ? 'NF-e' : c.modelo },
+        { titulo: 'Cliente',  valor: (c) => c.cliente || '' },
+        { titulo: 'Vendedor', valor: (c) => c.vendedor },
+        { titulo: 'Bruto',    valor: (c) => c.valor_total.toFixed(2).replace('.', ',') },
+        { titulo: 'Desconto', valor: (c) => c.desconto.toFixed(2).replace('.', ',') },
+        { titulo: 'Acréscimo',valor: (c) => c.acrescimo.toFixed(2).replace('.', ',') },
+        { titulo: 'Líquido',  valor: (c) => c.valor_liquido.toFixed(2).replace('.', ',') },
+        { titulo: 'Situação', valor: (c) => c.cancelado ? 'Cancelado' : 'Emitido' },
+      ],
+      cupons,
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -322,6 +344,10 @@ export default function RelatorioEspelhoCupons({ cupons, vendedores, filial, fil
               Sintético
             </button>
           </div>
+          <Button variant="outline" size="sm" onClick={exportar}>
+            <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
+            Exportar Excel
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="h-3.5 w-3.5 mr-1.5" />
             Imprimir

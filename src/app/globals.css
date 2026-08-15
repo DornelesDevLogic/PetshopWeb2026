@@ -384,3 +384,14 @@
     scrollbar-width: none;
   }
 }
+
+/* Folha A4 ao imprimir relatórios (Comissões, Atendimentos, Espelho de
+   Cupons, etc.) — sem isso o navegador usa o último tamanho de papel
+   escolhido pelo usuário, que pode não ser A4. Fica fora do @tailwind
+   layer de propósito (regra @page não é processada por dentro de @layer). */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}

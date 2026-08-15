@@ -29,6 +29,13 @@ import { updateAnimal } from '@/app/(petshop)/animais/[id]/actions';
 import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 import NovoClienteDialog from '@/components/petshop/clientes/NovoClienteDialog';
 import NovoAnimalDialog from '@/components/petshop/animais/NovoAnimalDialog';
+import PesoHistorico from '@/components/petshop/animais/PesoHistorico';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Cliente, Animal, Profissional, Especie, Raca, TipoPelo } from '@/types/petshop';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +62,9 @@ import {
   Bell,
   Pencil,
   Check,
+  Scale,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -129,6 +139,10 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
     });
   }, [agendaOrigem]);
 
+  // ── Peso: indicador subiu/desceu (igual Agenda) + histórico ──
+  const [pesoInput, setPesoInput] = useState('');
+  const [pesoHistOpen, setPesoHistOpen] = useState(false);
+
   // ── Animais ──
   const [animais, setAnimais]              = useState<Animal[]>([]);
   const [animalSel, setAnimalSel]          = useState<Animal | null>(
@@ -136,9 +150,11 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
       ? animalMinimo(agendaOrigem.animalId, agendaOrigem.animalFilial, agendaOrigem.animalNome, agendaOrigem.clienteId)
       : null,
   );
+  useEffect(() => { setPesoInput(''); }, [animalSel?.id]);
   const [isLoadingAnimais, startAnimais]   = useTransition();
   // Contador do "Motivo" — MOTIVO_CONSULTA no banco só aceita 60 caracteres
   // (ver "displasia coxofemoral..." travando em Controllers.PetShop.pas).
+  const [motivoValue, setMotivoValue]      = useState(agendaOrigem?.motivo ?? '');
   const [motivoLen, setMotivoLen]          = useState((agendaOrigem?.motivo ?? '').length);
 
   // ── Edição inline de cliente / animal (mesmo padrão da Agenda) ──
@@ -314,9 +330,11 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
   const clienteRef                    = useRef<HTMLDivElement>(null);
   const animalRef                     = useRef<HTMLDivElement>(null);
   const vetRef                        = useRef<HTMLDivElement>(null);
+  const motivoRef                     = useRef<HTMLDivElement>(null);
   const [clientePiscando, setClientePiscando] = useState(false);
   const [animalPiscando,  setAnimalPiscando]  = useState(false);
   const [vetPiscando,     setVetPiscando]     = useState(false);
+  const [motivoPiscando,  setMotivoPiscando]  = useState(false);
 
   useEffect(() => {
     if (clienteSel) return;
@@ -406,6 +424,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
     if (!clienteSel) { piscar(setClientePiscando, clienteRef); setErrorMsg('Selecione o proprietário.'); return; }
     if (!animalSel)  { piscar(setAnimalPiscando,  animalRef);  setErrorMsg('Selecione o animal.'); return; }
     if (!vetId)       { piscar(setVetPiscando,     vetRef);     setErrorMsg('Selecione o veterinário.'); return; }
+    if (!motivoValue.trim()) { piscar(setMotivoPiscando, motivoRef); setErrorMsg('Informe o motivo da consulta.'); return; }
 
     const formData = new FormData(e.currentTarget);
     formData.set('cliente_id',     String(clienteSel?.id     ?? ''));
@@ -958,8 +977,52 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="peso">Peso (kg)</Label>
-              <Input id="peso" name="peso" placeholder="0,000" inputMode="decimal" />
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="peso">
+                  Peso (kg)
+                  {animalSel?.peso && Number(animalSel.peso) > 0 && (
+                    <span className="ml-1.5 font-normal text-xs text-muted-foreground">
+                      (último registrado: {animalSel.peso} kg)
+                    </span>
+                  )}
+                </Label>
+                {animalSel && (
+                  <button
+                    type="button"
+                    onClick={() => setPesoHistOpen(true)}
+                    title="Ver histórico de peso"
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors shrink-0"
+                  >
+                    <Scale className="h-3 w-3" />
+                    Histórico
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="peso"
+                  name="peso"
+                  placeholder="0,000"
+                  inputMode="decimal"
+                  value={pesoInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v !== '' && Number(v.replace(',', '.')) > 999) return;
+                    setPesoInput(v);
+                  }}
+                />
+                {pesoInput && Number(pesoInput) > 0 && animalSel?.peso && Number(animalSel.peso) > 0 && (
+                  <span className={cn(
+                    'flex items-center gap-0.5 text-xs font-medium shrink-0 whitespace-nowrap',
+                    Number(pesoInput) > Number(animalSel.peso) ? 'text-orange-500' : 'text-green-600',
+                  )}>
+                    {Number(pesoInput) > Number(animalSel.peso)
+                      ? <TrendingUp className="h-3.5 w-3.5" />
+                      : <TrendingDown className="h-3.5 w-3.5" />}
+                    {Math.abs(Number(pesoInput) - Number(animalSel.peso)).toFixed(2)} kg
+                  </span>
+                )}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="temperatura">Temperatura (°C)</Label>
@@ -967,15 +1030,22 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="motivo">Motivo / Queixa principal</Label>
+          <div
+            ref={motivoRef}
+            className={cn(
+              'space-y-1.5 rounded-md transition-shadow',
+              motivoPiscando && 'ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse',
+            )}
+          >
+            <Label htmlFor="motivo">Motivo / Queixa principal *</Label>
             <textarea
               id="motivo"
               name="motivo"
               rows={3}
-              defaultValue={agendaOrigem?.motivo ?? ''}
-              onChange={(e) => setMotivoLen(e.target.value.length)}
+              value={motivoValue}
+              onChange={(e) => { setMotivoValue(e.target.value); setMotivoLen(e.target.value.length); }}
               maxLength={60}
+              required
               placeholder="Descreva o motivo da consulta..."
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
             />
@@ -1170,6 +1240,24 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
           onOpenChange={setNovoAnimalOpen}
           onCriado={(animal) => selecionarCliente(clienteSel, animal as Animal)}
         />
+      )}
+
+      {animalSel && (
+        <Dialog open={pesoHistOpen} onOpenChange={setPesoHistOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                Histórico de Peso — {animalSel.nome}
+              </DialogTitle>
+            </DialogHeader>
+            <PesoHistorico
+              animalId={animalSel.id}
+              filial={animalSel.filial}
+              pesoAtual={Number(animalSel.peso) || undefined}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

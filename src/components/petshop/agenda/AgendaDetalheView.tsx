@@ -26,16 +26,19 @@ import {
   XCircle,
   Loader2,
   Printer,
+  History,
 } from 'lucide-react';
 import { printWindow } from '@/lib/printWindow';
 import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
 import ProdutosAgenda from './ProdutosAgenda';
+import HistoricoEdicoesModal from './HistoricoEdicoesModal';
 import { cn } from '@/lib/utils';
 
 interface Props {
   detalhe:          AgendaDetalhe;
   itens:            AgendaItemServico[] | undefined;
   avisosProdutos?:  boolean;
+  ehSupervisor?:    boolean;  // libera o botão "Histórico de Edições" (SENHA.TIPO='S')
 }
 
 function StatusBadge({ status }: { status: number }) {
@@ -83,11 +86,12 @@ const ACOES: Record<number, Acao[]> = {
   ],
 };
 
-export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }: Props) {
+export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos, ehSupervisor }: Props) {
   const router = useRouter();
   const [isPending, startTransition]     = useTransition();
   const [errorMsg, setErrorMsg]          = useState('');
   const [confirmAcao, setConfirmAcao]    = useState<Acao | null>(null);
+  const [historicoAberto, setHistoricoAberto] = useState(false);
   const [obsCanc, setObsCanc]            = useState('');
 
   const acoes = ACOES[d.status] ?? [];
@@ -173,12 +177,25 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
 
       {/* ── Cabeçalho ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <Link href="/agenda">
-          <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50 font-medium">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Agenda
-          </Button>
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+          onClick={() => {
+            // Volta pra onde o usuário realmente veio (ex: Visualização Rápida
+            // com os filtros aplicados) em vez de sempre cair na grade do
+            // calendário — só cai em /agenda se não há histórico pra voltar
+            // (ex: link direto/nova aba).
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/agenda');
+            }
+          }}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar para Agenda
+        </Button>
 
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={d.status} />
@@ -198,6 +215,12 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
             {imprimindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             Imprimir
           </Button>
+          {ehSupervisor && (
+            <Button size="sm" variant="outline" onClick={() => setHistoricoAberto(true)} className="gap-1.5">
+              <History className="h-4 w-4" />
+              Histórico de Edições
+            </Button>
+          )}
         </div>
       </div>
 
@@ -338,6 +361,15 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos }:
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {ehSupervisor && (
+        <HistoricoEdicoesModal
+          open={historicoAberto}
+          onOpenChange={setHistoricoAberto}
+          agendaId={d.id}
+          filial={d.filial}
+        />
       )}
 
     </div>

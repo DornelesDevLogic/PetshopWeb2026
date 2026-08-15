@@ -132,6 +132,7 @@ export default async function ClientesPage({ searchParams }: Props) {
         clientes.push(montarClienteParcial(a));
       }
       total = clientes.length;
+      if (clientes.length > LIMIT) clientes = clientes.slice(0, LIMIT);
       await anexarPetsResumo(clientes);
     }
 
@@ -159,6 +160,7 @@ export default async function ClientesPage({ searchParams }: Props) {
     }
 
     total = clientes.length;
+    if (clientes.length > LIMIT) clientes = clientes.slice(0, LIMIT);
     await anexarPetsResumo(clientes);
 
   } else if (situacao || skip > 0) {

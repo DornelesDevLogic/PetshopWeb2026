@@ -608,7 +608,9 @@ export default function NovoAgendamentoForm({
   // diálogo de confirmação; senão navega direto para a agenda criada.
   async function finalizarCriacao(idAgenda: number) {
     if (!agendarRetorno) {
-      router.push(`/agenda/${idAgenda}`);
+      // replace (não push): a agenda acabou de ser criada, então "voltar"
+      // não deve cair de novo no formulário de criação já preenchido/enviado.
+      router.replace(`/agenda/${idAgenda}`);
       return;
     }
     const sug = await sugerirRetornoAgenda(idAgenda, filial);
@@ -628,7 +630,7 @@ export default function NovoAgendamentoForm({
     if (res.error) { setErroRetorno(res.error); return; }
     const idOriginal = retornoDialog.agendaId;
     setRetornoDialog(null);
-    router.push(`/agenda/${idOriginal}`);
+    router.replace(`/agenda/${idOriginal}`);
   }
 
   async function confirmarEstimativas() {
@@ -659,7 +661,7 @@ export default function NovoAgendamentoForm({
         if (res.error) erros.push(`${item.regra.produto}: ${res.error}`);
       }
       if (erros.length > 0) { setErroEst(erros.join(' | ')); return; }
-      router.push(`/agenda/${estPendente.agendaId}`);
+      router.replace(`/agenda/${estPendente.agendaId}`);
     } finally {
       setSalvandoEst(false);
     }
@@ -1049,7 +1051,7 @@ export default function NovoAgendamentoForm({
           }
         }
 
-        router.push(`/agenda/${agendaId}`);
+        router.replace(`/agenda/${agendaId}`);
         return;
       }
 
@@ -2247,7 +2249,7 @@ export default function NovoAgendamentoForm({
               onClick={() => {
                 const idOriginal = retornoDialog?.agendaId;
                 setRetornoDialog(null);
-                if (idOriginal) router.push(`/agenda/${idOriginal}`);
+                if (idOriginal) router.replace(`/agenda/${idOriginal}`);
               }}
             >
               Não agendar
@@ -2354,7 +2356,7 @@ export default function NovoAgendamentoForm({
             <div className="flex justify-end gap-2">
               <Button
                 type="button" variant="outline" disabled={salvandoEst}
-                onClick={() => router.push(`/agenda/${estPendente.agendaId}`)}
+                onClick={() => router.replace(`/agenda/${estPendente.agendaId}`)}
               >
                 Pular
               </Button>

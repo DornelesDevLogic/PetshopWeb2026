@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket } from 'lucide-react';
+import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket, Package } from 'lucide-react';
 
 const relatorios = [
   {
@@ -37,6 +37,12 @@ const relatorios = [
     icon:    Ticket,
     titulo:  'Vales de Clientes',
     descricao: 'Consulta de crédito/vale-troca gerado por devolução (somente leitura).',
+  },
+  {
+    href:    '/relatorios/produtos',
+    icon:    Package,
+    titulo:  'Relatório de Produtos',
+    descricao: 'Indicadores de precificação e estoque dos produtos cadastrados.',
   },
 ];
 

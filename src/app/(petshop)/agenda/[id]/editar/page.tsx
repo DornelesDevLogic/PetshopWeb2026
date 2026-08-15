@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { Lock } from 'lucide-react';
 import { apiFetch, qs, getFilial } from '@/lib/api';
 import {
   AgendaDetalhe,
@@ -7,6 +9,7 @@ import {
 } from '@/types/petshop';
 import NovoAgendamentoForm, { ItemSalvo } from '@/components/petshop/agenda/NovoAgendamentoForm';
 import EdicaoLockGuard from '@/components/petshop/EdicaoLockGuard';
+import { buttonVariants } from '@/components/ui/button';
 
 interface Props {
   params: { id: string };
@@ -48,6 +51,23 @@ export default async function EditarAgendaPage({ params }: Props) {
   ]);
 
   if (!detalhe) notFound();
+
+  if (!detalhe.pode_editar) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 p-6 text-center space-y-4">
+        <Lock className="h-10 w-10 text-destructive mx-auto" />
+        <h1 className="text-lg font-semibold">Edição não permitida</h1>
+        <p className="text-sm text-muted-foreground">
+          Esta agenda só pode ser alterada pelo usuário que a criou ou por um usuário com nível Supervisor.
+        </p>
+        <div className="flex justify-center pt-2">
+          <Link href={`/agenda/${id}`} className={buttonVariants({ variant: 'outline' })}>
+            Voltar
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <EdicaoLockGuard idOrca={id} filial={detalhe.filial} voltarHref={`/agenda/${id}`}>

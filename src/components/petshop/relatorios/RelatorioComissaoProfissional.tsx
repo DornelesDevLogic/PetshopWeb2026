@@ -1,9 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { RelatorioComissaoResponse, RelatorioComissaoItem } from '@/types/petshop';
+import { RelatorioComissaoResponse, RelatorioComissaoItem, Profissional, Vendedor } from '@/types/petshop';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -14,13 +17,19 @@ import {
 } from '@/components/ui/table';
 import { ArrowLeft, UserRound, ChevronDown, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { cn } from '@/lib/utils';
+import AcoesRelatorio from '@/components/petshop/relatorios/AcoesRelatorio';
+import { exportarCsv } from '@/lib/exportarCsv';
 
 interface Props {
-  dados:   RelatorioComissaoResponse;
-  dataIni: string;
-  dataFim: string;
+  dados:         RelatorioComissaoResponse;
+  dataIni:       string;
+  dataFim:       string;
+  profissionais: Profissional[];
+  vendedores:    Vendedor[];
+  tecnicoId:     string;
+  codvend:       string;
 }
 
 function fmtData(s: string) {
@@ -60,17 +69,27 @@ function agruparPorProfissional(itens: RelatorioComissaoItem[]): GrupoProfission
   return Array.from(mapa.values()).sort((a, b) => b.comissao_total - a.comissao_total);
 }
 
-export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim }: Props) {
+export default function RelatorioComissaoProfissional({
+  dados, dataIni, dataFim, profissionais, vendedores, tecnicoId, codvend,
+}: Props) {
   const router = useRouter();
   const [di, setDi] = useState(dataIni);
   const [df, setDf] = useState(dataFim);
+  const [tecnico, setTecnico] = useState(tecnicoId || 'todos');
+  const [vendedor, setVendedor] = useState(codvend || 'todos');
   const [, startTransition] = useTransition();
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
 
+  const [impressoEm, setImpressoEm] = useState('');
+  useEffect(() => { setImpressoEm(new Date().toLocaleString('pt-BR')); }, []);
+
   function gerar() {
-    startTransition(() =>
-      router.push(`/relatorios/comissao-profissional?data_ini=${di}&data_fim=${df}`),
-    );
+    const sp = new URLSearchParams();
+    sp.set('data_ini', di);
+    sp.set('data_fim', df);
+    if (tecnico !== 'todos')  sp.set('tecnico_id', tecnico);
+    if (vendedor !== 'todos') sp.set('codvend', vendedor);
+    startTransition(() => router.push(`/relatorios/comissao-profissional?${sp.toString()}`));
   }
 
   function toggleAberto(chave: string) {
@@ -83,10 +102,24 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
 
   const grupos = agruparPorProfissional(dados.dados ?? []);
 
+  function exportar() {
+    exportarCsv(
+      `comissao_por_profissional_${di}_a_${df}`,
+      [
+        { titulo: 'Profissional', valor: (r) => r.nome },
+        { titulo: 'Lançamentos',  valor: (r) => r.itens.length },
+        { titulo: 'Qtd Total',    valor: (r) => r.qtd_total },
+        { titulo: 'Total Vendido',valor: (r) => r.valor_total.toFixed(2).replace('.', ',') },
+        { titulo: 'Total Comissão', valor: (r) => r.comissao_total.toFixed(2).replace('.', ',') },
+      ],
+      grupos,
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 print:hidden">
         <Link href="/relatorios">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -99,8 +132,21 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
         </h1>
       </div>
 
+      {/* Cabeçalho de impressão */}
+      <div className="hidden print:block space-y-1">
+        <h1 className="text-lg font-bold flex items-center gap-2">
+          <UserRound className="h-5 w-5" /> Comissão por Profissional
+        </h1>
+        <p className="text-xs">
+          Período: {fmtData(di)} a {fmtData(df)}
+          {tecnico !== 'todos' && ` · Técnico: ${profissionais.find((p) => String(p.id) === tecnico)?.nome ?? tecnico}`}
+          {vendedor !== 'todos' && ` · Vendedor: ${vendedores.find((v) => String(v.id) === vendedor)?.nome ?? vendedor}`}
+        </p>
+        <p className="text-xs text-muted-foreground">Impresso em {impressoEm}</p>
+      </div>
+
       {/* Filtros */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap print:hidden">
         <div className="flex items-center gap-2">
           <Input
             type="date"
@@ -116,13 +162,35 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
             onChange={(e) => setDf(e.target.value)}
           />
         </div>
+
+        <Select value={tecnico} onValueChange={(v) => setTecnico(v ?? 'todos')}
+          items={[{ value: 'todos', label: 'Todos os técnicos' }, ...profissionais.map((p) => ({ value: String(p.id), label: p.nome }))]}>
+          <SelectTrigger className="h-9 text-sm w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os técnicos</SelectItem>
+            {profissionais.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select value={vendedor} onValueChange={(v) => setVendedor(v ?? 'todos')}
+          items={[{ value: 'todos', label: 'Todos os vendedores' }, ...vendedores.map((v) => ({ value: String(v.id), label: v.nome }))]}>
+          <SelectTrigger className="h-9 text-sm w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os vendedores</SelectItem>
+            {vendedores.map((v) => <SelectItem key={v.id} value={String(v.id)}>{v.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         <Button onClick={gerar} size="sm">Gerar</Button>
 
-        {dados.Count > 0 && (
-          <span className="ml-auto text-sm text-muted-foreground">
-            {grupos.length} profissional{grupos.length === 1 ? '' : 'ais'} · {dados.Count} lançamento{dados.Count === 1 ? '' : 's'}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {dados.Count > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {grupos.length} profissional{grupos.length === 1 ? '' : 'ais'} · {dados.Count} lançamento{dados.Count === 1 ? '' : 's'}
+            </span>
+          )}
+          <AcoesRelatorio onExportar={exportar} />
+        </div>
       </div>
 
       {/* Totais */}
@@ -170,15 +238,18 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
                   </div>
                 </button>
 
-                {aberto && (
-                  <div className="border-t overflow-auto">
+                {/* Sempre renderiza (não só quando "aberto") — na impressão TODOS os
+                    grupos precisam sair, não só o(s) que o usuário deixou expandido(s)
+                    na tela; print:block força aparecer mesmo com "hidden" aplicado. */}
+                <div className={cn('border-t overflow-auto', aberto ? 'block' : 'hidden', 'print:block')}>
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-24">Data</TableHead>
+                          <TableHead className="w-20">Agenda</TableHead>
                           <TableHead>Cliente</TableHead>
-                          <TableHead className="hidden md:table-cell">Animal</TableHead>
-                          <TableHead className="hidden lg:table-cell">Produto</TableHead>
+                          <TableHead className="hidden md:table-cell print:table-cell">Animal</TableHead>
+                          <TableHead className="hidden lg:table-cell print:table-cell">Produto</TableHead>
                           <TableHead className="text-right w-14">Qtd</TableHead>
                           <TableHead className="text-right">Valor Liq.</TableHead>
                           <TableHead className="text-right w-16">Com%</TableHead>
@@ -189,9 +260,10 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
                         {g.itens.map((r, i) => (
                           <TableRow key={i} className={cn('hover:bg-muted/40')}>
                             <TableCell className="font-mono text-xs">{fmtData(r.data)}</TableCell>
+                            <TableCell className="font-mono text-xs">#{r.id_orca}</TableCell>
                             <TableCell className="text-sm">{r.cliente}</TableCell>
-                            <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{r.animal || '—'}</TableCell>
-                            <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[160px] truncate">{r.produto}</TableCell>
+                            <TableCell className="hidden md:table-cell print:table-cell text-sm text-muted-foreground">{r.animal || '—'}</TableCell>
+                            <TableCell className="hidden lg:table-cell print:table-cell text-sm text-muted-foreground max-w-[160px] truncate">{r.produto}</TableCell>
                             <TableCell className="text-right font-mono text-sm">{r.qtd}</TableCell>
                             <TableCell className="text-right text-sm">{fmtMoeda(r.valorliq)}</TableCell>
                             <TableCell className="text-right text-sm text-muted-foreground">{r.comissao_perc}%</TableCell>
@@ -201,7 +273,6 @@ export default function RelatorioComissaoProfissional({ dados, dataIni, dataFim 
                       </TableBody>
                     </Table>
                   </div>
-                )}
               </div>
             );
           })}

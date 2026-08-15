@@ -20,7 +20,7 @@ export default function MobileHeader({ filial, filialNome, user, logoUrl }: Prop
   return (
     <>
       {/* ── Top bar (mobile only) ─────────────────────────────────────────── */}
-      <header className="md:hidden flex items-center gap-2 border-b bg-background px-3 h-11 shrink-0 z-30 safe-top" style={{ paddingTop: 'max(0.125rem, env(safe-area-inset-top))' }}>
+      <header className="md:hidden print:hidden flex items-center gap-2 border-b bg-background px-3 h-11 shrink-0 z-30 safe-top" style={{ paddingTop: 'max(0.125rem, env(safe-area-inset-top))' }}>
         <button
           onClick={() => setOpen(true)}
           className="p-1 rounded-md text-muted-foreground hover:bg-accent transition-colors"

@@ -100,10 +100,11 @@ export default function ClientesView({
     nav({ q: null, qPet: null, skip: 0 });
   }
 
-  const buscando = !!(qAtual || qPetAtual);
-  const temProx  = clientes.length === limit;
-  const temAnter = skipAtual > 0;
+  const buscando   = !!(qAtual || qPetAtual);
+  const temProx    = clientes.length === limit;
+  const temAnter   = skipAtual > 0;
   const termoBusca = qAtual || qPetAtual;
+  const truncado   = buscando && total > clientes.length;
 
   return (
     <div className="flex flex-col h-full">
@@ -116,7 +117,9 @@ export default function ClientesView({
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">
-              {total > 0 ? `${total} resultado${total !== 1 ? 's' : ''}` : ''}
+              {truncado
+                ? `Mostrando ${clientes.length} de ${total} resultados — refine a busca para ver os demais`
+                : total > 0 ? `${total} resultado${total !== 1 ? 's' : ''}` : ''}
             </span>
             <NovoClienteDialog />
           </div>

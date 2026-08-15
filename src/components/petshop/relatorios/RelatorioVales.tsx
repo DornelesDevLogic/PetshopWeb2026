@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table';
 import { ArrowLeft, Ticket, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AcoesRelatorio from '@/components/petshop/relatorios/AcoesRelatorio';
+import { exportarCsv } from '@/lib/exportarCsv';
 
 interface Filtros {
   clienteId:     string;
@@ -102,9 +104,29 @@ export default function RelatorioVales({ vales, filtros }: Props) {
 
   const totalSaldo = vales.reduce((acc, v) => acc + (v.valor_saldo || 0), 0);
 
+  const [impressoEm, setImpressoEm] = useState('');
+  useEffect(() => { setImpressoEm(new Date().toLocaleString('pt-BR')); }, []);
+
+  function exportar() {
+    exportarCsv(
+      'vales_de_clientes',
+      [
+        { titulo: 'Nº',        valor: (v) => v.id_vale },
+        { titulo: 'Data',      valor: (v) => fmtData(v.data) },
+        { titulo: 'Cliente',   valor: (v) => v.cliente_nome || '' },
+        { titulo: 'Tipo',      valor: (v) => v.tipo },
+        { titulo: 'Valor',     valor: (v) => v.total.toFixed(2).replace('.', ',') },
+        { titulo: 'Utilizado', valor: (v) => v.valor_util.toFixed(2).replace('.', ',') },
+        { titulo: 'Saldo',     valor: (v) => v.valor_saldo.toFixed(2).replace('.', ',') },
+        { titulo: 'Situação',  valor: (v) => v.situacao },
+      ],
+      vales,
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-5">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 print:hidden">
         <Link href="/relatorios">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -117,12 +139,23 @@ export default function RelatorioVales({ vales, filtros }: Props) {
         </h1>
       </div>
 
-      <p className="text-xs text-muted-foreground -mt-2">
+      {/* Cabeçalho de impressão */}
+      <div className="hidden print:block space-y-1">
+        <h1 className="text-lg font-bold flex items-center gap-2">
+          <Ticket className="h-5 w-5" /> Vales de Clientes
+        </h1>
+        <p className="text-xs">
+          Status: {status} {(dataIni || dataAte) && `· Período: ${fmtData(dataIni)} a ${fmtData(dataAte)}`}
+        </p>
+        <p className="text-xs text-muted-foreground">Impresso em {impressoEm}</p>
+      </div>
+
+      <p className="text-xs text-muted-foreground -mt-2 print:hidden">
         Consulta de crédito/vale-troca gerado por devolução. Somente leitura — emissão e baixa continuam pela Retaguarda.
       </p>
 
       {/* Filtros */}
-      <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="rounded-xl border bg-card p-4 space-y-3 print:hidden">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="relative sm:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -182,6 +215,9 @@ export default function RelatorioVales({ vales, filtros }: Props) {
       </div>
 
       {/* Resultado */}
+      <div className="flex items-center justify-end print:hidden">
+        <AcoesRelatorio onExportar={exportar} />
+      </div>
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <span className="text-sm text-muted-foreground">

@@ -13,6 +13,7 @@ import {
   deleteVacina,
   criarAgendaParaConsulta,
 } from '@/app/(petshop)/consultas/[id]/actions';
+import { updateAnimalApelido } from '@/app/(petshop)/animais/[id]/actions';
 import {
   ConsultaDetalhe,
   Prontuario,
@@ -73,9 +74,13 @@ import {
   X,
   MessageCircle,
   Bell,
+  History,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
+import HistoricoAnimalModal from '@/components/petshop/agenda/HistoricoAnimalModal';
 
 interface Props {
   consulta:        ConsultaDetalhe;
@@ -140,6 +145,23 @@ export default function ConsultaDetalheView({
 
   const isAberto = consulta.status === 'ABERTO';
   const statusColor = STATUS_COLOR[consulta.status] ?? 'bg-muted text-muted-foreground border-border';
+
+  // ── Microchip: editável direto no cabeçalho da consulta (campo "apelido"
+  // do animal, ver MicrochipBadge) — antes só dava pra editar em Animais. ──
+  const [apelidoAtual, setApelidoAtual]   = useState(animal?.apelido ?? '');
+  const [editandoMicrochip, setEditandoMicrochip] = useState(false);
+  const [microchipInput, setMicrochipInput] = useState(apelidoAtual);
+  const [salvandoMicrochip, setSalvandoMicrochip] = useState(false);
+
+  async function salvarMicrochip() {
+    if (!animal) return;
+    setSalvandoMicrochip(true);
+    const r = await updateAnimalApelido(animal.id, animal.filial, microchipInput.trim());
+    setSalvandoMicrochip(false);
+    if (r.error) { setErrorMsg(r.error); return; }
+    setApelidoAtual(microchipInput.trim());
+    setEditandoMicrochip(false);
+  }
 
   // ── Grupos/abas visíveis conforme a configuração de anamnese ──────────────
   const grupos = useMemo(() => gruposVisiveis(config), [config]);
@@ -336,6 +358,7 @@ export default function ConsultaDetalheView({
   }
 
   // ── Prontuário / Vacina add forms ─────────────────────────────────────────
+  const [historicoAberto, setHistoricoAberto] = useState(false);
   const [showProntuarioForm, setShowProntuarioForm] = useState(false);
   const prontuarioRef = useRef<HTMLFormElement>(null);
   const [showVacinaForm, setShowVacinaForm] = useState(false);
@@ -454,7 +477,17 @@ export default function ConsultaDetalheView({
             <div className="space-y-1">
               <Label className="text-xs">Peso (kg)</Label>
               {editando
-                ? <Input value={editData.peso} onChange={(e) => setField('peso', e.target.value)} inputMode="decimal" />
+                ? <Input
+                    value={editData.peso}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // Não deixa passar de 999 kg (peso de pet não chega nem perto
+                      // disso — evita erro de digitação virar peso absurdo salvo).
+                      if (v !== '' && Number(v.replace(',', '.')) > 999) return;
+                      setField('peso', v);
+                    }}
+                    inputMode="decimal"
+                  />
                 : <p className="text-sm font-medium">{consulta.peso ? `${consulta.peso} kg` : '—'}</p>}
             </div>
             <div className="space-y-1">
@@ -545,6 +578,10 @@ export default function ConsultaDetalheView({
           <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold', statusColor)}>
             {isAberto ? 'Aberta' : 'Fechada'}
           </span>
+          <Button size="sm" variant="outline" onClick={() => setHistoricoAberto(true)}>
+            <History className="h-4 w-4 mr-1.5" />
+            Histórico
+          </Button>
           <a
             href={`/api/petshop/consulta-pdf?id=${consulta.id}&filial=${consulta.filial}`}
             target="_blank"
@@ -608,10 +645,55 @@ export default function ConsultaDetalheView({
           <div className="flex-1 min-w-0 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Animal</p>
-              <p className="font-medium flex items-center gap-1.5">
+              <div className="font-medium flex items-center gap-1.5 flex-wrap">
                 {consulta.animal}
-                <MicrochipBadge value={animal?.apelido ?? ''} className="text-[11px]" />
-              </p>
+                {editandoMicrochip ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      value={microchipInput}
+                      onChange={(e) => setMicrochipInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') salvarMicrochip();
+                        if (e.key === 'Escape') { setEditandoMicrochip(false); setMicrochipInput(apelidoAtual); }
+                      }}
+                      placeholder="Número do microchip"
+                      className="h-6 w-40 text-xs px-2"
+                      disabled={salvandoMicrochip}
+                    />
+                    <button
+                      type="button"
+                      onClick={salvarMicrochip}
+                      disabled={salvandoMicrochip}
+                      title="Salvar"
+                      className="p-0.5 rounded text-emerald-600 hover:bg-emerald-50"
+                    >
+                      {salvandoMicrochip ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEditandoMicrochip(false); setMicrochipInput(apelidoAtual); }}
+                      disabled={salvandoMicrochip}
+                      title="Cancelar"
+                      className="p-0.5 rounded text-muted-foreground hover:bg-muted"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <>
+                    <MicrochipBadge value={apelidoAtual} className="text-[11px]" />
+                    <button
+                      type="button"
+                      onClick={() => { setMicrochipInput(apelidoAtual); setEditandoMicrochip(true); }}
+                      title={apelidoAtual ? 'Editar microchip' : 'Cadastrar microchip'}
+                      className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <div>
               <p className="text-muted-foreground text-xs mb-0.5">Espécie / Raça</p>
@@ -1022,6 +1104,17 @@ export default function ConsultaDetalheView({
           </div>
         )}
       </div>
+
+      {historicoAberto && (
+        <HistoricoAnimalModal
+          animalId={consulta.animal_id}
+          animalNome={consulta.animal || 'Pet'}
+          clienteId={consulta.proprietario_id}
+          clienteNome={consulta.proprietario || '—'}
+          filial={consulta.filial}
+          onClose={() => setHistoricoAberto(false)}
+        />
+      )}
 
     </div>
   );

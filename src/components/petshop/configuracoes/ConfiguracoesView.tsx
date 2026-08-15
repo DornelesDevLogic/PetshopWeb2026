@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   SlidersHorizontal, Loader2, AlertCircle, CheckCircle2, ShieldAlert,
-  Search, X, Plug,
+  Search, X, Plug, Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -354,21 +354,28 @@ export default function ConfiguracoesView({ dados }: Props) {
                 )}
               >
                 <div className="min-w-0">
-                  <p className="text-sm">
+                  <p className="text-sm flex items-center gap-1.5">
                     {p.label}
                     {grupoTitulo && (
-                      <span className="ml-2 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold align-middle">
+                      <span className="ml-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold align-middle">
                         {grupoTitulo}
                       </span>
                     )}
+                    <span
+                      className="inline-flex text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0"
+                      title={`Chave técnica: ${p.tabela.toUpperCase()}.${p.col.toUpperCase()}`}
+                    >
+                      <Info className="h-3 w-3" />
+                    </span>
                   </p>
-                  <p className="text-[11px] text-muted-foreground font-mono">
-                    {p.tabela.toUpperCase()}.{p.col.toUpperCase()}
-                    {p.ajuda && <span className="font-sans ml-2 normal-case">· {p.ajuda}</span>}
-                    {p.dependeDe && !habilitado(p) && (
-                      <span className="font-sans ml-2 text-amber-600">· depende de outra opção ativa</span>
-                    )}
-                  </p>
+                  {(p.ajuda || (p.dependeDe && !habilitado(p))) && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {p.ajuda && <span>{p.ajuda}</span>}
+                      {p.dependeDe && !habilitado(p) && (
+                        <span className="ml-2 text-amber-600">· depende de outra opção ativa</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <Campo p={p} />
               </div>

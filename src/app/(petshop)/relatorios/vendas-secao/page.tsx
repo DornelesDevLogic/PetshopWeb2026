@@ -1,10 +1,11 @@
 import { apiFetch, qs, getFilial } from '@/lib/api';
-import { RelatorioVendasSecaoResponse } from '@/types/petshop';
+import { RelatorioVendasSecaoResponse, SecaoResponse } from '@/types/petshop';
 import RelatorioVendasSecao from '@/components/petshop/relatorios/RelatorioVendasSecao';
 
 interface SearchParams {
   data_ini?: string;
   data_fim?: string;
+  secao_id?: string;
 }
 
 function primeiroDiaMes() {
@@ -22,13 +23,31 @@ const empty: RelatorioVendasSecaoResponse = {
   periodo: '', dados: [], Count: 0, total_geral: 0, StartsAt: '', EndsAt: '',
 };
 
+const emptySecoes: SecaoResponse = { dados: [], Count: 0 };
+
 export default async function RelatorioVendasSecaoPage({ searchParams }: { searchParams: SearchParams }) {
+  const filial = getFilial();
   const dataIni = searchParams.data_ini || primeiroDiaMes();
   const dataFim = searchParams.data_fim || ultimoDiaMes();
 
-  const res = await apiFetch<RelatorioVendasSecaoResponse>(
-    `/api/petshop/relatorios/vendas-secao${qs({ filial: getFilial(), data_ini: dataIni, data_fim: dataFim })}`,
-  ).catch(() => empty);
+  const [res, secoesRes] = await Promise.all([
+    apiFetch<RelatorioVendasSecaoResponse>(
+      `/api/petshop/relatorios/vendas-secao${qs({
+        filial, data_ini: dataIni, data_fim: dataFim,
+        secao_id: searchParams.secao_id || undefined,
+      })}`,
+    ).catch(() => empty),
 
-  return <RelatorioVendasSecao dados={res} dataIni={dataIni} dataFim={dataFim} />;
+    apiFetch<SecaoResponse>(`/api/petshop/secoes${qs({ filial, limit: 500 })}`).catch(() => emptySecoes),
+  ]);
+
+  return (
+    <RelatorioVendasSecao
+      dados={res}
+      dataIni={dataIni}
+      dataFim={dataFim}
+      secoes={secoesRes.dados}
+      secaoId={searchParams.secao_id || ''}
+    />
+  );
 }

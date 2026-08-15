@@ -943,9 +943,10 @@ export default function AgendaView({
 
   // Altura de cada hora no grid — menor no mobile para caber mais horários na tela
   const [pxPerHour, setPxPerHour] = useState(PX_PER_HOUR);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
-    const aplicar = () => setPxPerHour(mq.matches ? 44 : PX_PER_HOUR);
+    const aplicar = () => { setPxPerHour(mq.matches ? 44 : PX_PER_HOUR); setIsMobile(mq.matches); };
     aplicar();
     mq.addEventListener('change', aplicar);
     return () => mq.removeEventListener('change', aplicar);
@@ -1983,11 +1984,45 @@ export default function AgendaView({
                   ? `Nenhum resultado para "${busca}".`
                   : 'Nenhum agendamento com previsão para este dia. Clique em "Novo agendamento" para criar.'}
               </div>
+            ) : isMobile && colunasProf.length > 1 && !profissionalIdAtual ? (
+              /* ── Mobile: grid com muitas colunas por profissional não cabe na tela —
+                 pede pra escolher um antes de mostrar a grade (ela some, evita rolagem
+                 horizontal enorme com nomes cortados) ── */
+              <div className="m-2 rounded-xl border border-border bg-card p-4">
+                <p className="text-sm font-medium mb-3">Escolha um profissional para ver a agenda</p>
+                <div className="flex flex-wrap gap-2">
+                  {colunasProf.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      disabled={!c.prof_id}
+                      onClick={() => c.prof_id && navigate({ profissional_id: String(c.prof_id) })}
+                      className="flex items-center gap-2 rounded-full border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 disabled:cursor-default transition-colors"
+                    >
+                      <span className="h-6 w-6 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                        {c.nome.split(/\s+/).slice(0, 2).map((p: string) => p[0] ?? '').join('').toUpperCase() || '—'}
+                      </span>
+                      {c.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
-              <div
-                className="rounded-xl border border-border bg-card shadow-sm"
-                style={{ minWidth: GUTTER_PX + colunasProf.length * COL_MIN_PX }}
-              >
+              <>
+                {isMobile && profissionalIdAtual && (
+                  <button
+                    type="button"
+                    onClick={() => navigate({ profissional_id: null })}
+                    className="mb-2 flex items-center gap-1 text-xs font-medium text-primary"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Ver todos os profissionais
+                  </button>
+                )}
+                <div
+                  className="rounded-xl border border-border bg-card shadow-sm"
+                  style={{ minWidth: isMobile ? '100%' : GUTTER_PX + colunasProf.length * COL_MIN_PX }}
+                >
 
                 {/* Cabeçalho: um profissional por coluna (fixo no topo) */}
                 <div className="flex sticky top-0 z-30 bg-card border-b border-border shadow-sm">
@@ -2128,6 +2163,7 @@ export default function AgendaView({
                   })}
                 </div>
               </div>
+              </>
             )}
           </div>
         </div>

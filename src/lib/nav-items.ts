@@ -24,6 +24,7 @@ const RELATORIOS_SUBMENU: SubmenuItem[] = [
   { href: '/relatorios/atendimentos',          label: 'Agendas / Atendimentos' },
   { href: '/relatorios/espelho-cupons',        label: 'Espelho de Cupons' },
   { href: '/relatorios/vales',                 label: 'Vales de Clientes' },
+  { href: '/relatorios/produtos',              label: 'Relatório de Produtos' },
 ];
 
 // Lista única dos itens de navegação — usada pelo menu lateral (desktop e
