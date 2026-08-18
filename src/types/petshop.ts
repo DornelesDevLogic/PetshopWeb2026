@@ -267,6 +267,7 @@ export interface CategoriaServico {
   raca:            string;
   servico_id:      number;
   servico:         string;
+  nome_opcao:      string;  // rótulo livre (ex: "Diária"/"Mensal") — diferencia quando há 2+ regras p/ o mesmo serviço+raça
 }
 
 export type CategoriaServicoResponse = ApiList<CategoriaServico>;

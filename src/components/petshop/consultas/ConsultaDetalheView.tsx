@@ -92,6 +92,8 @@ interface Props {
   anexos:          AnexoExame[];
   clienteTelefone?: string;
   vendedores:      Vendedor[];
+  vendedorInicial?:       number;   // vendedor vinculado ao usuário logado (VENDEDOR.FK_USUARIO)
+  vendedorFilialInicial?: number;
 }
 
 /** Monta o link wa.me a partir de um telefone (com ou sem formatação) + mensagem */
@@ -138,6 +140,7 @@ const textareaCls =
 
 export default function ConsultaDetalheView({
   consulta, prontuarios, exames, vacinas, config, animal, anexos, clienteTelefone, vendedores,
+  vendedorInicial, vendedorFilialInicial,
 }: Props) {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState('');
@@ -217,6 +220,24 @@ export default function ConsultaDetalheView({
   // nascia sem vendedor (sem tela nenhuma pra corrigir depois).
   const [vendedorId, setVendedorId]        = useState('');
   const [vendedorFilial, setVendedorFilial] = useState('');
+
+  // Pré-seleciona o vendedor vinculado ao usuário logado — só uma vez, sem
+  // sobrescrever se o usuário já escolheu outro, e só quando ainda não existe
+  // uma agenda vinculada (senão o vendedor já é o dela).
+  const vendedorAutoAplicado = useRef(false);
+  useEffect(() => {
+    if (temAgenda || vendedorAutoAplicado.current || !vendedorInicial || vendedorId) return;
+    const v = vendedores.find(
+      (x) => x.id === vendedorInicial && (!vendedorFilialInicial || x.filial === vendedorFilialInicial),
+    );
+    if (v) {
+      setVendedorId(String(v.id));
+      setVendedorFilial(String(v.filial));
+      vendedorAutoAplicado.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedores, vendedorInicial, vendedorFilialInicial, temAgenda]);
+
   const [itensAgenda, setItensAgenda]      = useState<ItemAgendaConsulta[]>([]);
   const [carregandoItens, setCarregandoItens] = useState(temAgenda);
   const [buscaPro, setBuscaPro]            = useState('');

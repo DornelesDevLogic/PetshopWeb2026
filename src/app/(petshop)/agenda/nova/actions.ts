@@ -134,44 +134,54 @@ export async function buscarProdutos(busca: string, filialParam?: number): Promi
   return res.dados;
 }
 
+export interface ProdutoCategoriaOpcao extends ProdutoResultado {
+  nome_opcao: string;   // rótulo livre da regra (ex: "Diária"/"Mensal") — vazio se só houver 1 opção
+}
+
 /**
- * Categoria de Serviço: busca se existe uma regra cadastrada para
- * (raça do animal + serviço escolhido) e retorna o produto correspondente,
- * para inserção automática e silenciosa no agendamento. Tenta raça específica
- * primeiro; se não achar, cai para a regra genérica (sem raça). Se não existir
- * nenhuma regra (ou o produto não estiver mais ativo), retorna `null` — nesse
- * caso o fluxo segue normal, com seleção manual do serviço pelo atendente.
+ * Categoria de Serviço: busca se existe(m) regra(s) cadastrada(s) para
+ * (raça do animal + serviço escolhido) e retorna a lista de produtos
+ * correspondentes. Tenta raça específica primeiro; se não achar, cai para a
+ * regra genérica (sem raça). Se não existir nenhuma regra (ou o produto não
+ * estiver mais ativo), retorna array vazio — nesse caso o fluxo segue normal,
+ * com seleção manual do serviço pelo atendente. Se vier mais de uma opção,
+ * quem chama deve perguntar ao usuário qual usar antes de inserir.
  */
 export async function buscarProdutoPorCategoria(
   racaId: number,
   servicoId: number,
-): Promise<ProdutoResultado | null> {
-  if (!servicoId) return null;
+): Promise<ProdutoCategoriaOpcao[]> {
+  if (!servicoId) return [];
+  interface OpcaoResp {
+    id_dadospro: number;
+    filial: number;
+    cod_pro: string;
+    descricao: string;
+    unidade: string;
+    preco: number;
+    estoque: number;
+    nome_opcao: string;
+  }
   interface Resp {
     CodStatus: number;
-    id_dadospro?: number;
-    filial?: number;
-    cod_pro?: string;
-    descricao?: string;
-    unidade?: string;
-    preco?: number;
-    estoque?: number;
+    opcoes?: OpcaoResp[];
   }
   const res = await apiFetch<Resp>(
     `/api/petshop/categoria-servico/buscar${qs({ filial: getFilial(), raca_id: racaId || undefined, servico_id: servicoId })}`,
   ).catch(() => ({ CodStatus: -5 }) as Resp);
-  if (res.CodStatus !== 1 || !res.id_dadospro) return null;
-  return {
-    id_dadospro: res.id_dadospro,
-    cod_filial:  res.filial ?? getFilial(),
-    nome_produto: res.descricao ?? '',
-    unidade:     res.unidade ?? '',
-    preco:       res.preco ?? 0,
-    secao:       '',
-    grupo:       '',
-    cod_pro:     res.cod_pro ?? '',
-    estoque:     res.estoque ?? 0,
-  };
+  if (res.CodStatus !== 1 || !res.opcoes?.length) return [];
+  return res.opcoes.map((o) => ({
+    id_dadospro:  o.id_dadospro,
+    cod_filial:   o.filial ?? getFilial(),
+    nome_produto: o.descricao ?? '',
+    unidade:      o.unidade ?? '',
+    preco:        o.preco ?? 0,
+    secao:        '',
+    grupo:        '',
+    cod_pro:      o.cod_pro ?? '',
+    estoque:      o.estoque ?? 0,
+    nome_opcao:   o.nome_opcao ?? '',
+  }));
 }
 
 /** Adiciona um item a uma agenda já criada */

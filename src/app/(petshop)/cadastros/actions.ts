@@ -201,6 +201,7 @@ export interface NovaCategoriaServico {
   filialDadospro: number;
   codProd:        string;
   descPro:        string;
+  nomeOpcao?:     string; // rótulo livre p/ diferenciar 2+ regras do mesmo serviço+raça (ex: "Diária"/"Mensal")
 }
 
 export async function criarCategoriaServico(dados: NovaCategoriaServico): Promise<{ error?: string }> {
@@ -213,6 +214,7 @@ export async function criarCategoriaServico(dados: NovaCategoriaServico): Promis
     filial_dadospro: dados.filialDadospro,
     cod_prod:        dados.codProd,
     desc_pro:        dados.descPro,
+    nome_opcao:      dados.nomeOpcao ?? '',
   });
   if (!r.error) revalidatePath('/cadastros');
   return r;
@@ -220,7 +222,7 @@ export async function criarCategoriaServico(dados: NovaCategoriaServico): Promis
 
 export async function atualizarCategoriaServico(
   id: number,
-  produto: { dadosproId: number; filialDadospro: number; codProd: string; descPro: string },
+  produto: { dadosproId: number; filialDadospro: number; codProd: string; descPro: string; nomeOpcao?: string },
 ): Promise<{ error?: string }> {
   let res: ApiWrite;
   try {
@@ -232,6 +234,7 @@ export async function atualizarCategoriaServico(
         filial_dadospro: produto.filialDadospro,
         cod_prod:        produto.codProd,
         desc_pro:        produto.descPro,
+        ...(produto.nomeOpcao !== undefined ? { nome_opcao: produto.nomeOpcao } : {}),
       }),
     });
   } catch {

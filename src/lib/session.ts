@@ -7,6 +7,9 @@ export interface UsuarioLogado {
   empresa: number;
   tecnico_id?:   number;  // profissional vinculado via TBLTECNICO.FK_USUARIO (0 = sem vínculo)
   tecnico_nome?: string;
+  vendedor_id?:     number;  // vendedor vinculado via VENDEDOR.FK_USUARIO (0 = sem vínculo)
+  vendedor_filial?: number;
+  vendedor_nome?:   string;
 }
 
 /** Lê o usuário logado do cookie de sessão (server-side only). */

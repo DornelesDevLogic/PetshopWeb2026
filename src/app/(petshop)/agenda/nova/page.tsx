@@ -1,4 +1,5 @@
 import { getFilial } from '@/lib/api';
+import { getUsuarioLogado } from '@/lib/session';
 import NovoAgendamentoForm from '@/components/petshop/agenda/NovoAgendamentoForm';
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 
 export default function NovoAgendamentoPage({ searchParams }: Props) {
   const filialHome = getFilial();
+  const usuario = getUsuarioLogado();
   // Filial de destino: normalmente a da sessão, mas pode vir na URL quando o
   // usuário optou por inserir a agenda em outra filial a partir do grid.
   const filialAlvo = Number(searchParams.filial) || filialHome;
@@ -26,6 +28,8 @@ export default function NovoAgendamentoPage({ searchParams }: Props) {
       dataInicial={searchParams.data ?? ''}
       horaInicial={searchParams.hora ?? ''}
       profInicial={searchParams.prof_id ? Number(searchParams.prof_id) : undefined}
+      vendedorInicial={usuario?.vendedor_id || undefined}
+      vendedorFilialInicial={usuario?.vendedor_filial || undefined}
       filial={filialAlvo}
       filialHome={filialHome}
       carregarListas

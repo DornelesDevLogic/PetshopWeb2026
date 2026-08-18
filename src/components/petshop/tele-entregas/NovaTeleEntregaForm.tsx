@@ -47,7 +47,13 @@ function dataHoje() {
 
 // ---------- component ----------
 
-export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: Vendedor[] }) {
+interface Props {
+  vendedores?: Vendedor[];
+  vendedorInicial?: number;        // vendedor vinculado ao usuário logado (VENDEDOR.FK_USUARIO)
+  vendedorFilialInicial?: number;
+}
+
+export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, vendedorFilialInicial }: Props) {
   const router = useRouter();
 
   // cliente
@@ -75,6 +81,22 @@ export default function NovaTeleEntregaForm({ vendedores = [] }: { vendedores?: 
   const [animal,       setAnimal]       = useState('');
   const [vendedorId,   setVendedorId]   = useState('');
   const [vendedorFilial, setVendedorFilial] = useState('');
+
+  // Pré-seleciona o vendedor vinculado ao usuário logado — só uma vez, sem
+  // sobrescrever se o usuário já escolheu outro.
+  const vendedorAutoAplicado = useRef(false);
+  useEffect(() => {
+    if (vendedorAutoAplicado.current || !vendedorInicial || vendedorId) return;
+    const v = vendedores.find(
+      (x) => x.id === vendedorInicial && (!vendedorFilialInicial || x.filial === vendedorFilialInicial),
+    );
+    if (v) {
+      setVendedorId(String(v.id));
+      setVendedorFilial(String(v.filial));
+      vendedorAutoAplicado.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedores, vendedorInicial, vendedorFilialInicial]);
   const [formapgto,    setFormapgto]    = useState('');
   const [condpgto,     setCondpgto]     = useState('');
   const [frete,        setFrete]        = useState('0');

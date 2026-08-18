@@ -1,4 +1,5 @@
 import { apiFetch, qs, getFilial } from '@/lib/api';
+import { getUsuarioLogado } from '@/lib/session';
 import {
   ConsultaDetalhe,
   ProntuarioResponse,
@@ -88,6 +89,7 @@ export default async function ConsultaDetalhePage({ params }: Props) {
 
   const animal: Animal | null = animalRes.dados[0] ?? null;
   const clienteTelefone = cliente?.celular || cliente?.telefone || '';
+  const usuario = getUsuarioLogado();
 
   return (
     <ConsultaDetalheView
@@ -100,6 +102,8 @@ export default async function ConsultaDetalhePage({ params }: Props) {
       anexos={anexosRes.dados ?? []}
       clienteTelefone={clienteTelefone}
       vendedores={vendedoresRes.dados}
+      vendedorInicial={usuario?.vendedor_id || undefined}
+      vendedorFilialInicial={usuario?.vendedor_filial || undefined}
     />
   );
 }

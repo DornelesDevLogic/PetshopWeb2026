@@ -14,6 +14,9 @@ interface LoginApiResult {
   empresa?: number;
   tecnico_id?: number;    // profissional vinculado (TBLTECNICO.FK_USUARIO)
   tecnico_nome?: string;
+  vendedor_id?: number;     // vendedor vinculado (VENDEDOR.FK_USUARIO)
+  vendedor_filial?: number;
+  vendedor_nome?: string;
   erro?: string;
   token?: string;          // JWT pessoal vinculado ao device_id — usado como Bearer em todas as chamadas seguintes
 }
@@ -84,6 +87,9 @@ export async function login(
     filial_nome:  filialNome,
     tecnico_id:   result.tecnico_id ?? 0,
     tecnico_nome: result.tecnico_nome ?? '',
+    vendedor_id:     result.vendedor_id ?? 0,
+    vendedor_filial: result.vendedor_filial ?? 0,
+    vendedor_nome:   result.vendedor_nome ?? '',
   }), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

@@ -17,6 +17,7 @@ import {
   criarRetornoAgenda,
   type AnimalBuscaItem,
   type ProdutoResultado,
+  type ProdutoCategoriaOpcao,
 } from '@/app/(petshop)/agenda/nova/actions';
 import {
   verificarRegrasProdutos,
@@ -99,6 +100,8 @@ interface Props {
   vendedores:     Vendedor[];
   carregarListas?: boolean;   // carregamento progressivo: form busca as listas em background
   profInicial?:   number;     // profissional pré-selecionado (ao clicar na coluna dele na agenda)
+  vendedorInicial?:       number;   // vendedor pré-selecionado (usuário logado vinculado via VENDEDOR.FK_USUARIO)
+  vendedorFilialInicial?: number;
   dataInicial?:   string;
   horaInicial?:   string;
   filial:         number;
@@ -129,6 +132,7 @@ export default function NovoAgendamentoForm({
   vendedores:    vendedoresIniciais,
   carregarListas = false,
   profInicial,
+  vendedorInicial, vendedorFilialInicial,
   dataInicial, horaInicial, filial, filialHome,
   proximoNumero: proximoNumeroInicial,
   modo = 'criar', agendaId, agendaInicial, itensIniciais,
@@ -274,6 +278,24 @@ export default function NovoAgendamentoForm({
   const [profFilial, setProfFilial]       = useState('');
   const [vendId, setVendId]               = useState('');
   const [vendFilial, setVendFilial]       = useState('');
+
+  // Pré-seleciona o vendedor vinculado ao usuário logado (VENDEDOR.FK_USUARIO),
+  // só na criação e só uma vez — não reimpõe o default se o usuário já mexeu
+  // no campo. Roda de novo quando `vendedores` chega (carregamento progressivo).
+  const vendedorAutoAplicado = useRef(false);
+  useEffect(() => {
+    if (modo !== 'criar' || vendedorAutoAplicado.current) return;
+    if (!vendedorInicial || vendId) return;
+    const v = vendedores.find(
+      (x) => x.id === vendedorInicial && (!vendedorFilialInicial || x.filial === vendedorFilialInicial),
+    );
+    if (v) {
+      setVendId(String(v.id));
+      setVendFilial(String(v.filial));
+      vendedorAutoAplicado.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedores, vendedorInicial, vendedorFilialInicial, modo]);
   const [servicoId, setServicoId]         = useState('');
   const [servicoNome, setServicoNome]     = useState('');
   const [servicoFilial, setServicoFilial] = useState('');
@@ -915,17 +937,28 @@ export default function NovoAgendamentoForm({
     // (ou regra genérica sem raça) para este serviço, insere o produto
     // correspondente automaticamente e sem aviso. Sem regra, nada acontece —
     // o atendente segue o fluxo manual normal de adicionar produto/serviço.
+    // Se houver mais de uma regra (ex: "Diária"/"Mensal" da Creche), pergunta
+    // ao usuário qual usar em vez de escolher sozinho.
     const servicoIdNum = Number(val) || 0;
     if (servicoIdNum > 0) {
-      buscarProdutoPorCategoria(animalSel?.id_raca ?? 0, servicoIdNum).then((produtoAuto) => {
-        // Antes exigia preco > 0 pra inserir — se o produto da regra estiver
-        // com preco zerado/nao cadastrado naquela filial, a insercao
-        // automatica falhava silenciosamente mesmo com a regra encontrada.
-        if (produtoAuto) {
+      buscarProdutoPorCategoria(animalSel?.id_raca ?? 0, servicoIdNum).then((opcoes) => {
+        if (opcoes.length === 1) {
+          const produtoAuto = opcoes[0];
           setProdutos((prev) => [...prev, { ...produtoAuto, qtd: 1, valor: produtoAuto.preco, desconto: 0 }]);
+        } else if (opcoes.length > 1) {
+          setOpcoesCategoriaServico(opcoes);
         }
       });
     }
+  }
+
+  // Popup de escolha quando o serviço tem 2+ regras de Categoria de Serviço
+  // cadastradas (ver handleServicoChange)
+  const [opcoesCategoriaServico, setOpcoesCategoriaServico] = useState<ProdutoCategoriaOpcao[] | null>(null);
+
+  function escolherOpcaoCategoriaServico(opcao: ProdutoCategoriaOpcao) {
+    setProdutos((prev) => [...prev, { ...opcao, qtd: 1, valor: opcao.preco, desconto: 0 }]);
+    setOpcoesCategoriaServico(null);
   }
 
   function handleDataPrevisaoChange(val: string) {
@@ -2190,6 +2223,41 @@ export default function NovoAgendamentoForm({
               }}
             >
               Sim, continuar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Categoria de Serviço: mais de uma opção cadastrada p/ este serviço+raça */}
+      <Dialog open={!!opcoesCategoriaServico} onOpenChange={(v: boolean) => { if (!v) setOpcoesCategoriaServico(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackageSearch className="h-5 w-5 text-primary" />
+              Selecione a opção do serviço
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Há mais de uma opção cadastrada para <strong className="text-foreground">{servicoNome}</strong>. Escolha qual usar:
+          </p>
+          <div className="space-y-1.5">
+            {opcoesCategoriaServico?.map((op, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => escolherOpcaoCategoriaServico(op)}
+                className="w-full text-left rounded-md border px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+              >
+                <p className="font-medium">{op.nome_opcao || op.nome_produto}</p>
+                {op.nome_opcao && (
+                  <p className="text-xs text-muted-foreground">{op.nome_produto}</p>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end mt-1">
+            <Button variant="outline" onClick={() => setOpcoesCategoriaServico(null)}>
+              Nenhuma (adicionar manualmente)
             </Button>
           </div>
         </DialogContent>

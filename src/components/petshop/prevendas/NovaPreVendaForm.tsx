@@ -51,7 +51,13 @@ function dataHoje() {
   return new Date().toISOString().split('T')[0];
 }
 
-export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Vendedor[] }) {
+interface Props {
+  vendedores?: Vendedor[];
+  vendedorInicial?: number;        // vendedor vinculado ao usuário logado (VENDEDOR.FK_USUARIO)
+  vendedorFilialInicial?: number;
+}
+
+export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, vendedorFilialInicial }: Props) {
   const router = useRouter();
   const [pending, startT] = useTransition();
   const [erro, setErro] = useState('');
@@ -74,6 +80,22 @@ export default function NovaPreVendaForm({ vendedores = [] }: { vendedores?: Ven
   // Dados gerais (sem profissional / tipo de serviço / horário — não aplicáveis à pré-venda)
   const [vendedorId, setVendedorId] = useState('');
   const [vendedorFilial, setVendedorFilial] = useState('');
+
+  // Pré-seleciona o vendedor vinculado ao usuário logado — só uma vez, sem
+  // sobrescrever se o usuário já escolheu outro.
+  const vendedorAutoAplicado = useRef(false);
+  useEffect(() => {
+    if (vendedorAutoAplicado.current || !vendedorInicial || vendedorId) return;
+    const v = vendedores.find(
+      (x) => x.id === vendedorInicial && (!vendedorFilialInicial || x.filial === vendedorFilialInicial),
+    );
+    if (v) {
+      setVendedorId(String(v.id));
+      setVendedorFilial(String(v.filial));
+      vendedorAutoAplicado.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedores, vendedorInicial, vendedorFilialInicial]);
   const [dataEntrega, setDataEntrega] = useState('');
   const [pzEntrega, setPzEntrega] = useState('');
   const [formapgto, setFormapgto] = useState('');

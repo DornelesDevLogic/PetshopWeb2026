@@ -199,6 +199,7 @@ interface CategoriaServicoDialogProps {
 function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }: CategoriaServicoDialogProps) {
   const [servicoId,  setServicoId]  = useState(categoria ? String(categoria.servico_id) : '');
   const [racaId,     setRacaId]     = useState(categoria ? String(categoria.raca_id || 0) : '0');
+  const [nomeOpcao,  setNomeOpcao]  = useState(categoria?.nome_opcao ?? '');
   const [produtoSel, setProdutoSel] = useState<ProdutoResultado | null>(null);
   const [buscaProd,  setBuscaProd]  = useState('');
   const [resProd,    setResProd]    = useState<ProdutoResultado[]>([]);
@@ -234,6 +235,7 @@ function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }
             filialDadospro: produtoSel!.cod_filial,
             codProd:        produtoSel!.cod_pro,
             descPro:        produtoSel!.nome_produto,
+            nomeOpcao:      nomeOpcao.trim(),
           })
         : await criarCategoriaServico({
             servicoId:      Number(servicoId),
@@ -244,6 +246,7 @@ function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }
             filialDadospro: produtoSel!.cod_filial,
             codProd:        produtoSel!.cod_pro,
             descPro:        produtoSel!.nome_produto,
+            nomeOpcao:      nomeOpcao.trim(),
           });
       if (res.error) { setError(res.error); return; }
       onSalvo();
@@ -296,6 +299,16 @@ function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }
             </div>
           )}
 
+          <div className="space-y-1">
+            <label className="text-xs font-medium">Nome da opção</label>
+            <Input
+              value={nomeOpcao}
+              onChange={(e) => setNomeOpcao(e.target.value)}
+              placeholder="Opcional — ex: Diária, Mensal (só necessário se houver 2+ opções p/ este serviço)"
+              maxLength={40}
+            />
+          </div>
+
           {produtoSel ? (
             <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
               <div>
@@ -346,7 +359,9 @@ function CategoriaServicoDialog({ categoria, racas, servicos, onSalvo, onClose }
           <p className="text-xs text-muted-foreground">
             Ao selecionar este serviço na Agenda para um pet dessa raça, o sistema
             insere automaticamente este produto — sem precisar escolher manualmente.
-            Sem regra cadastrada, o fluxo continua manual normalmente.
+            Sem regra cadastrada, o fluxo continua manual normalmente. Se cadastrar
+            mais de uma regra para o mesmo serviço+raça (cada uma com um Nome da
+            opção diferente), a Agenda pergunta ao usuário qual usar.
           </p>
 
           {error && (
@@ -596,6 +611,11 @@ export default function CadastrosView({
                   <div>
                     <p className="font-medium text-sm">
                       {c.servico} <span className="text-muted-foreground font-normal">· {c.raca_id ? c.raca : 'Todas as raças'}</span>
+                      {c.nome_opcao && (
+                        <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary align-middle">
+                          {c.nome_opcao}
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       → {c.produto}{c.cod_prod ? ` (${c.cod_prod})` : ''}
