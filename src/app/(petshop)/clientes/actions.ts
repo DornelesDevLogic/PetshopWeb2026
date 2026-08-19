@@ -158,7 +158,7 @@ export async function createCliente(
     data_nascimento: formData.get('data_nascimento')  ?? '',
     comentario:      up(formData.get('comentario')),
     pessoa:          formData.get('pessoa')           ?? 'F',
-    situacao:        'A',
+    situacao:        'L', // Livre - mesmo padrão do sistema antigo (L/B/C = Livre/Bloqueado/Cancelado)
   };
 
   let res: ApiWrite;
@@ -259,7 +259,7 @@ export async function criarClienteRapido(dados: {
         telefone:  dados.telefone?.trim() ?? '',
         celular:   dados.celular?.trim()  ?? '',
         cpf_cnpj:  dados.cpf_cnpj?.trim() ?? '',
-        situacao:  'A',
+        situacao:  'L', // Livre - mesmo padrão do sistema antigo
         pessoa:    'F',
       }),
     });

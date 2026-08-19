@@ -18,12 +18,20 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import type { Servico } from '@/types/petshop';
 import {
   Table,
   TableBody,
@@ -88,11 +96,17 @@ const FILTROS: { valor: FiltroStatus; label: string }[] = [
 ];
 
 interface Props {
-  estimativas: Estimativa[];
-  regras:      RegraEstimativa[];
-  statusAtual: FiltroStatus;
-  buscaAtual:  string;
-  abaAtual:    string;
+  estimativas:    Estimativa[];
+  regras:         RegraEstimativa[];
+  servicos:       Servico[];
+  statusAtual:    FiltroStatus;
+  buscaAtual:     string;
+  abaAtual:       string;
+  dataDeAtual:    string;
+  dataAteAtual:   string;
+  compraDeAtual:  string;
+  compraAteAtual: string;
+  servicoAtual:   number;
 }
 
 // ─── Dialog de regra (criar/editar) ─────────────────────────────────────────
@@ -258,7 +272,10 @@ function RegraDialog({ regra, onSalvo, onClose }: RegraDialogProps) {
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
-export default function EstimativasView({ estimativas, regras, statusAtual, buscaAtual, abaAtual }: Props) {
+export default function EstimativasView({
+  estimativas, regras, servicos, statusAtual, buscaAtual, abaAtual,
+  dataDeAtual, dataAteAtual, compraDeAtual, compraAteAtual, servicoAtual,
+}: Props) {
   const router = useRouter();
   const [busca, setBusca]   = useState(buscaAtual);
   const [isPending, startT] = useTransition();
@@ -272,14 +289,27 @@ export default function EstimativasView({ estimativas, regras, statusAtual, busc
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
 
-  function navegar(params: { status?: string; busca?: string; aba?: string }) {
+  function navegar(params: {
+    status?: string; busca?: string; aba?: string;
+    dataDe?: string; dataAte?: string; compraDe?: string; compraAte?: string; servico?: string;
+  }) {
     const sp = new URLSearchParams();
-    const st = params.status ?? statusAtual;
-    const bu = params.busca ?? busca;
-    const ab = params.aba ?? abaAtual;
+    const st  = params.status    ?? statusAtual;
+    const bu  = params.busca     ?? busca;
+    const ab  = params.aba       ?? abaAtual;
+    const dd  = params.dataDe    ?? dataDeAtual;
+    const da  = params.dataAte   ?? dataAteAtual;
+    const cd  = params.compraDe  ?? compraDeAtual;
+    const ca  = params.compraAte ?? compraAteAtual;
+    const sv  = params.servico   ?? (servicoAtual ? String(servicoAtual) : '');
     if (st) sp.set('status', st);
     if (bu) sp.set('busca', bu);
     if (ab !== 'lista') sp.set('aba', ab);
+    if (dd) sp.set('dataDe', dd);
+    if (da) sp.set('dataAte', da);
+    if (cd) sp.set('compraDe', cd);
+    if (ca) sp.set('compraAte', ca);
+    if (sv) sp.set('servico', sv);
     router.push(`/estimativas?${sp.toString()}`);
   }
 
@@ -367,6 +397,71 @@ export default function EstimativasView({ estimativas, regras, statusAtual, busc
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Filtros avançados: datas e tipo de serviço (mesmos filtros do sistema antigo) */}
+          <div className="flex items-end gap-4 flex-wrap rounded-md border bg-muted/20 px-3 py-2.5">
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Data Prevista</span>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  value={dataDeAtual}
+                  onChange={(e) => navegar({ dataDe: e.target.value })}
+                  className="h-8 w-[140px] text-xs"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={dataAteAtual}
+                  onChange={(e) => navegar({ dataAte: e.target.value })}
+                  className="h-8 w-[140px] text-xs"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Data da Compra</span>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  value={compraDeAtual}
+                  onChange={(e) => navegar({ compraDe: e.target.value })}
+                  className="h-8 w-[140px] text-xs"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={compraAteAtual}
+                  onChange={(e) => navegar({ compraAte: e.target.value })}
+                  className="h-8 w-[140px] text-xs"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium text-muted-foreground">Tipo de Serviço</span>
+              <Select
+                value={servicoAtual ? String(servicoAtual) : '0'}
+                onValueChange={(v) => navegar({ servico: !v || v === '0' ? '' : v })}
+              >
+                <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Todos</SelectItem>
+                  {servicos.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.descricao}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(dataDeAtual || dataAteAtual || compraDeAtual || compraAteAtual || servicoAtual > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => navegar({ dataDe: '', dataAte: '', compraDe: '', compraAte: '', servico: '' })}
+              >
+                Limpar filtros
+              </Button>
+            )}
           </div>
 
           {/* Tabela de estimativas */}

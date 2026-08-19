@@ -7,6 +7,7 @@ import {
   ApiWrite, AgendaResponse, ClienteResponse, AnimalResponse, Cliente, Animal,
   ProfissionalResponse, ServicoResponse, EspecieResponse, RacaResponse, TipoPeloResponse, VendedorResponse,
   Profissional, Servico, Especie, Raca, TipoPelo, Vendedor,
+  AgendaItem, AgendaItensResponse, AgendaItemServico,
 } from '@/types/petshop';
 
 /**
@@ -218,83 +219,13 @@ export async function adicionarItemNaAgenda(
   }
 }
 
-// ─── (criarClienteRapido e criarAnimalRapido removidos) ──────────────────────
-// Usar diretamente NovoClienteDialog e NovoAnimalDialog com modo embutido.
+// ─── (criarClienteRapido removido) ───────────────────────────────────────────
+// Estava @deprecated, sem nenhum import em uso, e com os mesmos bugs de
+// clientes/actions.ts (situacao fixa em 'A' em vez de 'L'). Usar diretamente
+// NovoClienteDialog/NovoClienteModal, que chamam clientes/actions.ts.
 
-// Mantido apenas para compatibilidade de import — remover se não usado
 const up = (v: FormDataEntryValue | null) =>
   ((v as string | null)?.trim() ?? '').toUpperCase();
-
-/** @deprecated Usar NovoClienteDialog com onCriado */
-export async function criarClienteRapido(
-  formData: FormData,
-): Promise<{ error?: string; cliente?: Cliente }> {
-  const nome = up(formData.get('nome'));
-  if (!nome) return { error: 'Nome é obrigatório.' };
-
-  const body = {
-    filial:          getFilial(),
-    nome,
-    nome_fantasia:   up(formData.get('nome_fantasia')),
-    cpf_cnpj:        formData.get('cpf_cnpj')       ?? '',
-    telefone:        formData.get('telefone')        ?? '',
-    celular:         formData.get('celular')         ?? '',
-    email:           formData.get('email')           ?? '',
-    endereco:        up(formData.get('endereco')),
-    numero:          up(formData.get('numero')),
-    bairro:          up(formData.get('bairro')),
-    cidade:          up(formData.get('cidade')),
-    uf:              up(formData.get('uf')),
-    cep:             formData.get('cep')             ?? '',
-    data_nascimento: formData.get('data_nascimento') ?? '',
-    comentario:      up(formData.get('comentario')),
-    pessoa:          formData.get('pessoa')          ?? 'F',
-    situacao:        'A',
-  };
-
-  let res: ApiWrite;
-  try {
-    res = await apiFetch<ApiWrite>('/api/petshop/clientes', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { error: 'Não foi possível conectar ao servidor.' };
-  }
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
-
-  const cliente: Cliente = {
-    id:              res.id as number,
-    filial:          getFilial(),
-    nome:            body.nome,
-    nome_fantasia:   body.nome_fantasia,
-    cpf_cnpj:        String(body.cpf_cnpj),
-    telefone:        String(body.telefone),
-    telefone2:       '',
-    celular:         String(body.celular),
-    email:           String(body.email),
-    contato:         '',
-    endereco:        body.endereco,
-    numero:          body.numero,
-    complemento:     '',
-    bairro:          body.bairro,
-    cidade:          body.cidade,
-    uf:              body.uf,
-    cep:             String(body.cep),
-    data_cadastro:   '',
-    data_nascimento: String(body.data_nascimento),
-    situacao:        'A',
-    pessoa:          String(body.pessoa),
-    comentario:      body.comentario,
-    ie:              '',
-    atacadista:      0,
-    mei:             0,
-    status_ativo:    0,
-    saldo_disponivel: 0,
-    data_ult_compra: '',
-  };
-  return { cliente };
-}
 
 // ─── Criar animal rápido ──────────────────────────────────────────────────────
 
@@ -506,4 +437,41 @@ export async function criarRetornoAgenda(
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
+}
+
+// ─── Últimas agendas do animal (produtos + valor, pra referência rápida) ────
+
+export interface UltimaAgendaComItens {
+  agenda: AgendaItem;
+  itens:  AgendaItemServico[];
+}
+
+/**
+ * Busca as 2 últimas agendas do pet (mais recentes primeiro, por ID — mais
+ * confiável que ordenar pelas datas retornadas, que vêm em formatos
+ * inconsistentes do backend), já com os produtos/serviços de cada uma.
+ * Usado no botão "ver últimas agendas" ao montar um agendamento novo, pra
+ * o atendente conferir rapidamente o que foi feito/cobrado da última vez.
+ */
+export async function buscarUltimasAgendasAnimal(
+  animalId: number,
+  animalFilial: number,
+): Promise<UltimaAgendaComItens[]> {
+  if (!animalId) return [];
+  const lista = await apiFetch<AgendaResponse>(
+    `/api/petshop/agenda${qs({ filial: animalFilial, animal_id: animalId, status: 'todos', limit: 50 })}`,
+  ).catch(() => ({ dados: [] as AgendaItem[], Count: 0, StartsAt: '', EndsAt: '' }));
+
+  const ultimasDuas = [...(lista.dados ?? [])]
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 2);
+
+  return Promise.all(
+    ultimasDuas.map(async (agenda) => {
+      const itensRes = await apiFetch<AgendaItensResponse>(
+        `/api/petshop/agenda/itens${qs({ id: agenda.id, filial: agenda.filial ?? animalFilial })}`,
+      ).catch(() => ({ agenda_id: agenda.id, dados: [] as AgendaItemServico[], Count: 0, StartsAt: '', EndsAt: '' }));
+      return { agenda, itens: itensRes.dados ?? [] };
+    }),
+  );
 }

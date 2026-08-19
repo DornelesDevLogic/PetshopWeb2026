@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AgendaDetalhe, AgendaItemServico, STATUS_AGENDA } from '@/types/petshop';
-import { atualizarStatus, buscarDadosEmpresa } from '@/app/(petshop)/agenda/[id]/actions';
+import { atualizarStatus, buscarDadosEmpresa, reagendarHorario } from '@/app/(petshop)/agenda/[id]/actions';
 import { buscarClienteCompleto } from '@/app/(petshop)/clientes/actions';
 import { buscarObsComanda } from '@/app/(petshop)/configuracoes/actions';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,9 @@ import {
   Loader2,
   Printer,
   History,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 import { printWindow } from '@/lib/printWindow';
 import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
@@ -58,6 +61,15 @@ function InfoRow({ label, value, mono }: { label: string; value?: string | numbe
       <span className={cn('font-medium text-right', mono && 'font-mono')}>{value}</span>
     </div>
   );
+}
+
+/** "DD/MM/YYYY" (ou "DD/MM/YYYY HH:MM:SS") -> "YYYY-MM-DD". Já em ISO, devolve como está. */
+function brParaIso(data?: string): string {
+  if (!data) return '';
+  const dataParte = data.split(' ')[0];
+  if (dataParte.includes('-')) return dataParte;
+  const [d1, m1, y1] = dataParte.split('/');
+  return d1 && m1 && y1 ? `${y1}-${m1}-${d1}` : '';
 }
 
 function fmtMoeda(v: string | number): string {
@@ -97,6 +109,38 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos, e
   const acoes = ACOES[d.status] ?? [];
 
   const [imprimindo, setImprimindo] = useState(false);
+
+  /* ──── edição inline do horário de Término ──── */
+  const [editandoTermino, setEditandoTermino] = useState(false);
+  const [novoTermino, setNovoTermino]         = useState('');
+  const [salvandoTermino, setSalvandoTermino] = useState(false);
+  const [erroTermino, setErroTermino]         = useState('');
+
+  function iniciarEdicaoTermino() {
+    setNovoTermino(d.data_entrega?.split(' ')[1]?.slice(0, 5) || '');
+    setErroTermino('');
+    setEditandoTermino(true);
+  }
+
+  async function salvarTermino() {
+    if (!novoTermino) { setErroTermino('Informe o horário.'); return; }
+    setSalvandoTermino(true);
+    setErroTermino('');
+    const dataBase = brParaIso(d.data_entrega) || brParaIso(d.data);
+    const result = await reagendarHorario(
+      d.id,
+      d.filial,
+      brParaIso(d.data),
+      '',
+      undefined,
+      `${dataBase}T${novoTermino}`,
+      'Horário de término alterado manualmente',
+    );
+    setSalvandoTermino(false);
+    if (result.error) { setErroTermino(result.error); return; }
+    setEditandoTermino(false);
+    router.refresh();
+  }
 
   async function handlePrint() {
     setImprimindo(true);
@@ -242,7 +286,54 @@ export default function AgendaDetalheView({ detalhe: d, itens, avisosProdutos, e
           </h2>
           <InfoRow label="Data"         value={d.data} />
           <InfoRow label="Hora"         value={d.hora} />
-          <InfoRow label="Término"      value={d.data_entrega?.split(' ')[1]?.slice(0, 5)} />
+          <div className="flex justify-between items-center gap-4 py-1.5 text-sm">
+            <span className="text-muted-foreground shrink-0">Término</span>
+            {editandoTermino ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={novoTermino}
+                  onChange={(e) => setNovoTermino(e.target.value)}
+                  disabled={salvandoTermino}
+                  autoFocus
+                  className="h-7 rounded border px-1.5 text-sm font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={salvarTermino}
+                  disabled={salvandoTermino}
+                  title="Salvar"
+                  className="p-1 rounded hover:bg-muted text-green-600 disabled:opacity-50"
+                >
+                  {salvandoTermino ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoTermino(false)}
+                  disabled={salvandoTermino}
+                  title="Cancelar"
+                  className="p-1 rounded hover:bg-muted text-muted-foreground disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-right">{d.data_entrega?.split(' ')[1]?.slice(0, 5) || '—'}</span>
+                {d.pode_editar && (
+                  <button
+                    type="button"
+                    onClick={iniciarEdicaoTermino}
+                    title="Editar horário de término"
+                    className="p-1 rounded hover:bg-muted text-muted-foreground"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {erroTermino && <p className="text-xs text-red-600 text-right -mt-1">{erroTermino}</p>}
           <InfoRow label="Profissional" value={d.profissional} />
           <InfoRow label="Serviço"      value={d.servico} />
           {d.obs && <InfoRow label="Obs"  value={d.obs} />}

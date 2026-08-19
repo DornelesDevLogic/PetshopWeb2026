@@ -158,6 +158,7 @@ export async function reagendarHorario(
   novaHora:           string,   // HH:MM
   novaDataPrevisao?:  string,   // YYYY-MM-DDTHH:MM
   novaDataEntrega?:   string,   // YYYY-MM-DDTHH:MM
+  motivo?:            string,   // grava em ORCA.JUSTIFICATIVA - sobrescreve o valor atual, sem COALESCE
 ): Promise<{ error?: string }> {
   let res: ApiWrite;
   try {
@@ -170,7 +171,7 @@ export async function reagendarHorario(
         nova_hora:           novaHora,
         nova_data_previsao:  novaDataPrevisao ?? '',
         nova_data_entrega:   novaDataEntrega  ?? '',
-        motivo: 'Alterado via arrastar na grade',
+        motivo: motivo ?? 'Alterado via arrastar na grade',
       }),
     });
   } catch {

@@ -18,6 +18,7 @@ interface AnimalBusca {
   sexo: string;
   ativo: number;
   obito: number;
+  cliente_status_ativo: number;
 }
 
 interface AnimalBuscaResponse {
@@ -50,9 +51,10 @@ function montarClienteParcial(a: AnimalBusca): ClienteResponse['dados'][number] 
     data_cadastro:   '',
     data_nascimento: '',
     situacao:        '',
-    // Animal.ativo e Cliente.status_ativo usam a mesma convenção do legado
-    // (1 = inativo) — repassa direto, sem inverter.
-    status_ativo:    a.ativo === 1 ? 1 : 0,
+    // Status do CLIENTE (não do pet) — vem do JOIN feito no backend
+    // (GetAnimaisBuscaRapida já só retorna pets de clientes ativos, então
+    // isso normalmente vem 0, mas repassa o valor real por completude).
+    status_ativo:    a.cliente_status_ativo,
     pessoa:          'F',
     comentario:      '',
     ie:              '',

@@ -181,6 +181,7 @@ export interface Cliente {
   cidade: string;
   uf: string;
   cep: string;
+  ibge?: string;          // código IBGE do município (via ViaCEP)
   data_cadastro: string;
   data_nascimento: string;
   situacao: string;

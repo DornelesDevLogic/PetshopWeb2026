@@ -22,6 +22,8 @@ export interface Estimativa {
   data_lembrete:  string;   // yyyy-mm-dd (estimada - dias_lembrete da regra)
   dias_restantes: number;
   agenda_id:      number;
+  tipo_servico_id: number;
+  tipo_servico:    string;
   celular:        string;
   telefone:       string;
 }
@@ -53,20 +55,26 @@ export type FiltroStatus =
 // ─── Listagem ────────────────────────────────────────────────────────────────
 
 export async function buscarEstimativas(params: {
-  status?:   FiltroStatus;
-  busca?:    string;
-  dataDe?:   string;
-  dataAte?:  string;
-  animalId?: number;
+  status?:       FiltroStatus;
+  busca?:        string;
+  dataDe?:       string;
+  dataAte?:      string;
+  compraDe?:     string;
+  compraAte?:    string;
+  animalId?:     number;
+  tipoServicoId?: number;
 }): Promise<Estimativa[]> {
   const res = await apiFetch<{ dados: Estimativa[]; Count: number }>(
     `/api/petshop/estimativas${qs({
-      filial:    getFilial(),
-      status:    params.status && params.status !== 'todas' ? params.status : undefined,
-      busca:     params.busca || undefined,
-      data_de:   params.dataDe || undefined,
-      data_ate:  params.dataAte || undefined,
-      animal_id: params.animalId || undefined,
+      filial:          getFilial(),
+      status:          params.status && params.status !== 'todas' ? params.status : undefined,
+      busca:           params.busca || undefined,
+      data_de:         params.dataDe || undefined,
+      data_ate:        params.dataAte || undefined,
+      compra_de:       params.compraDe || undefined,
+      compra_ate:      params.compraAte || undefined,
+      animal_id:       params.animalId || undefined,
+      tipo_servico_id: params.tipoServicoId || undefined,
       limit:     300,
     })}`,
   ).catch(() => ({ dados: [] as Estimativa[], Count: 0 }));

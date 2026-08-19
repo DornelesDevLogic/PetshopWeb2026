@@ -15,9 +15,11 @@ import {
   carregarListasFormAgenda,
   sugerirRetornoAgenda,
   criarRetornoAgenda,
+  buscarUltimasAgendasAnimal,
   type AnimalBuscaItem,
   type ProdutoResultado,
   type ProdutoCategoriaOpcao,
+  type UltimaAgendaComItens,
 } from '@/app/(petshop)/agenda/nova/actions';
 import {
   verificarRegrasProdutos,
@@ -62,6 +64,8 @@ import {
   Pencil,
   Check,
   AlertTriangle,
+  Eye,
+  History,
 } from 'lucide-react';
 // Label e Select ainda usados nos dialogs de produto inline
 
@@ -961,6 +965,24 @@ export default function NovoAgendamentoForm({
     setOpcoesCategoriaServico(null);
   }
 
+  // "Ver últimas agendas" do pet selecionado — referência rápida de produtos
+  // e valor cobrado da última vez, pra ajudar o atendente a repetir/comparar.
+  const [ultimasAgendasOpen, setUltimasAgendasOpen] = useState(false);
+  const [carregandoUltimas, setCarregandoUltimas] = useState(false);
+  const [ultimasAgendas, setUltimasAgendas] = useState<UltimaAgendaComItens[]>([]);
+
+  async function abrirUltimasAgendas() {
+    if (!animalSel) return;
+    setUltimasAgendasOpen(true);
+    setCarregandoUltimas(true);
+    try {
+      const dados = await buscarUltimasAgendasAnimal(animalSel.id, animalSel.filial);
+      setUltimasAgendas(dados);
+    } finally {
+      setCarregandoUltimas(false);
+    }
+  }
+
   function handleDataPrevisaoChange(val: string) {
     setDataPrevisao(val);
     // Recalcula data_entrega mantendo a duração atual (sem conversão UTC)
@@ -1138,7 +1160,7 @@ export default function NovoAgendamentoForm({
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 pb-0 space-y-4">
+    <div className="max-w-3xl mx-auto p-4 pb-0 space-y-2.5">
 
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -1168,10 +1190,10 @@ export default function NovoAgendamentoForm({
         </div>
       )}
 
-      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-3">
+      <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-2">
 
         {/* ── Cliente ── */}
-        <div className="rounded-xl border bg-card p-4 space-y-2.5">
+        <div className="rounded-xl border bg-card p-3 space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <User className="h-3.5 w-3.5" />
@@ -1469,7 +1491,7 @@ export default function NovoAgendamentoForm({
         <div
           ref={animalRef}
           className={cn(
-            'rounded-xl border bg-card p-4 space-y-2.5',
+            'rounded-xl border bg-card p-3 space-y-2',
             animalPiscando && 'ring-2 ring-destructive ring-offset-2 ring-offset-background animate-pulse',
           )}
         >
@@ -1478,12 +1500,25 @@ export default function NovoAgendamentoForm({
               <PawPrint className="h-3.5 w-3.5" />
               Animal <span className="text-destructive">*</span>
             </h2>
-            {clienteSel && (
-              <Button type="button" size="sm" variant="outline" onClick={() => setNovoAnimalOpen(true)}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Novo Pet
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {animalSel && (
+                <button
+                  type="button"
+                  onClick={abrirUltimasAgendas}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline underline-offset-2"
+                  title="Ver produtos e valor das últimas agendas deste pet"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Últimas agendas
+                </button>
+              )}
+              {clienteSel && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setNovoAnimalOpen(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Novo Pet
+                </Button>
+              )}
+            </div>
           </div>
 
           {!clienteSel ? (
@@ -1659,7 +1694,7 @@ export default function NovoAgendamentoForm({
         </div>
 
         {/* ── Data / Hora / Profissional / Serviço ── */}
-        <div className="rounded-xl border bg-card p-4 space-y-2">
+        <div className="rounded-xl border bg-card p-3 space-y-1.5">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Detalhes do Agendamento
           </h2>
@@ -1841,7 +1876,7 @@ export default function NovoAgendamentoForm({
         </div>
 
         {/* ── Produtos ── */}
-        <div className="rounded-xl border bg-card p-4 space-y-2.5">
+        <div className="rounded-xl border bg-card p-3 space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <PackageSearch className="h-3.5 w-3.5" />
             Produtos / Serviços
@@ -1922,11 +1957,11 @@ export default function NovoAgendamentoForm({
               <table className="w-full text-sm">
                 <thead className="bg-muted/30 text-xs text-muted-foreground">
                   <tr>
-                    <th className="text-left px-3 py-2 font-medium">Produto</th>
-                    <th className="text-right px-3 py-2 font-medium w-12">Qtd</th>
-                    <th className="text-right px-3 py-2 font-medium w-24">Valor</th>
-                    <th className="text-right px-3 py-2 font-medium w-24">Desc.</th>
-                    <th className="text-right px-3 py-2 font-medium w-24">Total</th>
+                    <th className="text-left px-3 py-1.5 font-medium">Produto</th>
+                    <th className="text-right px-3 py-1.5 font-medium w-12">Qtd</th>
+                    <th className="text-right px-3 py-1.5 font-medium w-24">Valor</th>
+                    <th className="text-right px-3 py-1.5 font-medium w-24">Desc.</th>
+                    <th className="text-right px-3 py-1.5 font-medium w-24">Total</th>
                     <th className="w-8" />
                   </tr>
                 </thead>
@@ -1936,18 +1971,18 @@ export default function NovoAgendamentoForm({
                     const total = Math.max(0, (it.valor - it.desconto) * it.qtd);
                     return (
                       <tr key={`salvo-${it.id_item}`} className="hover:bg-muted/40">
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5">
                           <p className="font-medium truncate max-w-[180px]">{it.produto}</p>
                           <p className="text-xs text-muted-foreground">{[it.cod_pro, it.unidade].filter(Boolean).join(' · ')}</p>
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">{it.qtd}</td>
-                        <td className="px-3 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 text-right font-mono">{it.qtd}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">
                           R$ <EditableValor valor={it.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorItemSalvo(it, v)} />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 text-right font-mono">
                           {it.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(it.desconto)}</span> : '—'}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
                         <td className="px-2 py-2">
                           <button
                             type="button"
@@ -1969,7 +2004,7 @@ export default function NovoAgendamentoForm({
                     const total = Math.max(0, (p.valor - p.desconto) * p.qtd);
                     return (
                       <tr key={`novo-${i}`} className="hover:bg-muted/40 bg-primary/[0.02]">
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-1.5">
                           <p className="font-medium truncate max-w-[180px]">{p.nome_produto}</p>
                           <p className="text-xs text-muted-foreground">
                             {p.cod_pro && <span className="font-mono mr-1.5">{p.cod_pro}</span>}
@@ -1977,14 +2012,14 @@ export default function NovoAgendamentoForm({
                             <span className="ml-1.5 text-primary text-[10px] font-semibold">NOVO</span>
                           </p>
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">{p.qtd}</td>
-                        <td className="px-3 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 text-right font-mono">{p.qtd}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">
                           R$ <EditableValor valor={p.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorProduto(i, v)} />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono">
+                        <td className="px-3 py-1.5 text-right font-mono">
                           {p.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(p.desconto)}</span> : '—'}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
                         <td className="px-2 py-2">
                           <button type="button" onClick={() => removerProduto(i)}
                             className="text-muted-foreground hover:text-destructive transition-colors">
@@ -2007,7 +2042,7 @@ export default function NovoAgendamentoForm({
 
           {/* ── Desconto total (%) e resumo de valores ── */}
           {produtos.length > 0 && (
-            <div className="rounded-md border bg-muted/20 px-4 py-3 space-y-2">
+            <div className="rounded-md border bg-muted/20 px-3 py-2 space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Valor original</span>
                 <span className="font-mono">R$ {fmtMoeda(totalProdutos)}</span>
@@ -2026,7 +2061,7 @@ export default function NovoAgendamentoForm({
                     className="h-8 w-20 text-right font-mono"
                   />
                   <span className={cn('font-mono w-28 text-right', descontoTotalValor > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
-                    âˆ' R$ {fmtMoeda(descontoTotalValor)}
+                    - R$ {fmtMoeda(descontoTotalValor)}
                   </span>
                 </div>
               </div>
@@ -2161,8 +2196,8 @@ export default function NovoAgendamentoForm({
         )}
 
         {/* Barra de ações fixa embaixo — sempre visível, mesmo rolando a tela */}
-        <div className="sticky bottom-0 z-10 pb-4 -mx-6 px-6">
-        <div className="rounded-xl border bg-card shadow-lg px-5 py-3 space-y-2.5">
+        <div className="sticky bottom-0 z-10 pb-3 -mx-4 px-4">
+        <div className="rounded-xl border bg-card shadow-lg px-4 py-2.5 space-y-2">
           {errorMsg && (
             <div className="flex items-center gap-2 rounded-md bg-red-50 px-4 py-2.5 text-sm text-red-700">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -2260,6 +2295,52 @@ export default function NovoAgendamentoForm({
               Nenhuma (adicionar manualmente)
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ultimas agendas do pet - referencia rapida de produtos/valor cobrado */}
+      <Dialog open={ultimasAgendasOpen} onOpenChange={setUltimasAgendasOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Últimas agendas {animalSel ? `de ${animalSel.nome}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {carregandoUltimas ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin" />Carregando...
+            </div>
+          ) : ultimasAgendas.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma agenda anterior encontrada para este pet.</p>
+          ) : (
+            <div className="space-y-3">
+              {ultimasAgendas.map(({ agenda, itens }) => (
+                <div key={agenda.id} className="rounded-lg border p-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">#{agenda.id} · {agenda.servico || '—'}</span>
+                    <span className="text-muted-foreground text-xs">{agenda.data}{agenda.hora ? ` ${agenda.hora}` : ''}</span>
+                  </div>
+                  {itens.length > 0 ? (
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {itens.map((it) => (
+                        <li key={it.id_item} className="flex items-center justify-between">
+                          <span>{it.qtd}x {it.produto || it.descricao}</span>
+                          <span>R$ {fmtMoeda(Number(it.valor_liq || it.valor) * Number(it.qtd || 1))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Sem produtos lançados.</p>
+                  )}
+                  <div className="flex items-center justify-between text-sm font-semibold border-t pt-1.5 mt-1.5">
+                    <span>Total</span>
+                    <span>R$ {fmtMoeda(Number(agenda.sub_total || agenda.valor || 0))}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
