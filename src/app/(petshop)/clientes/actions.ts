@@ -117,7 +117,7 @@ const up = (v: FormDataEntryValue | null) =>
 export async function createCliente(
   _prev: { error?: string },
   formData: FormData,
-): Promise<{ error?: string; id?: number }> {
+): Promise<{ error?: string; id?: number; filial?: number }> {
   const nome = up(formData.get('nome'));
   if (!nome) return { error: 'Nome é obrigatório.' };
 
@@ -138,8 +138,17 @@ export async function createCliente(
     }
   }
 
+  // Usa a filial explicitamente informada pelo chamador (ex: filial da agenda
+  // ou consulta sendo criada) quando presente; cai pra filial da sessão só
+  // quando o cadastro não tem um contexto de filial próprio (ex: tela
+  // avulsa de Clientes). Sem isso o cliente sempre ia parar na filial de
+  // login mesmo quando cadastrado durante um agendamento em outra filial,
+  // divergindo de CLIENTE.EMPRESA e quebrando o CLI_FILIAL da agenda.
+  const filialInformada = Number(formData.get('filial'));
+  const filial = filialInformada > 0 ? filialInformada : getFilial();
+
   const body = {
-    filial:          getFilial(),
+    filial,
     nome,
     nome_fantasia:   up(formData.get('nome_fantasia')),
     cpf_cnpj:        formData.get('cpf_cnpj')        ?? '',
@@ -174,7 +183,7 @@ export async function createCliente(
   if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
 
   revalidatePath('/clientes');
-  return { id: res.id as number };
+  return { id: res.id as number, filial };
 }
 
 export async function updateCliente(

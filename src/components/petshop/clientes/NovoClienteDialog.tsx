@@ -33,6 +33,10 @@ interface Props {
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
   onCriado?: (cliente: ClienteCriado) => void;
+  // Filial alvo do cadastro (ex: filial da agenda/consulta sendo criada).
+  // Deixe indefinido para cair na filial da sessão do usuário logado
+  // (comportamento da tela avulsa de Clientes) — nunca assuma 1 aqui, ver
+  // actions.ts:createCliente.
   filial?: number;
 }
 
@@ -40,7 +44,7 @@ export default function NovoClienteDialog({
   open: openProp,
   onOpenChange,
   onCriado,
-  filial = 1,
+  filial,
 }: Props) {
   const router = useRouter();
   const modoEmbutido = onCriado !== undefined;
@@ -149,6 +153,7 @@ export default function NovoClienteDialog({
     formData.set('cep',      cep);
     formData.set('ibge',     ibge);
     if (isento) formData.set('ie', 'ISENTO');
+    if (filial) formData.set('filial', String(filial));
 
     startTransition(async () => {
       const result = await createCliente({}, formData);
@@ -160,7 +165,10 @@ export default function NovoClienteDialog({
         const up = (k: string) => s(k).trim().toUpperCase();
         onCriado({
           id:            result.id,
-          filial,
+          // Usa a filial que o servidor confirmou ter gravado, nao a prop
+          // local — evita o cliente selecionado ficar com uma filial
+          // diferente da que foi realmente persistida em CLIENTE.EMPRESA.
+          filial:        result.filial ?? filial ?? 1,
           nome:          up('nome'),
           nome_fantasia: up('nome_fantasia'),
           cpf_cnpj:      s('cpf_cnpj'),

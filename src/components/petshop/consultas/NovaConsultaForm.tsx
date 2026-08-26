@@ -1227,6 +1227,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
       <NovoClienteDialog
         open={novoCliOpen}
         onOpenChange={setNovoCliOpen}
+        filial={agendaOrigem?.filial}
         onCriado={(cliente) => selecionarCliente(cliente as Cliente)}
       />
       {clienteSel && (
