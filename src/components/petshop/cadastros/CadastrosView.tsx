@@ -610,6 +610,7 @@ export default function CadastrosView({
                 >
                   <div>
                     <p className="font-medium text-sm">
+                      <span className="text-muted-foreground font-normal font-mono text-xs">#{c.id}</span>{' '}
                       {c.servico} <span className="text-muted-foreground font-normal">· {c.raca_id ? c.raca : 'Todas as raças'}</span>
                       {c.nome_opcao && (
                         <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary align-middle">

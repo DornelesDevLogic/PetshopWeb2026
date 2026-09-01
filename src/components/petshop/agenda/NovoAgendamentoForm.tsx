@@ -79,6 +79,10 @@ interface ProdutoPendente extends ProdutoResultado {
   qtd:      number;
   valor:    number;
   desconto: number;
+  // Presente quando o item foi inserido automaticamente por uma regra de
+  // Categoria de Serviço (ver handleServicoChange/buscarProdutoPorCategoria)
+  // — id da regra em PET_SERVICO_CAT, só pra referência na tela.
+  id_categoria?: number;
 }
 
 export interface ItemSalvo {
@@ -2048,6 +2052,14 @@ export default function NovoAgendamentoForm({
                             {p.cod_pro && <span className="font-mono mr-1.5">{p.cod_pro}</span>}
                             {p.unidade}
                             <span className="ml-1.5 text-primary text-[10px] font-semibold">NOVO</span>
+                            {p.id_categoria != null && (
+                              <span
+                                className="ml-1.5 text-[10px] font-mono text-muted-foreground"
+                                title="Inserido automaticamente pela regra de Categoria de Serviço"
+                              >
+                                (regra #{p.id_categoria})
+                              </span>
+                            )}
                           </p>
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono">{p.qtd}</td>
@@ -2321,7 +2333,10 @@ export default function NovoAgendamentoForm({
                 onClick={() => escolherOpcaoCategoriaServico(op)}
                 className="w-full text-left rounded-md border px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
               >
-                <p className="font-medium">{op.nome_opcao || op.nome_produto}</p>
+                <p className="font-medium">
+                  {op.nome_opcao || op.nome_produto}{' '}
+                  <span className="text-[10px] font-mono text-muted-foreground">(regra #{op.id_categoria})</span>
+                </p>
                 {op.nome_opcao && (
                   <p className="text-xs text-muted-foreground">{op.nome_produto}</p>
                 )}

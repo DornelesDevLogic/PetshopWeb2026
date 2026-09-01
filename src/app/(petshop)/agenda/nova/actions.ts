@@ -178,6 +178,7 @@ export async function buscarProdutos(busca: string, filialParam?: number): Promi
 
 export interface ProdutoCategoriaOpcao extends ProdutoResultado {
   nome_opcao: string;   // rótulo livre da regra (ex: "Diária"/"Mensal") — vazio se só houver 1 opção
+  id_categoria: number; // id da regra em PET_SERVICO_CAT (aba Categoria de Serviço), pra referência
 }
 
 /**
@@ -195,6 +196,7 @@ export async function buscarProdutoPorCategoria(
 ): Promise<ProdutoCategoriaOpcao[]> {
   if (!servicoId) return [];
   interface OpcaoResp {
+    id_categoria: number;
     id_dadospro: number;
     filial: number;
     cod_pro: string;
@@ -223,6 +225,7 @@ export async function buscarProdutoPorCategoria(
     cod_pro:      o.cod_pro ?? '',
     estoque:      o.estoque ?? 0,
     nome_opcao:   o.nome_opcao ?? '',
+    id_categoria: o.id_categoria,
   }));
 }
 
