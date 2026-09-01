@@ -29,6 +29,7 @@ import { printWindow } from '@/lib/printWindow';
 import { gerarComandaTeleEntrega } from '@/components/petshop/print/comandaTeleEntrega';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 import { DadosEmpresa } from '@/types/petshop';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
 // ---------- helpers ----------
 
@@ -77,6 +78,9 @@ interface Props {
 export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empresa }: Props) {
   const router = useRouter();
   const canEdit = Number(detalhe.status) === 2;
+
+  // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   // campos editáveis — info geral
   const [clienteId,   setClienteId]   = useState(detalhe.cliente_id);
@@ -268,15 +272,23 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
     if (valor <= 0) { setDlgErro('Valor deve ser maior que R$ 0,00'); return; }
     if (dlgRegra && dlgDias === null) { setDlgErro('Escolha o prazo do lembrete'); return; }
     setSalvando(true);
-    const r = await adicionarItemEntrega({
-      agenda_id:   detalhe.id,
-      prod_id:     prodDlg.id_dadospro,
-      prod_filial: prodDlg.filial,
-      dadospro_id: prodDlg.id_dadospro,
-      cod_prod:    prodDlg.cod_pro,
-      qtd, valor,
-      desconto: Number(dlgDesc) || 0,
-      descricao: '',
+    const r = await comAutorizacao(async (auth) => {
+      const resp = await adicionarItemEntrega({
+        agenda_id:   detalhe.id,
+        prod_id:     prodDlg.id_dadospro,
+        prod_filial: prodDlg.filial,
+        dadospro_id: prodDlg.id_dadospro,
+        cod_prod:    prodDlg.cod_pro,
+        qtd, valor,
+        desconto: Number(dlgDesc) || 0,
+        descricao: '',
+        ...auth,
+      });
+      return {
+        ...resp,
+        error: resp.CodStatus !== 1 ? resp.DescricaoStatus : undefined,
+        requerAutorizacao: resp.requer_autorizacao === true,
+      };
     });
     if (r.CodStatus === 1 && dlgRegra && (dlgDias ?? 0) > 0) {
       await criarEstimativa({
@@ -420,6 +432,7 @@ export default function TeleEntregaDetalheView({ detalhe, itens: itensInit, empr
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-3xl mx-auto">
+      {autorizDialog}
 
       {/* cabeçalho */}
       <div className="flex items-center gap-3 flex-wrap">

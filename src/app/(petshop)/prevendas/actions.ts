@@ -136,14 +136,14 @@ export async function cancelarPreVenda(id: number, justificativa: string) {
 }
 
 export async function adicionarItemPreVenda(body: Record<string, unknown>) {
-  return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_prodorca?: number }>(
+  return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_prodorca?: number; requer_autorizacao?: boolean }>(
     '/api/petshop/prevendas/itens',
     { method: 'POST', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
 }
 
 export async function editarItemPreVenda(body: Record<string, unknown>) {
-  return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
+  return apiFetch<{ CodStatus: number; DescricaoStatus: string; requer_autorizacao?: boolean }>(
     '/api/petshop/prevendas/itens',
     { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );

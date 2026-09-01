@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ function AdicionarDialog({ produto, agendaId, filial, onSalvo, onClose }: Adicio
   const [desconto, setDesconto] = useState('0');
   const [error,    setError]    = useState('');
   const [isPending, startT]     = useTransition();
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   const total = calcTotal(parseFlt(valor), parseFlt(desconto), parseFlt(qtd));
 
@@ -85,20 +87,23 @@ function AdicionarDialog({ produto, agendaId, filial, onSalvo, onClose }: Adicio
       return;
     }
     startT(async () => {
-      const res = await adicionarItemAgenda(
+      const res = await comAutorizacao((auth) => adicionarItemAgenda(
         agendaId, filial,
         produto.id_dadospro, produto.cod_filial,
         parseFlt(qtd), parseFlt(valor), parseFlt(desconto),
         produto.nome_produto,
         produto.preco, produto.cod_pro,
-      );
+        auth,
+      ));
       if (res.error) { setError(res.error); return; }
       onSalvo();
     });
   }
 
   return (
-    <Dialog open onOpenChange={(v) => { if (!v && !isPending) onClose(); }}>
+    <>
+      {autorizDialog}
+      <Dialog open onOpenChange={(v) => { if (!v && !isPending) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -162,7 +167,8 @@ function AdicionarDialog({ produto, agendaId, filial, onSalvo, onClose }: Adicio
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
 
@@ -183,6 +189,7 @@ function EditarItemDialog({ item, agendaId, filial, onSalvo, onClose }: EditarIt
   const [descricao,setDescricao]= useState(item.descricao || item.produto || '');
   const [error,    setError]    = useState('');
   const [isPending, startT]     = useTransition();
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   const total = calcTotal(parseFlt(valor), parseFlt(desconto), parseFlt(qtd));
 
@@ -194,17 +201,20 @@ function EditarItemDialog({ item, agendaId, filial, onSalvo, onClose }: EditarIt
       return;
     }
     startT(async () => {
-      const res = await atualizarItemAgenda(
+      const res = await comAutorizacao((auth) => atualizarItemAgenda(
         agendaId, item.id_item, filial,
         parseFlt(qtd), parseFlt(valor), parseFlt(desconto), descricao,
-      );
+        auth,
+      ));
       if (res.error) { setError(res.error); return; }
       onSalvo();
     });
   }
 
   return (
-    <Dialog open onOpenChange={(v) => { if (!v && !isPending) onClose(); }}>
+    <>
+      {autorizDialog}
+      <Dialog open onOpenChange={(v) => { if (!v && !isPending) onClose(); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -258,7 +268,8 @@ function EditarItemDialog({ item, agendaId, filial, onSalvo, onClose }: EditarIt
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
 

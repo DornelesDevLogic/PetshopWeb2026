@@ -7,7 +7,7 @@ import { ApiWrite, ProdutoResponse, Produto } from '@/types/petshop';
 async function postAction(
   endpoint: string,
   body: Record<string, unknown>,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; requerAutorizacao?: boolean }> {
   let res: ApiWrite;
   try {
     res = await apiFetch<ApiWrite>(endpoint, {
@@ -17,7 +17,9 @@ async function postAction(
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  if (res.CodStatus !== 1) {
+    return { error: res.DescricaoStatus, requerAutorizacao: res.requer_autorizacao === true };
+  }
   return {};
 }
 
@@ -54,7 +56,8 @@ export async function addItem(
   qtd: number,
   valor: number,
   desconto: number,
-): Promise<{ error?: string }> {
+  auth?: { autorizacao_codigo: string; autorizacao_senha: string },
+): Promise<{ error?: string; requerAutorizacao?: boolean }> {
   const valorliq = qtd * valor - desconto;
   const body = {
     id_orca:       id,
@@ -70,6 +73,7 @@ export async function addItem(
     desconto,
     preco_tabela:  produto.preco,
     ordem:         0,
+    ...auth,
   };
   const r = await postAction('/api/petshop/prevendas/itens', body);
   if (!r.error) revalidatePath(`/vendas/${id}`);

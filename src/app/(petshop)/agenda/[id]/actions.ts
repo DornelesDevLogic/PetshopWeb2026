@@ -78,7 +78,8 @@ export async function adicionarItemAgenda(
   descricao:   string,
   precoTabela: number,
   codProd?:    string,
-): Promise<{ error?: string; id_item?: number }> {
+  auth?:       { autorizacao_codigo: string; autorizacao_senha: string },
+): Promise<{ error?: string; id_item?: number; requerAutorizacao?: boolean }> {
   let res: ApiWrite;
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/agenda/itens', {
@@ -94,12 +95,15 @@ export async function adicionarItemAgenda(
         descricao,
         preco_tabela: precoTabela,
         cod_prod:     codProd ?? '',
+        ...auth,
       }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  if (res.CodStatus !== 1) {
+    return { error: res.DescricaoStatus, requerAutorizacao: res.requer_autorizacao === true };
+  }
   revalidatePath(`/agenda/${agendaId}`);
   return { id_item: res.id_item as number };
 }
@@ -113,17 +117,20 @@ export async function atualizarItemAgenda(
   valor:     number,
   desconto:  number,
   descricao: string,
-): Promise<{ error?: string }> {
+  auth?:     { autorizacao_codigo: string; autorizacao_senha: string },
+): Promise<{ error?: string; requerAutorizacao?: boolean }> {
   let res: ApiWrite;
   try {
     res = await apiFetch<ApiWrite>('/api/petshop/agenda/itens', {
       method: 'PUT',
-      body: JSON.stringify({ id_item: idItem, filial, qtd, valor, desconto, descricao }),
+      body: JSON.stringify({ id_item: idItem, filial, qtd, valor, desconto, descricao, ...auth }),
     });
   } catch {
     return { error: 'Não foi possível conectar ao servidor.' };
   }
-  if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+  if (res.CodStatus !== 1) {
+    return { error: res.DescricaoStatus, requerAutorizacao: res.requer_autorizacao === true };
+  }
   revalidatePath(`/agenda/${agendaId}`);
   return {};
 }

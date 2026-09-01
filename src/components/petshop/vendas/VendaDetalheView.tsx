@@ -37,6 +37,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
 interface Props {
   venda: PrevendaDetalhe;
@@ -58,6 +59,9 @@ export default function VendaDetalheView({ venda, itens }: Props) {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState('');
   const [isPending, startTransition] = useTransition();
+
+  // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   // ── Cancelamento ──
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -109,15 +113,21 @@ export default function VendaDetalheView({ venda, itens }: Props) {
   function handleAddItem(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!prodSel) return;
-    const q   = parseFloat(qtd.replace(',', '.'))  || 1;
-    const v   = parseFloat(preco.replace(',', '.')) || 0;
-    const d   = parseFloat(desconto.replace(',', '.')) || 0;
-    act(() => addItem(venda.id, prodSel, q, v, d));
+    const q    = parseFloat(qtd.replace(',', '.'))  || 1;
+    const v    = parseFloat(preco.replace(',', '.')) || 0;
+    const d    = parseFloat(desconto.replace(',', '.')) || 0;
+    const prod = prodSel;
     setProdSel(null);
     setQtd('1');
     setPreco('');
     setDesconto('0');
     setShowAddForm(false);
+    setErrorMsg('');
+    startTransition(async () => {
+      const r = await comAutorizacao((auth) => addItem(venda.id, prod, q, v, d, auth));
+      if (r.error) setErrorMsg(r.error);
+      else router.refresh();
+    });
   }
 
   function handleCancelar() {
@@ -127,6 +137,7 @@ export default function VendaDetalheView({ venda, itens }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {autorizDialog}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

@@ -72,6 +72,42 @@ export async function buscarClientes(q: string, filialParam?: number): Promise<C
   return res.dados.slice(0, 10);
 }
 
+interface ValorUltimoServicoResponse {
+  CodStatus:  number;
+  encontrado: boolean;
+  valor?:     number;
+}
+
+/**
+ * Valor do último orçamento (ORCA.SUB_TOTAL) do mesmo cliente+animal com o
+ * mesmo serviço — equivalente ao "Valor ult. serviço" da tela de agenda do
+ * sistema antigo. Retorna null quando não há histórico (não é um erro).
+ */
+export async function buscarValorUltimoServico(params: {
+  clienteId: number;
+  clienteFilial: number;
+  animalId: number;
+  animalFilial: number;
+  servicoNome: string;
+}): Promise<number | null> {
+  const { clienteId, clienteFilial, animalId, animalFilial, servicoNome } = params;
+  if (!clienteId || !animalId || !servicoNome.trim()) return null;
+  try {
+    const res = await apiFetch<ValorUltimoServicoResponse>(
+      `/api/petshop/agenda/valor-ultimo-servico${qs({
+        cliente_id:     clienteId,
+        cliente_filial: clienteFilial,
+        animal_id:      animalId,
+        animal_filial:  animalFilial,
+        servico_nome:   servicoNome.trim(),
+      })}`,
+    );
+    return res.encontrado ? res.valor ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface AnimalBuscaItem {
   id:           number;
   filial:       number;
@@ -96,7 +132,12 @@ export async function buscarPorPet(q: string, filialParam?: number, q2?: string)
   const res = await apiFetch<AnimalBuscaResponse>(
     `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), q2: q2?.trim() || undefined, filial: filialParam || getFilial() })}`,
   ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0 }));
-  return res.dados;
+  // Convenção do legado: PET_CADANIMAL.ATIVO = 1 significa INATIVO (invertido,
+  // igual STATUS_ATIVO de clientes/técnicos — ver buscarAnimais acima). O
+  // endpoint de busca rápida não filtra isso (é usado em telas que também
+  // precisam achar pets inativos), então filtramos aqui: pet inativo ou
+  // falecido não deve aparecer pra seleção ao criar um agendamento.
+  return res.dados.filter((a) => a.ativo !== 1 && a.obito !== 1);
 }
 
 /**
@@ -198,7 +239,8 @@ export async function adicionarItemNaAgenda(
   descPro:     string,   // nome do produto (DESC_PRO)
   precoTabela: number,   // preço de tabela
   codProd?:    string,   // código do produto (opcional)
-): Promise<{ error?: string }> {
+  auth?:       { autorizacao_codigo: string; autorizacao_senha: string },
+): Promise<{ error?: string; requerAutorizacao?: boolean }> {
   try {
     const res = await apiFetch<ApiWrite>('/api/petshop/agenda/itens', {
       method: 'POST',
@@ -209,9 +251,12 @@ export async function adicionarItemNaAgenda(
         desc_pro:     descPro,
         preco_tabela: precoTabela,
         cod_prod:     codProd ?? '',
+        ...auth,
       }),
     });
-    if (res.CodStatus !== 1) return { error: res.DescricaoStatus };
+    if (res.CodStatus !== 1) {
+      return { error: res.DescricaoStatus, requerAutorizacao: res.requer_autorizacao === true };
+    }
     revalidatePath(`/agenda/${agendaId}`);
     return {};
   } catch {

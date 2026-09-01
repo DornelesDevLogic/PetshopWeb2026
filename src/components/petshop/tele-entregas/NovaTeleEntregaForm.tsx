@@ -18,6 +18,7 @@ import {
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
 import { buscarUltimasComprasCliente, type CompraHistItem } from '@/app/(petshop)/clientes/historico-actions';
@@ -55,6 +56,9 @@ interface Props {
 
 export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, vendedorFilialInicial }: Props) {
   const router = useRouter();
+
+  // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   // cliente
   const [clienteQuery,    setClienteQuery]    = useState('');
@@ -313,16 +317,24 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
     const erros: string[] = [];
 
     for (const item of itens) {
-      const r = await adicionarItemEntrega({
-        agenda_id:   orcaId,
-        prod_id:     item.id_dadospro,
-        prod_filial: item.filial,
-        dadospro_id: item.id_dadospro,
-        cod_prod:    item.cod_pro,
-        qtd:         item.qtd,
-        valor:       item.valor,
-        desconto:    item.desconto,
-        descricao:   '',
+      const r = await comAutorizacao(async (auth) => {
+        const resp = await adicionarItemEntrega({
+          agenda_id:   orcaId,
+          prod_id:     item.id_dadospro,
+          prod_filial: item.filial,
+          dadospro_id: item.id_dadospro,
+          cod_prod:    item.cod_pro,
+          qtd:         item.qtd,
+          valor:       item.valor,
+          desconto:    item.desconto,
+          descricao:   '',
+          ...auth,
+        });
+        return {
+          ...resp,
+          error: resp.CodStatus !== 1 ? resp.DescricaoStatus : undefined,
+          requerAutorizacao: resp.requer_autorizacao === true,
+        };
       });
       if (r.CodStatus !== 1) erros.push(`${item.produto}: ${r.DescricaoStatus}`);
 
@@ -923,6 +935,8 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
           </div>
         </div>
       )}
+
+      {autorizDialog}
 
       {/* ── Modal novo cliente ── */}
       {showNovoCliente && (

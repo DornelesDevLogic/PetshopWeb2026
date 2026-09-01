@@ -16,6 +16,7 @@ import {
   sugerirRetornoAgenda,
   criarRetornoAgenda,
   buscarUltimasAgendasAnimal,
+  buscarValorUltimoServico,
   type AnimalBuscaItem,
   type ProdutoResultado,
   type ProdutoCategoriaOpcao,
@@ -26,6 +27,7 @@ import {
   criarEstimativa,
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 import { Cliente, Animal, Profissional, Servico, Especie, Raca, TipoPelo, Vendedor, AgendaDetalhe } from '@/types/petshop';
 import { editarAgenda } from '@/app/(petshop)/agenda/editar/actions';
 import { excluirItemAgenda, atualizarItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
@@ -195,6 +197,9 @@ export default function NovoAgendamentoForm({
   const inputRef                           = useRef<HTMLInputElement>(null);
   const dropdownRef                        = useRef<HTMLDivElement>(null);
 
+  // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
+
   // ── Cliente / Animal selecionados ──
   const [clienteSel, setClienteSel]        = useState<Cliente | null>(null);
   const [animais, setAnimais]              = useState<Animal[]>([]);
@@ -303,6 +308,26 @@ export default function NovoAgendamentoForm({
   const [servicoId, setServicoId]         = useState('');
   const [servicoNome, setServicoNome]     = useState('');
   const [servicoFilial, setServicoFilial] = useState('');
+
+  // ── Valor do último serviço (mesmo cliente+animal+serviço) ──
+  // Equivalente ao "Valor ult. serviço" do Cadastro de Agenda do sistema
+  // antigo — só um valor de referência pro atendente, não altera o total.
+  const [valorUltimoServico, setValorUltimoServico]               = useState<number | null>(null);
+  const [valorUltimoServicoCarregando, setValorUltimoServicoCarregando] = useState(false);
+  useEffect(() => {
+    if (!clienteSel || !animalSel || !servicoNome) { setValorUltimoServico(null); return; }
+    let cancelado = false;
+    setValorUltimoServicoCarregando(true);
+    buscarValorUltimoServico({
+      clienteId:     clienteSel.id,
+      clienteFilial: clienteSel.filial,
+      animalId:      animalSel.id,
+      animalFilial:  animalSel.filial,
+      servicoNome,
+    }).then((valor) => { if (!cancelado) setValorUltimoServico(valor); })
+      .finally(() => { if (!cancelado) setValorUltimoServicoCarregando(false); });
+    return () => { cancelado = true; };
+  }, [clienteSel, animalSel, servicoNome]);
 
   // ── Data/hora de previsão ──
   const [dataPrevisao, setDataPrevisao] = useState(() => {
@@ -756,7 +781,8 @@ export default function NovoAgendamentoForm({
       ]);
       const lista: ResultadoBusca[] = [
         ...clientes.slice(0, 6).map((c): ResultadoBusca => ({ tipo: 'cliente', cliente: c })),
-        ...pets.filter((a) => a.obito !== 1).slice(0, 6).map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })),
+        // buscarPorPet já filtra pet inativo/falecido
+        ...pets.slice(0, 6).map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })),
       ];
       setResultados(lista);
       setIdxCli(0);
@@ -1097,12 +1123,13 @@ export default function NovoAgendamentoForm({
         // Adiciona novos produtos em modo editar (itens já salvos não são retransmitidos)
         if (produtos.length > 0 && agendaId) {
           for (const p of produtos) {
-            await adicionarItemNaAgenda(
+            await comAutorizacao((auth) => adicionarItemNaAgenda(
               agendaId, filial,
               p.id_dadospro, p.cod_filial,
               p.qtd, p.valor, p.desconto, p.nome_produto,
               p.nome_produto, p.preco, p.cod_pro,
-            );
+              auth,
+            ));
           }
         }
 
@@ -1117,12 +1144,13 @@ export default function NovoAgendamentoForm({
       if (produtos.length > 0 && result.id) {
         const errosProdutos: string[] = [];
         for (const p of produtos) {
-          const res = await adicionarItemNaAgenda(
-            result.id, filial,
+          const res = await comAutorizacao((auth) => adicionarItemNaAgenda(
+            result.id!, filial,
             p.id_dadospro, p.cod_filial,
             p.qtd, p.valor, p.desconto, p.nome_produto,
             p.nome_produto, p.preco, p.cod_pro,
-          );
+            auth,
+          ));
           if (res.error) errosProdutos.push(`${p.nome_produto}: ${res.error}`);
         }
         if (errosProdutos.length > 0) {
@@ -1870,6 +1898,16 @@ export default function NovoAgendamentoForm({
                   ))}
                 </SelectContent>
               </Select>
+              {servicoNome && animalSel && (
+                <p className="text-xs text-muted-foreground pt-0.5">
+                  Valor últ. serviço:{' '}
+                  {valorUltimoServicoCarregando
+                    ? <Loader2 className="inline h-3 w-3 animate-spin align-[-2px]" />
+                    : valorUltimoServico !== null
+                      ? <span className="font-medium text-foreground">R$ {fmtMoeda(valorUltimoServico)}</span>
+                      : '—'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -2409,6 +2447,8 @@ export default function NovoAgendamentoForm({
           </div>
         </DialogContent>
       </Dialog>
+
+      {autorizDialog}
 
       <NovoClienteDialog
         open={novoCliOpen}

@@ -28,6 +28,7 @@ import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
 interface ProdutoLinha {
   id_dadospro: number;
@@ -61,6 +62,9 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
   const router = useRouter();
   const [pending, startT] = useTransition();
   const [erro, setErro] = useState('');
+
+  // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
+  const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
   // Cliente
   const [buscaCli, setBuscaCli] = useState('');
@@ -278,18 +282,26 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
       const errosProdutos: string[] = [];
       for (let i = 0; i < produtos.length; i++) {
         const p = produtos[i];
-        const rItem = await adicionarItemPreVenda({
-          id_orca:        idOrca,
-          fk_id_dadospro: p.id_dadospro,
-          fk_cod_filial:  p.filial,
-          cod_prod:       p.cod_pro,
-          descpro:        p.descricao,
-          qtd:            p.qtd,
-          valor:          p.preco * p.qtd,
-          valorliq:       p.total,
-          desconto:       p.desconto,
-          preco_tabela:   p.preco,
-          ordem:          i + 1,
+        const rItem = await comAutorizacao(async (auth) => {
+          const resp = await adicionarItemPreVenda({
+            id_orca:        idOrca,
+            fk_id_dadospro: p.id_dadospro,
+            fk_cod_filial:  p.filial,
+            cod_prod:       p.cod_pro,
+            descpro:        p.descricao,
+            qtd:            p.qtd,
+            valor:          p.preco * p.qtd,
+            valorliq:       p.total,
+            desconto:       p.desconto,
+            preco_tabela:   p.preco,
+            ordem:          i + 1,
+            ...auth,
+          });
+          return {
+            ...resp,
+            error: resp.CodStatus !== 1 ? resp.DescricaoStatus : undefined,
+            requerAutorizacao: resp.requer_autorizacao === true,
+          };
         });
         if (rItem.CodStatus !== 1) {
           errosProdutos.push(`${p.descricao}: ${rItem.DescricaoStatus}`);
@@ -791,6 +803,8 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
           </div>
         </div>
       )}
+
+      {autorizDialog}
 
       {/* Modal novo cliente */}
       {showNovoCliente && (

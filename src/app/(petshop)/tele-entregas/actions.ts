@@ -131,7 +131,7 @@ export async function cancelarTeleEntrega(id: number, justificativa: string) {
 }
 
 export async function adicionarItemEntrega(body: Record<string, unknown>) {
-  return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_item?: number }>(
+  return apiFetch<{ CodStatus: number; DescricaoStatus: string; id_item?: number; requer_autorizacao?: boolean }>(
     '/api/petshop/agenda/itens',
     { method: 'POST', body: JSON.stringify({ agenda_filial: getFilial(), ...body }) },
   );
@@ -145,7 +145,7 @@ export async function removerItemEntrega(idItem: number) {
 }
 
 export async function atualizarItemEntrega(body: Record<string, unknown>) {
-  return apiFetch<{ CodStatus: number; DescricaoStatus: string }>(
+  return apiFetch<{ CodStatus: number; DescricaoStatus: string; requer_autorizacao?: boolean }>(
     '/api/petshop/agenda/itens',
     { method: 'PUT', body: JSON.stringify({ filial: getFilial(), ...body }) },
   );
