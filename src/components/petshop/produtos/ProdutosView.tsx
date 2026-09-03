@@ -276,9 +276,9 @@ export default function ProdutosView({ produtos, filtros, pesquisou }: Props) {
                   <TableCell className="text-center text-xs px-1 hidden md:table-cell">{p.unidade || '—'}</TableCell>
                   <TableCell className="text-right px-2 whitespace-nowrap">
                     <span className="text-sm font-mono font-semibold text-primary">R$ {fmtMoeda(p.preco)}</span>
-                    {p.peso && p.peso > 0 && (
+                    {(p.peso ?? 0) > 0 && (
                       <span className="block text-[11px] text-muted-foreground font-mono" title="Preço por kg (preço ÷ volume)">
-                        R$ {fmtMoeda(p.preco / p.peso)}/kg
+                        R$ {fmtMoeda(p.preco / (p.peso ?? 1))}/kg
                       </span>
                     )}
                   </TableCell>

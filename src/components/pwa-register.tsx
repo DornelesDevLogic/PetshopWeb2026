@@ -6,7 +6,30 @@ export default function PwaRegister() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
+    // Em desenvolvimento (next dev) os arquivos de _next/static/ mantêm o
+    // mesmo nome entre rebuilds (sem hash de conteúdo como em produção) —
+    // a estratégia "cache first" do sw.js passa então a servir pra sempre o
+    // JS antigo em cache, mesmo depois de reiniciar o servidor ou dar
+    // hard refresh. PWA só faz sentido em produção; em dev, desregistra
+    // qualquer service worker já instalado e limpa o cache pra garantir
+    // que a página sempre reflita o código atual.
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+        .catch(() => {});
+      if ('caches' in window) {
+        caches.keys()
+          .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+          .catch(() => {});
+      }
+      return;
+    }
+
     let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
 
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
@@ -36,11 +59,6 @@ export default function PwaRegister() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-
-    // Recarregar quando um novo SW assumir o controle
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
   }, []);
 
   return null;
