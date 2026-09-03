@@ -180,7 +180,7 @@ export default function ClienteDetalhe({ cliente: c, animais, especies, racas, p
                 <div className="rounded-lg bg-muted/30 p-3">
                   <div className="text-xs text-muted-foreground">Saldo disponível</div>
                   <div className={cn('text-lg font-bold mt-0.5', c.saldo_disponivel < 0 ? 'text-red-600' : 'text-green-600')}>
-                    R$ {c.saldo_disponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {c.saldo_disponivel.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               )}

@@ -28,7 +28,7 @@ const CAMPOS_RESUMO_CONSULTA: { key: keyof ConsultaDetalhe; label: string }[] = 
 
 function fmtMoeda(v: string | number) {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0').replace(',', '.')) || 0;
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtData(s: string) {
@@ -194,7 +194,7 @@ export default function HistoricoAnimalModal({ animalId, animalNome, clienteId, 
                 </span>
                 {dados?.animal?.peso && Number(dados.animal.peso) > 0 && (
                   <span className="flex items-center gap-1">
-                    <Scale className="h-3 w-3" /> {Number(dados.animal.peso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kg
+                    <Scale className="h-3 w-3" /> {Number(dados.animal.peso).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
                   </span>
                 )}
                 {dados?.cliente?.telefone && (

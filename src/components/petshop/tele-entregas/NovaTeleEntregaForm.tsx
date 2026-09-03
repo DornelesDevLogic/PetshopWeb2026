@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   criarTeleEntrega, adicionarItemEntrega,
-  buscarClientesTele, buscarClientesPorPet, buscarProdutosTele, buscarClienteDetalhe,
+  buscarClientesTele, buscarClientesPorPet, buscarClientesPorNomeDoPet, buscarProdutosTele, buscarClienteDetalhe,
   buscarSugestoesTele,
   type ClienteBuscaItem, type ProdutoBuscaItem, type SugestaoItem,
 } from '@/app/(petshop)/tele-entregas/actions';
+import { carregarListasFormAgenda } from '@/app/(petshop)/agenda/nova/actions';
 import HistoricoClienteModal from '@/components/petshop/tele-entregas/HistoricoClienteModal';
 import {
   verificarRegrasProdutos, criarEstimativa,
@@ -19,8 +20,10 @@ import {
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
 import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
+import VerTodosClientesPorPetModal from '@/components/petshop/agenda/VerTodosClientesPorPetModal';
 import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
+import type { Especie, Raca } from '@/types/petshop';
 import { buscarUltimasComprasCliente, type CompraHistItem } from '@/app/(petshop)/clientes/historico-actions';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
@@ -39,7 +42,7 @@ interface ItemLocal {
 // ---------- helpers ----------
 
 function fmtMoeda(n: number) {
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function dataHoje() {
@@ -72,6 +75,19 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
   const justSelectedRef = useRef(false);
   const inputClienteRef = useRef<HTMLInputElement>(null);
   const listaClienteRef = useRef<HTMLUListElement>(null);
+  // "Ver todos os resultados" (nome de pet comum, ex: "Amora") - mesmo
+  // padrão da Agenda/Consultas, adaptado pra selecionar cliente (ver
+  // VerTodosClientesPorPetModal).
+  const [totalBuscaCompleta, setTotalBuscaCompleta] = useState(0);
+  const [modalTodosAberto,   setModalTodosAberto]   = useState(false);
+  const [racas, setRacas]       = useState<Raca[]>([]);
+  const [especies, setEspecies] = useState<Especie[]>([]);
+  useEffect(() => {
+    carregarListasFormAgenda(getFilialClient()).then((d) => {
+      setRacas(d.racas);
+      setEspecies(d.especies);
+    });
+  }, []);
 
   // endereço de entrega
   const [endereco,    setEndereco]    = useState('');
@@ -156,13 +172,33 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
   useEffect(() => {
     if (justSelectedRef.current) { justSelectedRef.current = false; return; }
     if (clienteDebRef.current) clearTimeout(clienteDebRef.current);
-    if (!clienteQuery || clienteQuery.length < 2) { setClienteOpcoes([]); setClienteAberto(false); return; }
+    if (!clienteQuery || clienteQuery.length < 2) {
+      setClienteOpcoes([]); setClienteAberto(false); setTotalBuscaCompleta(0);
+      return;
+    }
     clienteDebRef.current = setTimeout(async () => {
       // "dono/pet" ou "pet/dono": busca combinada via nome do animal
       const [parteA, parteB] = clienteQuery.split('/').map((s) => s.trim());
-      const r = parteA && parteB && parteA.length >= 2 && parteB.length >= 2
-        ? await buscarClientesPorPet(parteA, parteB)
-        : await buscarClientesTele(clienteQuery);
+      if (parteA && parteB && parteA.length >= 2 && parteB.length >= 2) {
+        const r = await buscarClientesPorPet(parteA, parteB);
+        setTotalBuscaCompleta(0);
+        setClienteOpcoes(r);
+        setClienteAberto(r.length > 0);
+        setClienteFocusIdx(-1);
+        return;
+      }
+      // Termo único: busca por nome do cliente E por nome do pet em
+      // paralelo (não precisa mais da sintaxe "dono/pet") - igual à
+      // Agenda/Consultas. Nome de pet comum (ex: "Amora") pode passar do
+      // corte de exibição; "Ver todos" abre a lista completa/paginada.
+      const [porNome, porPet] = await Promise.all([
+        buscarClientesTele(clienteQuery),
+        buscarClientesPorNomeDoPet(clienteQuery),
+      ]);
+      const vistos = new Set(porNome.map((c) => c.id));
+      const porPetSemDuplicar = porPet.filter((c) => !vistos.has(c.id));
+      setTotalBuscaCompleta(porNome.length + porPetSemDuplicar.length);
+      const r = [...porNome, ...porPetSemDuplicar].slice(0, 8);
       setClienteOpcoes(r);
       setClienteAberto(r.length > 0);
       setClienteFocusIdx(-1);
@@ -462,9 +498,30 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
                   </p>
                 </li>
               ))}
+              {totalBuscaCompleta > clienteOpcoes.length && (
+                <li>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); setModalTodosAberto(true); }}
+                    className="w-full text-center px-3 py-2 text-xs font-medium text-primary hover:bg-muted transition-colors"
+                  >
+                    Ver todos os resultados ({totalBuscaCompleta})
+                  </button>
+                </li>
+              )}
             </ul>
           )}
         </div>
+        {modalTodosAberto && (
+          <VerTodosClientesPorPetModal
+            termo={clienteQuery}
+            filial={getFilialClient()}
+            racas={racas}
+            especies={especies}
+            onSelecionarCliente={selecionarCliente}
+            onClose={() => setModalTodosAberto(false)}
+          />
+        )}
         {clienteSel && (
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
@@ -537,7 +594,7 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
                             </p>
                           </div>
                           <span className="text-xs font-mono text-primary whitespace-nowrap">
-                            R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                           <button
                             type="button"

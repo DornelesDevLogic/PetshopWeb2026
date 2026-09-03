@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Animal, AnimalAniversariante, Especie } from '@/types/petshop';
@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PawPrint, Cake, ChevronRight, Phone, Plus } from 'lucide-react';
+import { PawPrint, Cake, ChevronRight, Phone, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
 
@@ -75,6 +75,23 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes, b
   const [isPending, startTransition] = useTransition();
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Raça: campo de busca com filtro ao digitar, derivado dos resultados já
+  // carregados (não faz sentido buscar num catálogo à parte — só interessam
+  // as raças que realmente aparecem nesta busca). ──
+  const [racaSel, setRacaSel] = useState('');
+  const [racaBusca, setRacaBusca] = useState('');
+  const [racaDropdownAberto, setRacaDropdownAberto] = useState(false);
+  const racaWrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickFora(e: MouseEvent) {
+      if (racaWrapRef.current && !racaWrapRef.current.contains(e.target as Node)) {
+        setRacaDropdownAberto(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickFora);
+    return () => document.removeEventListener('mousedown', handleClickFora);
+  }, []);
+
   function changeMes(m: string | null) {
     if (m) startTransition(() => router.push(`/animais?mes=${m}`));
   }
@@ -91,8 +108,28 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes, b
 
   const buscaAtiva = buscaInicial.trim().length >= 2;
 
-  // Filtro de espécie continua client-side (sobre o que o servidor retornou)
-  const filtrados = (animais ?? []).filter((a) => !especieId || String(a.id_especie) === especieId);
+  // Filtros de espécie e raça continuam client-side (sobre o que o servidor
+  // retornou pra busca atual).
+  const porEspecie = (animais ?? []).filter((a) => !especieId || String(a.id_especie) === especieId);
+  const filtrados = porEspecie.filter((a) => !racaSel || a.raca === racaSel);
+
+  // Raças disponíveis entre os animais já carregados (respeitando a espécie
+  // selecionada), pra alimentar o combobox de busca.
+  const racasDisponiveis = useMemo(() => {
+    const vistas = new Set<string>();
+    for (const a of porEspecie) {
+      if (a.raca) vistas.add(a.raca);
+    }
+    return Array.from(vistas).sort((x, y) => x.localeCompare(y, 'pt-BR'));
+  }, [porEspecie]);
+  const racasFiltradasPorBusca = racaBusca.trim()
+    ? racasDisponiveis.filter((r) => r.toUpperCase().includes(racaBusca.trim().toUpperCase()))
+    : racasDisponiveis;
+
+  useEffect(() => {
+    if (racaSel && !racasDisponiveis.includes(racaSel)) { setRacaSel(''); setRacaBusca(''); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [especieId]);
 
   return (
     <div className="flex flex-col h-full">
@@ -168,6 +205,38 @@ export default function AnimaisView({ animais, aniversariantes, especies, mes, b
                   ))}
                 </SelectContent>
               </Select>
+              <div ref={racaWrapRef} className="relative w-48">
+                <Input
+                  value={racaBusca}
+                  onChange={(e) => { setRacaBusca(e.target.value); setRacaSel(''); setRacaDropdownAberto(true); }}
+                  onFocus={() => setRacaDropdownAberto(true)}
+                  placeholder="Todas as raças"
+                  className="pr-7"
+                />
+                {(racaBusca || racaSel) && (
+                  <button
+                    type="button"
+                    onClick={() => { setRacaBusca(''); setRacaSel(''); setRacaDropdownAberto(false); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {racaDropdownAberto && racasFiltradasPorBusca.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-md border bg-popover shadow-lg">
+                    {racasFiltradasPorBusca.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => { setRacaSel(r); setRacaBusca(r); setRacaDropdownAberto(false); }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent border-b last:border-b-0"
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <span className="ml-auto text-sm text-muted-foreground">
                 {filtrados.length} {filtrados.length === 1 ? 'animal' : 'animais'}
               </span>

@@ -16,7 +16,7 @@ interface Props {
 }
 
 function fmtMoeda(v: number) {
-  return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function RelatorioProdutosCustoMaiorPreco({ produtos }: Props) {

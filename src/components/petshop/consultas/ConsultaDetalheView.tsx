@@ -846,7 +846,7 @@ export default function ConsultaDetalheView({
                     >
                       <p className="font-medium leading-tight">{p.nome_produto}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {p.cod_pro} · R$ {p.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Est: {p.estoque}
+                        {p.cod_pro} · R$ {p.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Est: {p.estoque}
                       </p>
                     </button>
                   ))}
@@ -861,7 +861,7 @@ export default function ConsultaDetalheView({
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
                   <p className="text-xs text-muted-foreground">
-                    Tabela: R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    Tabela: R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="w-24 space-y-0.5">
@@ -946,11 +946,11 @@ export default function ConsultaDetalheView({
                       {isAberto && it.id_item ? (
                         <EditableValor
                           valor={parseFloat(it.valor || '0')}
-                          fmt={(v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          fmt={(v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           onCommit={(v) => alterarValorItemAgenda(it, v)}
                         />
                       ) : (
-                        parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                        parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                       )}
                     </p>
                   </div>

@@ -21,7 +21,7 @@ function fmtData(s: string) {
   return d ? `${d}/${m}/${y}` : s;
 }
 function fmtMoeda(v: number) {
-  return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Recibo de um cupom individual — mesmo padrão do preview do Retaguarda, usado no Espelho de Cupons e na Visualização Rápida de Agendas. */

@@ -43,7 +43,7 @@ function parseFlt(v: string | number): number {
 
 function fmtMoeda(v: string | number): string {
   const n = parseFlt(v);
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function calcTotal(valor: number, desconto: number, qtd: number): number {

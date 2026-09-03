@@ -48,7 +48,7 @@ function fmtData(s: string) {
 }
 
 function fmtMoeda(v: number) {
-  return v > 0 ? `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—';
+  return v > 0 ? `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
 }
 
 export default function VendasView({ items, dataDe, dataAte, statusAtual }: Props) {

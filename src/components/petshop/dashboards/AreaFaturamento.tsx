@@ -53,7 +53,7 @@ export default function AreaFaturamento({ serie }: { serie: PontoSerie[] }) {
           width={56}
         />
         <Tooltip
-          formatter={(v) => [`R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Faturamento']}
+          formatter={(v) => [`R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Faturamento']}
           labelFormatter={(l) => fmtDiaCurto(String(l))}
           contentStyle={{
             background: 'hsl(var(--card))',

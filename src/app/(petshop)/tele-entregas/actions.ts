@@ -191,6 +191,24 @@ export async function buscarClientesPorPet(termoA: string, termoB: string): Prom
   return clientes.slice(0, 10);
 }
 
+/** Busca o cliente só pelo nome do pet (um termo só, sem precisar da sintaxe
+ * "dono/pet") — pra digitar direto "Amora" e achar a Fernanda, igual à
+ * Agenda/Consultas. Complementa `buscarClientesTele` (nome do cliente). */
+export async function buscarClientesPorNomeDoPet(q: string): Promise<ClienteBuscaItem[]> {
+  if (!q.trim() || q.trim().length < 3) return [];
+  const res = await apiFetch<{ dados: AnimalBuscaItem[]; Count: number }>(
+    `/api/petshop/animais/busca-rapida${qs({ q: q.trim(), filial: getFilial() })}`,
+  ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0 }));
+  const vistos = new Set<number>();
+  const clientes: ClienteBuscaItem[] = [];
+  for (const a of res.dados ?? []) {
+    if (vistos.has(a.id_cliente)) continue;
+    vistos.add(a.id_cliente);
+    clientes.push({ id: a.id_cliente, filial: a.filial, nome: a.nome_cliente, telefone: '', celular: '' });
+  }
+  return clientes;
+}
+
 export interface ClienteDetalhe {
   id: number; filial: number; nome: string;
   endereco: string; numero: string; bairro: string; cep: string;

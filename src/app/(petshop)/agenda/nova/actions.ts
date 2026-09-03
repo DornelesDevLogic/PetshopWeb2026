@@ -122,7 +122,7 @@ export interface AnimalBuscaItem {
   obito:        number;
 }
 
-interface AnimalBuscaResponse { dados: AnimalBuscaItem[]; Count: number }
+interface AnimalBuscaResponse { dados: AnimalBuscaItem[]; Count: number; has_more?: boolean }
 
 /** Busca animais por nome do pet (retorna o animal + dados do dono). `q2`,
  * quando informado, exige que o resultado bata TAMBÉM com esse segundo termo
@@ -138,6 +138,40 @@ export async function buscarPorPet(q: string, filialParam?: number, q2?: string)
   // precisam achar pets inativos), então filtramos aqui: pet inativo ou
   // falecido não deve aparecer pra seleção ao criar um agendamento.
   return res.dados.filter((a) => a.ativo !== 1 && a.obito !== 1);
+}
+
+/**
+ * Igual a `buscarPorPet`, mas paginada e com filtros de raça/espécie —
+ * usada pelo modal "Ver todos os resultados" pra rolar além da 1ª página
+ * quando o nome do pet é muito comum (ex: mais de 100 "Amora" cadastrados).
+ * `skip`/`limit` viram SKIP/FIRST no backend; `hasMore` indica se a página
+ * veio cheia (provável ter mais, sem precisar de um COUNT(*) à parte).
+ * Filtra por raça/espécie como TEXTO (igual ao que aparece na tela), não
+ * pelo FK — o vínculo (PET_FK_ID_RACA) fica dessincronizado do texto com
+ * frequência nesse cadastro, e filtrar por FK escondia pet com a raça
+ * certa no texto mas o vínculo quebrado/desatualizado.
+ */
+export async function buscarPorPetPaginado(
+  q: string,
+  filialParam: number | undefined,
+  raca: string | undefined,
+  especie: string | undefined,
+  skip: number,
+  limit: number,
+): Promise<{ dados: AnimalBuscaItem[]; hasMore: boolean }> {
+  if (!q.trim()) return { dados: [], hasMore: false };
+  const res = await apiFetch<AnimalBuscaResponse>(
+    `/api/petshop/animais/busca-rapida${qs({
+      q: q.trim(), filial: filialParam || getFilial(),
+      raca: raca || undefined, especie: especie || undefined, skip, limit,
+    })}`,
+  ).catch(() => ({ dados: [] as AnimalBuscaItem[], Count: 0, has_more: false }));
+  // Mesma convenção/motivo de buscarPorPet - filtra pet inativo/falecido
+  // depois de paginar (o has_more se refere à página crua do backend).
+  return {
+    dados: res.dados.filter((a) => a.ativo !== 1 && a.obito !== 1),
+    hasMore: res.has_more === true,
+  };
 }
 
 /**

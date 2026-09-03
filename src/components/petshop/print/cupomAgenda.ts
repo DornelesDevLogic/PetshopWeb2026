@@ -39,7 +39,7 @@ function fmtMoeda(v?: string | number): string {
   if (v === undefined || v === null || v === '') return '0,00';
   const n = typeof v === 'string' ? parseFloat(v.replace(',', '.')) : v;
   if (isNaN(n)) return '0,00';
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function esc(s?: string): string {

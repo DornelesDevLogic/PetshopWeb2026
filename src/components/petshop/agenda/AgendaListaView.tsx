@@ -71,7 +71,7 @@ function parseValor(v: string): number {
 }
 
 function fmtMoeda(n: number): string {
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** Normaliza a data vinda do backend para DD/MM/AAAA */

@@ -65,7 +65,7 @@ function calcIdade(s: string) {
 function fmtMoeda(s: string) {
   const v = parseFloat(s.replace(',', '.'));
   if (isNaN(v)) return s || '—';
-  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function AnimalDetalheView({ animal, historico, especies, racas, pelos }: Props) {

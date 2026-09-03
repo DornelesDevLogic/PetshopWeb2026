@@ -33,7 +33,7 @@ function fmtVal(v: string | undefined): string {
   if (!v || v === '0' || v.trim() === '') return '';
   const n = parseFloat(v.replace(',', '.'));
   if (isNaN(n)) return '';
-  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function checkItem(label: string, val?: string): string {

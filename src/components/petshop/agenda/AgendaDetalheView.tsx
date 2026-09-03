@@ -75,7 +75,7 @@ function brParaIso(data?: string): string {
 function fmtMoeda(v: string | number): string {
   const n = typeof v === 'string' ? parseFloat(v.replace(',', '.')) : v;
   if (isNaN(n)) return '—';
-  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /* ─────────────── Ações disponíveis por status ─────────────── */

@@ -25,6 +25,10 @@ const RELATORIOS_SUBMENU: SubmenuItem[] = [
   { href: '/relatorios/espelho-cupons',        label: 'Espelho de Cupons' },
   { href: '/relatorios/vales',                 label: 'Vales de Clientes' },
   { href: '/relatorios/produtos',              label: 'Relatório de Produtos' },
+  { href: '/relatorios/curva-abc',             label: 'Curva ABC de Produtos' },
+  { href: '/relatorios/curva-abc-clientes',    label: 'Curva ABC de Clientes' },
+  { href: '/relatorios/estimativas-sem-conversao', label: 'Estimativas sem Conversão' },
+  { href: '/relatorios/animais',               label: 'Relatório de Animais' },
 ];
 
 // Lista única dos itens de navegação — usada pelo menu lateral (desktop e

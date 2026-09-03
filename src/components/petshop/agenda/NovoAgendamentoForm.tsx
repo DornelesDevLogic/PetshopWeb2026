@@ -28,6 +28,7 @@ import {
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
+import VerTodosResultadosModal from '@/components/petshop/agenda/VerTodosResultadosModal';
 import { Cliente, Animal, Profissional, Servico, Especie, Raca, TipoPelo, Vendedor, AgendaDetalhe } from '@/types/petshop';
 import { editarAgenda } from '@/app/(petshop)/agenda/editar/actions';
 import { excluirItemAgenda, atualizarItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
@@ -201,6 +202,12 @@ export default function NovoAgendamentoForm({
   const inputRef                           = useRef<HTMLInputElement>(null);
   const dropdownRef                        = useRef<HTMLDivElement>(null);
 
+  // ── "Ver todos os resultados" (nome comum, ex: "Amora") ──
+  // A busca rápida mostra só os 6 primeiros de cada tipo; quando há mais,
+  // este contador aparece pra abrir a lista completa (com filtro de raça).
+  const [totaisBuscaCompleta, setTotaisBuscaCompleta] = useState({ clientes: 0, pets: 0 });
+  const [modalTodosAberto, setModalTodosAberto]       = useState(false);
+
   // ── Desconto acima do limite: pede senha de supervisor (igual ao antigo) ──
   const { dialog: autorizDialog, comAutorizacao } = useAutorizacaoDesconto();
 
@@ -365,7 +372,7 @@ export default function NovoAgendamentoForm({
   const [removendoItem, setRemovendoItem] = useState<number | null>(null);
 
   const parseFlt = (v: string) => parseFloat(v.replace(',', '.')) || 0;
-  const fmtMoeda = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const fmtMoeda = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -762,6 +769,7 @@ export default function NovoAgendamentoForm({
         const pets = await buscarCombinado(parteA, parteB, filial);
         const lista: ResultadoBusca[] = pets.map((a): ResultadoBusca => ({ tipo: 'pet', animal: a }));
         setResultados(lista);
+        setTotaisBuscaCompleta({ clientes: 0, pets: 0 });
         setIdxCli(0);
         setDropdownAberto(lista.length > 0);
       } finally {
@@ -773,6 +781,7 @@ export default function NovoAgendamentoForm({
     // Busca simples: mínimo 3 caracteres
     if (textoTrim.length < 3) {
       setResultados([]);
+      setTotaisBuscaCompleta({ clientes: 0, pets: 0 });
       setDropdownAberto(false);
       return;
     }
@@ -783,6 +792,11 @@ export default function NovoAgendamentoForm({
         buscarClientes(textoTrim, filial),
         buscarPorPet(textoTrim, filial),
       ]);
+      // Busca rápida fica enxuta de propósito (6 de cada) - quando o nome é
+      // comum (ex: "Amora") e corta o dono certo fora da lista, o link
+      // "Ver todos os resultados" abre a lista completa (com filtro de
+      // raça) em vez de inchar esse dropdown - ver abrirTodosResultados.
+      setTotaisBuscaCompleta({ clientes: clientes.length, pets: pets.length });
       const lista: ResultadoBusca[] = [
         ...clientes.slice(0, 6).map((c): ResultadoBusca => ({ tipo: 'cliente', cliente: c })),
         // buscarPorPet já filtra pet inativo/falecido
@@ -1513,6 +1527,15 @@ export default function NovoAgendamentoForm({
                       </button>
                     );
                   })}
+                  {(totaisBuscaCompleta.clientes > 6 || totaisBuscaCompleta.pets > 6) && (
+                    <button
+                      type="button"
+                      onClick={() => setModalTodosAberto(true)}
+                      className="w-full text-center px-4 py-2 text-xs font-medium text-primary hover:bg-muted/50 transition-colors"
+                    >
+                      Ver todos os resultados ({totaisBuscaCompleta.clientes + totaisBuscaCompleta.pets})
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1767,7 +1790,7 @@ export default function NovoAgendamentoForm({
                 Peso do Animal
                 {animalSel.peso && Number(animalSel.peso) > 0 && (
                   <span className="text-xs text-muted-foreground font-normal">
-                    (último registrado: {Number(animalSel.peso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kg)
+                    (último registrado: {Number(animalSel.peso).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg)
                   </span>
                 )}
               </Label>
@@ -2464,6 +2487,18 @@ export default function NovoAgendamentoForm({
       </Dialog>
 
       {autorizDialog}
+
+      {modalTodosAberto && (
+        <VerTodosResultadosModal
+          termo={q}
+          filial={filial}
+          racas={racas}
+          especies={especies}
+          onSelecionarCliente={selecionarCliente}
+          onSelecionarPet={selecionarPet}
+          onClose={() => setModalTodosAberto(false)}
+        />
+      )}
 
       <NovoClienteDialog
         open={novoCliOpen}

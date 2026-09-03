@@ -13,20 +13,24 @@ import {
   adicionarItemPreVenda,
   buscarClientesPrevenda,
   buscarClientesPrevendaPorPet,
+  buscarClientesPrevendaPorNomeDoPet,
   buscarAnimaisPrevenda,
   buscarProdutosPrevenda,
   ClienteBuscaItem,
   AnimalPreVenda,
   ProdutoBuscaItem,
 } from '@/app/(petshop)/prevendas/actions';
+import { carregarListasFormAgenda } from '@/app/(petshop)/agenda/nova/actions';
 import {
   verificarRegrasProdutos, criarEstimativa,
   type RegraProduto,
 } from '@/app/(petshop)/estimativas/actions';
 import NovoClienteModal, { type ClienteCriado } from '@/components/petshop/NovoClienteModal';
+import VerTodosClientesPorPetModal from '@/components/petshop/agenda/VerTodosClientesPorPetModal';
 import EditableValor from '@/components/petshop/EditableValor';
 import { getFilialClient } from '@/lib/filial';
 import type { Vendedor } from '@/app/(petshop)/vendedores/actions';
+import type { Especie, Raca } from '@/types/petshop';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
 import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
@@ -73,6 +77,16 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
   const [cliIdx, setCliIdx] = useState(-1);
   const [showNovoCliente, setShowNovoCliente] = useState(false);
   const cliRef = useRef<HTMLInputElement>(null);
+  const [totalBuscaCompleta, setTotalBuscaCompleta] = useState(0);
+  const [modalTodosAberto, setModalTodosAberto] = useState(false);
+  const [racas, setRacas] = useState<Raca[]>([]);
+  const [especies, setEspecies] = useState<Especie[]>([]);
+  useEffect(() => {
+    carregarListasFormAgenda(getFilialClient()).then((d) => {
+      setRacas(d.racas);
+      setEspecies(d.especies);
+    });
+  }, []);
 
   // Animal / pet (opcional — usado para vincular a estimativa de recompra)
   const [animaisCliente, setAnimaisCliente] = useState<AnimalPreVenda[]>([]);
@@ -124,14 +138,24 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
 
   // Busca cliente
   useEffect(() => {
-    if (buscaCli.length < 2) { setClienteOpts([]); return; }
+    if (buscaCli.length < 2) { setClienteOpts([]); setTotalBuscaCompleta(0); return; }
     const t = setTimeout(async () => {
       // "dono/pet" ou "pet/dono": busca combinada via nome do animal
       const [parteA, parteB] = buscaCli.split('/').map((s) => s.trim());
-      const r = parteA && parteB && parteA.length >= 2 && parteB.length >= 2
-        ? await buscarClientesPrevendaPorPet(parteA, parteB)
-        : await buscarClientesPrevenda(buscaCli);
-      setClienteOpts(r);
+      if (parteA && parteB && parteA.length >= 2 && parteB.length >= 2) {
+        const r = await buscarClientesPrevendaPorPet(parteA, parteB);
+        setClienteOpts(r);
+        setTotalBuscaCompleta(0);
+        return;
+      }
+      const [porNome, porPet] = await Promise.all([
+        buscarClientesPrevenda(buscaCli),
+        buscarClientesPrevendaPorNomeDoPet(buscaCli),
+      ]);
+      const vistos = new Set(porNome.map((c) => c.id));
+      const porPetSemDuplicar = porPet.filter((c) => !vistos.has(c.id));
+      setTotalBuscaCompleta(porNome.length + porPetSemDuplicar.length);
+      setClienteOpts([...porNome, ...porPetSemDuplicar].slice(0, 8));
     }, 300);
     return () => clearTimeout(t);
   }, [buscaCli]);
@@ -428,9 +452,28 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
                     </div>
                   </button>
                 ))}
+                {totalBuscaCompleta > clienteOpts.length && (
+                  <button
+                    type="button"
+                    onClick={() => setModalTodosAberto(true)}
+                    className="w-full text-center px-4 py-2 text-sm text-primary hover:bg-muted/50 transition-colors"
+                  >
+                    Ver todos os resultados ({totalBuscaCompleta})
+                  </button>
+                )}
               </div>
             )}
           </div>
+        )}
+        {modalTodosAberto && (
+          <VerTodosClientesPorPetModal
+            termo={buscaCli}
+            filial={getFilialClient()}
+            racas={racas}
+            especies={especies}
+            onSelecionarCliente={selecionarCliente}
+            onClose={() => setModalTodosAberto(false)}
+          />
         )}
       </section>
 

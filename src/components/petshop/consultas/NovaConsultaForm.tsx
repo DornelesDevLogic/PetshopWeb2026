@@ -18,6 +18,8 @@ import {
   carregarListasFormAgenda,
   type ProdutoResultado,
 } from '@/app/(petshop)/agenda/nova/actions';
+import VerTodosResultadosModal from '@/components/petshop/agenda/VerTodosResultadosModal';
+import { getFilialClient } from '@/lib/filial';
 import { excluirItemAgenda, atualizarItemAgenda } from '@/app/(petshop)/agenda/[id]/actions';
 import EditableValor from '@/components/petshop/EditableValor';
 import {
@@ -118,6 +120,10 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
   const [clienteQ, setClienteQ]            = useState('');
   type ResultadoBusca = { tipo: 'cliente'; cliente: Cliente } | { tipo: 'pet'; animal: AnimalBuscaItem };
   const [resultados, setResultados]        = useState<ResultadoBusca[]>([]);
+  // "Ver todos os resultados" (nome comum, ex: "Amora") - mesmo padrão da
+  // Agenda (ver NovoAgendamentoForm.tsx/VerTodosResultadosModal.tsx).
+  const [totaisBuscaCompleta, setTotaisBuscaCompleta] = useState({ clientes: 0, pets: 0 });
+  const [modalTodosAberto, setModalTodosAberto]       = useState(false);
   const [clienteSel, setClienteSel]        = useState<Cliente | null>(
     agendaOrigem ? clienteMinimo(agendaOrigem.clienteId, agendaOrigem.clienteFilial, agendaOrigem.clienteNome) : null,
   );
@@ -340,29 +346,35 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
     if (clienteSel) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const texto = clienteQ.trim();
-    if (texto.length === 0) { setResultados([]); return; }
+    if (texto.length === 0) { setResultados([]); setTotaisBuscaCompleta({ clientes: 0, pets: 0 }); return; }
 
     // "dono/pet" ou "pet/dono" — a ordem não importa, só pets aparecem
     // (em destaque âmbar), igual à Agenda.
     if (texto.includes('/')) {
       const [parteA, parteB] = texto.split('/').map((s) => s.trim());
-      if (!parteA || !parteB || parteA.length < 2 || parteB.length < 2) { setResultados([]); return; }
+      if (!parteA || !parteB || parteA.length < 2 || parteB.length < 2) { setResultados([]); setTotaisBuscaCompleta({ clientes: 0, pets: 0 }); return; }
       debounceRef.current = setTimeout(() => {
         startBusca(async () => {
           const pets = await buscarAnimaisPorNome(parteA, parteB);
+          setTotaisBuscaCompleta({ clientes: 0, pets: 0 });
           setResultados(pets.map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })));
         });
       }, 300);
       return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     }
 
-    if (texto.length < 3) { setResultados([]); return; }
+    if (texto.length < 3) { setResultados([]); setTotaisBuscaCompleta({ clientes: 0, pets: 0 }); return; }
     debounceRef.current = setTimeout(() => {
       startBusca(async () => {
         const [clientes, pets] = await Promise.all([
           buscarClientes(texto),
           buscarAnimaisPorNome(texto),
         ]);
+        // Busca rápida enxuta de propósito (6 de cada) - quando o nome é
+        // comum (ex: "Amora") e corta o dono certo fora da lista, o link
+        // "Ver todos os resultados" abre a lista completa (com filtro de
+        // espécie/raça) - mesmo padrão de NovoAgendamentoForm.tsx.
+        setTotaisBuscaCompleta({ clientes: clientes.length, pets: pets.length });
         setResultados([
           ...clientes.slice(0, 6).map((c): ResultadoBusca => ({ tipo: 'cliente', cliente: c })),
           ...pets.slice(0, 6).map((a): ResultadoBusca => ({ tipo: 'pet', animal: a })),
@@ -694,7 +706,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
               })()}
 
               {resultados.length > 0 && (
-                <div className="rounded-md border divide-y bg-card shadow-sm overflow-hidden">
+                <div className="rounded-md border divide-y bg-card shadow-sm max-h-96 overflow-y-auto">
                   {resultados.map((r, i) => (
                     r.tipo === 'cliente' ? (
                       <button
@@ -737,11 +749,32 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
                       </button>
                     )
                   ))}
+                  {(totaisBuscaCompleta.clientes > 6 || totaisBuscaCompleta.pets > 6) && (
+                    <button
+                      type="button"
+                      onClick={() => setModalTodosAberto(true)}
+                      className="w-full text-center px-4 py-2 text-xs font-medium text-primary hover:bg-muted/50 transition-colors"
+                    >
+                      Ver todos os resultados ({totaisBuscaCompleta.clientes + totaisBuscaCompleta.pets})
+                    </button>
+                  )}
                 </div>
               )}
             </>
           )}
         </div>
+
+        {modalTodosAberto && (
+          <VerTodosResultadosModal
+            termo={clienteQ}
+            filial={getFilialClient()}
+            racas={racas}
+            especies={especies}
+            onSelecionarCliente={selecionarCliente}
+            onSelecionarPet={selecionarPet}
+            onClose={() => setModalTodosAberto(false)}
+          />
+        )}
 
         {/* Animal */}
         <div
@@ -1087,7 +1120,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
                     >
                       <p className="font-medium leading-tight">{p.nome_produto}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {p.cod_pro} · R$ {p.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Est: {p.estoque}
+                        {p.cod_pro} · R$ {p.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Est: {p.estoque}
                       </p>
                     </button>
                   ))}
@@ -1101,7 +1134,7 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{proSel.nome_produto}</p>
                     <p className="text-xs text-muted-foreground">
-                      Tabela: R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      Tabela: R$ {proSel.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="w-24 space-y-0.5">
@@ -1184,11 +1217,11 @@ export default function NovaConsultaForm({ profissionais, agendaOrigem }: Props)
                         {it.id_item ? (
                           <EditableValor
                             valor={parseFloat(it.valor || '0')}
-                            fmt={(v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            fmt={(v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             onCommit={(v) => alterarValorItemAgenda(it, v)}
                           />
                         ) : (
-                          parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                          parseFloat(it.valor || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         )}
                       </p>
                     </div>

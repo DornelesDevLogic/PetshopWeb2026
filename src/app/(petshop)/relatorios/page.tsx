@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket, Package } from 'lucide-react';
+import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket, Package, TrendingUp, Bell, PawPrint } from 'lucide-react';
 
 const relatorios = [
   {
@@ -43,6 +43,30 @@ const relatorios = [
     icon:    Package,
     titulo:  'Relatório de Produtos',
     descricao: 'Indicadores de precificação e estoque dos produtos cadastrados.',
+  },
+  {
+    href:    '/relatorios/curva-abc',
+    icon:    TrendingUp,
+    titulo:  'Curva ABC de Produtos',
+    descricao: 'Ranking A/B/C por receita, lucro, custo ou quantidade — com margem real das notas emitidas.',
+  },
+  {
+    href:    '/relatorios/curva-abc-clientes',
+    icon:    Users,
+    titulo:  'Curva ABC de Clientes',
+    descricao: 'Ranking A/B/C de clientes por receita ou quantidade de atendimentos no período.',
+  },
+  {
+    href:    '/relatorios/estimativas-sem-conversao',
+    icon:    Bell,
+    titulo:  'Estimativas sem Conversão',
+    descricao: 'Lembretes de recompra/retorno enviados que não viraram agenda dentro do prazo.',
+  },
+  {
+    href:    '/relatorios/animais',
+    icon:    PawPrint,
+    titulo:  'Relatório de Animais',
+    descricao: 'Listagem de animais por proprietário, nome ou raça, com dados de contato do cliente.',
   },
 ];
 

@@ -70,7 +70,7 @@ function fmtHora(s: string) {
 function fmtMoeda(s: string | number) {
   const v = parseFloat(String(s).replace(',', '.'));
   if (isNaN(v)) return '—';
-  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // Mapeamento de SITUACAO conforme legendas do sistema legado

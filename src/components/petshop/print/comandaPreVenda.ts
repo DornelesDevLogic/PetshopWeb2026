@@ -27,7 +27,7 @@ interface ComandaPreVendaData {
 }
 
 function fmtMoeda(n: number): string {
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtData(s?: string): string {

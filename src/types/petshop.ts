@@ -840,3 +840,138 @@ export interface SecaoResponse {
   dados: Secao[];
   Count: number;
 }
+
+export type CriterioCurvaAbc = 'receita' | 'lucro' | 'custo' | 'qtd';
+export type ClasseCurvaAbc   = 'A' | 'B' | 'C';
+
+export interface CurvaAbcItem {
+  cod_prod:                   string;
+  descricao:                  string;
+  secao_id:                   number;
+  secao:                      string;
+  qtd:                        number;
+  receita:                    number;
+  custo:                      number;
+  lucro:                      number;
+  margem_pct:                 number;
+  participacao_pct:           number;
+  participacao_acumulada_pct: number;
+  classe:                     ClasseCurvaAbc;
+}
+
+export interface CurvaAbcResumoClasse {
+  produtos: number;
+  receita:  number;
+}
+
+export interface CurvaAbcResponse {
+  CodStatus:      number;
+  DescricaoStatus?: string;
+  periodo:        string;
+  criterio:       CriterioCurvaAbc;
+  dados:          CurvaAbcItem[];
+  Count:          number;
+  total_qtd:      number;
+  total_receita:  number;
+  total_custo:    number;
+  total_lucro:    number;
+  resumo_a:       CurvaAbcResumoClasse;
+  resumo_b:       CurvaAbcResumoClasse;
+  resumo_c:       CurvaAbcResumoClasse;
+}
+
+export type CriterioCurvaAbcCliente = 'receita' | 'qtd';
+
+export interface CurvaAbcClienteItem {
+  cliente_id:                 number;
+  cliente_filial:              number;
+  cliente:                    string;
+  telefone:                   string;
+  receita:                    number;
+  qtd_atendimentos:           number;
+  ultima_visita:               string;
+  participacao_pct:           number;
+  participacao_acumulada_pct: number;
+  classe:                     ClasseCurvaAbc;
+}
+
+export interface CurvaAbcClienteResumoClasse {
+  clientes: number;
+  receita:  number;
+}
+
+export interface CurvaAbcClienteResponse {
+  CodStatus:         number;
+  DescricaoStatus?:  string;
+  periodo:           string;
+  criterio:          CriterioCurvaAbcCliente;
+  dados:             CurvaAbcClienteItem[];
+  Count:             number;
+  total_receita:     number;
+  total_atendimentos: number;
+  resumo_a:          CurvaAbcClienteResumoClasse;
+  resumo_b:          CurvaAbcClienteResumoClasse;
+  resumo_c:          CurvaAbcClienteResumoClasse;
+}
+
+export type SituacaoEstimativaConversao = 'aguardando' | 'convertida' | 'sem_conversao';
+
+export interface EstimativaSemConversaoItem {
+  id:                  number;
+  filial:              number;
+  cliente_id:          number;
+  cliente_filial:      number;
+  cliente:             string;
+  animal_id:           number;
+  animal:              string;
+  produto:             string;
+  tipo_servico:        string;
+  vendedor:             string;
+  vendedor_id:         number;
+  data_estimativa:     string;
+  data_envio:          string;
+  data_limite:         string;
+  dias_desde_contato:  number;
+  valor:               number;
+  situacao:            SituacaoEstimativaConversao;
+  tem_agenda:          boolean;
+  agenda_id:           number | null;
+  agenda_filial?:      number;
+  agenda_data:         string;
+  produto_incluido:    boolean;
+}
+
+export interface EstimativasSemConversaoResponse {
+  CodStatus:                 number;
+  DescricaoStatus?:          string;
+  periodo:                   string;
+  dias_conversao:            number;
+  dados:                     EstimativaSemConversaoItem[];
+  Count:                     number;
+  total_convertidas:         number;
+  total_aguardando:          number;
+  total_sem_conversao:       number;
+  valor_total_sem_conversao: number;
+}
+
+export interface RelatorioAnimalItem {
+  animal_id:      number;
+  animal_filial:  number;
+  animal:         string;
+  raca:           string;
+  cliente_id:     number;
+  cliente_filial: number;
+  cliente:        string;
+  endereco:       string;
+  bairro:         string;
+  telefone:       string;
+  celular:        string;
+  email:          string;
+}
+
+export interface RelatorioAnimaisResponse {
+  CodStatus:        number;
+  DescricaoStatus?: string;
+  dados:            RelatorioAnimalItem[];
+  Count:            number;
+}
