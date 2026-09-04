@@ -6,6 +6,7 @@ import { Truck, Search, X, Plus, Trash2, MapPin, Package, UserPlus, Bell, Histor
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { unidadeInteira, sanitizarQuantidade } from '@/lib/produtoQuantidade';
 import {
   criarTeleEntrega, adicionarItemEntrega,
   buscarClientesTele, buscarClientesPorPet, buscarClientesPorNomeDoPet, buscarProdutosTele, buscarClienteDetalhe,
@@ -923,7 +924,15 @@ export default function NovaTeleEntregaForm({ vendedores = [], vendedorInicial, 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Qtd</label>
-                <Input type="number" min="1" step="0.001" value={dlgQtd} onChange={(e) => setDlgQtd(e.target.value)} autoFocus className="h-9 text-sm text-right font-mono" />
+                <Input
+                  type="number"
+                  min="1"
+                  step={prodDlg && unidadeInteira(prodDlg.unidade) ? '1' : '0.001'}
+                  value={dlgQtd}
+                  onChange={(e) => setDlgQtd(sanitizarQuantidade(e.target.value, prodDlg?.unidade))}
+                  autoFocus
+                  className="h-9 text-sm text-right font-mono"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Valor (R$)</label>

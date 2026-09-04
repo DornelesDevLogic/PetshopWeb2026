@@ -12,11 +12,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Package, Search, X, ImageIcon, Factory, Store, Loader2,
+  Package, Search, X, ImageIcon, Factory, Store, Loader2, History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EstoqueFilial } from '@/app/api/produto-estoque-filiais/route';
 import ScannerCodigoBarras from './ScannerCodigoBarras';
+import HistoricoProdutoModal from './HistoricoProdutoModal';
 
 export interface ProdutoPesquisa {
   id_pro:      number;
@@ -60,6 +61,7 @@ export default function ProdutosView({ produtos, filtros, pesquisou }: Props) {
   const [imgAmpliada, setImgAmpliada] = useState<ProdutoPesquisa | null>(null);
   const [estoqueLojas, setEstoqueLojas] = useState<ProdutoPesquisa | null>(null);
   const [linhasEstoque, setLinhasEstoque] = useState<EstoqueFilial[] | null>(null);
+  const [historicoProduto, setHistoricoProduto] = useState<ProdutoPesquisa | null>(null);
   const [erroEstoque, setErroEstoque] = useState('');
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
@@ -296,6 +298,14 @@ export default function ProdutosView({ produtos, filtros, pesquisou }: Props) {
                       >
                         <Store className="h-3.5 w-3.5" />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setHistoricoProduto(p)}
+                        className="rounded-md border p-1 text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                        title="Histórico do produto"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                      </button>
                     </span>
                   </TableCell>
                 </TableRow>
@@ -407,6 +417,17 @@ export default function ProdutosView({ produtos, filtros, pesquisou }: Props) {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Historico do produto ── */}
+      {historicoProduto && (
+        <HistoricoProdutoModal
+          idPro={historicoProduto.id_pro}
+          codFilial={historicoProduto.cod_filial}
+          descricao={historicoProduto.descricao}
+          codPro={historicoProduto.cod_pro}
+          onClose={() => setHistoricoProduto(null)}
+        />
       )}
     </div>
   );

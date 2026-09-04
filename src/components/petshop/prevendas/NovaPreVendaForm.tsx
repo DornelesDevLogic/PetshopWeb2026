@@ -8,6 +8,7 @@ import {
   Package, Wallet, ArrowLeft, Check, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { unidadeInteira, sanitizarQuantidade } from '@/lib/produtoQuantidade';
 import {
   criarPreVenda,
   adicionarItemPreVenda,
@@ -767,7 +768,12 @@ export default function NovaPreVendaForm({ vendedores = [], vendedorInicial, ven
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium">Quantidade</label>
-                <input type="number" min="0.01" step="0.01" value={proQtd} onChange={e => setProQtd(e.target.value)}
+                <input
+                  type="number"
+                  min={proSel && unidadeInteira(proSel.unidade) ? '1' : '0.01'}
+                  step={proSel && unidadeInteira(proSel.unidade) ? '1' : '0.01'}
+                  value={proQtd}
+                  onChange={e => setProQtd(sanitizarQuantidade(e.target.value, proSel?.unidade))}
                   className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>

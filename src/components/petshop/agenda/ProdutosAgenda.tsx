@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import { sanitizarQuantidade } from '@/lib/produtoQuantidade';
 import { useAutorizacaoDesconto } from '@/components/petshop/shared/useAutorizacaoDesconto';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -125,7 +126,7 @@ function AdicionarDialog({ produto, agendaId, filial, onSalvo, onClose }: Adicio
               <label className="text-xs font-medium">Qtd</label>
               <Input
                 value={qtd}
-                onChange={(e) => setQtd(e.target.value)}
+                onChange={(e) => setQtd(sanitizarQuantidade(e.target.value, produto.unidade))}
                 inputMode="decimal"
                 className="text-center"
               />
@@ -234,7 +235,7 @@ function EditarItemDialog({ item, agendaId, filial, onSalvo, onClose }: EditarIt
               <label className="text-xs font-medium">Qtd</label>
               <Input
                 value={qtd}
-                onChange={(e) => setQtd(e.target.value)}
+                onChange={(e) => setQtd(sanitizarQuantidade(e.target.value, item.unidade))}
                 inputMode="decimal"
                 className="text-center"
               />

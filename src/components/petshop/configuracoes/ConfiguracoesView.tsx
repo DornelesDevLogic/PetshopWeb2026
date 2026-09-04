@@ -8,15 +8,17 @@ import {
 } from '@/app/(petshop)/configuracoes/actions';
 import { GRUPOS, type ParamDef, type Tabela } from './definicoes';
 import IntegracoesPanel from './IntegracoesPanel';
+import MensagensRapidasPanel from './MensagensRapidasPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   SlidersHorizontal, Loader2, AlertCircle, CheckCircle2, ShieldAlert,
-  Search, X, Plug, Info,
+  Search, X, Plug, Info, MessageSquareText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ABA_INTEGRACOES = 'integracoes';
+const ABA_MENSAGENS = 'mensagens-rapidas';
 
 interface Props {
   dados: ConfiguracoesData | null;
@@ -218,13 +220,15 @@ export default function ConfiguracoesView({ dados }: Props) {
   }
 
   const naIntegracoes = aba === ABA_INTEGRACOES;
+  const nasMensagens  = aba === ABA_MENSAGENS;
+  const abaCustom = naIntegracoes || nasMensagens;
   const grupo = GRUPOS.find((g) => g.id === aba);
 
   // Busca global: pesquisa em todas as abas por label, coluna ou texto de ajuda
   const termo = normalizar(buscaCfg.trim());
-  const buscando = !naIntegracoes && termo.length >= 2;
+  const buscando = !abaCustom && termo.length >= 2;
 
-  const paramsVisiveis: { p: ParamDef; grupoTitulo?: string }[] = naIntegracoes
+  const paramsVisiveis: { p: ParamDef; grupoTitulo?: string }[] = abaCustom
     ? []
     : buscando
     ? GRUPOS.flatMap((g) =>
@@ -239,7 +243,7 @@ export default function ConfiguracoesView({ dados }: Props) {
       )
     : (grupo?.params ?? []).filter(existe).map((p) => ({ p }));
 
-  const paramsFaltando = naIntegracoes || buscando ? 0 : (grupo?.params.length ?? 0) - paramsVisiveis.length;
+  const paramsFaltando = abaCustom || buscando ? 0 : (grupo?.params.length ?? 0) - paramsVisiveis.length;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
@@ -320,6 +324,17 @@ export default function ConfiguracoesView({ dados }: Props) {
           >
             <Plug className="h-3 w-3" /> Integrações
           </button>
+          <button
+            onClick={() => setAba(ABA_MENSAGENS)}
+            className={cn(
+              'flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+              nasMensagens
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'text-muted-foreground hover:bg-muted/50',
+            )}
+          >
+            <MessageSquareText className="h-3 w-3" /> Mensagens Rápidas
+          </button>
         </div>
       )}
 
@@ -330,9 +345,11 @@ export default function ConfiguracoesView({ dados }: Props) {
         </p>
       )}
 
-      {/* Aba Integrações — não é data-driven pelas 4 tabelas de config */}
+      {/* Abas Integrações/Mensagens Rápidas — não são data-driven pelas 4 tabelas de config */}
       {naIntegracoes ? (
         <IntegracoesPanel />
+      ) : nasMensagens ? (
+        <MensagensRapidasPanel />
       ) : (
       <div className="rounded-xl border bg-card divide-y">
         {paramsVisiveis.length === 0 ? (

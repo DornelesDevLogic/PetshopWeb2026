@@ -975,3 +975,116 @@ export interface RelatorioAnimaisResponse {
   dados:            RelatorioAnimalItem[];
   Count:            number;
 }
+
+// ── Historico do Produto (botao "Historico" da tela Produtos) ──
+
+export interface HistoricoProdutoMovItem {
+  tipo:         string;
+  data:         string;
+  data_doc:     string;
+  hora:         string;
+  qtd_saida:    number;
+  qtd_entrada:  number;
+  cmv:          number;
+  preco:        number;
+  nro_doc:      string;
+  filial:       number;
+  quem:         string;
+  obs:          string;
+  vendedor:     string;
+  fornecedor:   string;
+  entidade:     string;
+}
+
+export interface HistoricoProdutoMovResponse {
+  CodStatus?:       number;
+  DescricaoStatus?: string;
+  dados:            HistoricoProdutoMovItem[];
+  Count:            number;
+}
+
+export interface HistoricoProdutoAnalise {
+  periodo_de:            string;
+  periodo_ate:           string;
+  dias_periodo:          number;
+  media_venda_periodo:   number;
+  media_venda_30d:       number;
+  prazo_entrega:         number;
+  periodo_cobertura:     number;
+  dias_cobertura_atual:  number;
+  dias_ruptura:          number;
+  consumo_ate_entrega:   number;
+  ruptura_ate_entrega:   number;
+  demanda_total:         number;
+  sugestao_compra:       number;
+}
+
+export interface HistoricoProdutoEstatMes {
+  mes:          string;
+  mes_label:    string;
+  venda_qtd:    number;
+  venda_total:  number;
+  venda_media:  number;
+  compra_qtd:   number;
+  compra_total: number;
+  compra_media: number;
+}
+
+export interface HistoricoProdutoCompra {
+  data:        string;
+  filial:      number;
+  qtd:         number;
+  custo:       number;
+  total:       number;
+  fornecedor:  string;
+  numeronf:    number;
+  st:          number;
+  ipi:         number;
+  frete:       number;
+}
+
+export interface HistoricoProdutoGiroResponse {
+  CodStatus?:         number;
+  DescricaoStatus?:   string;
+  estoque_atual:      number;
+  vendas_7:           number;
+  vendas_30:          number;
+  vendas_90:          number;
+  analise:            HistoricoProdutoAnalise;
+  estatistica_mensal: HistoricoProdutoEstatMes[];
+  compras_recentes:   HistoricoProdutoCompra[];
+}
+
+// ── Relatório Geral de Vendas - Detalhamento CMV ──
+// Rótulos "margem"/"markup" mantidos como no legado (fórmulas trocadas em
+// relação ao uso comum): margem = lucro/custo, markup = lucro/venda.
+
+export interface VendasCmvSecao {
+  secao:          string;
+  nro_itens:      number;
+  total:          number;
+  custo:          number;
+  lucro:          number;
+  porc_receita:   number;
+  porc_lucro:     number;
+  margem:         number;
+  markup:         number;
+  tot_desconto:   number;
+  tot_acrescimo:  number;
+}
+
+export interface VendasCmvResponse {
+  CodStatus?:       number;
+  DescricaoStatus?: string;
+  numero_vendas:    number;
+  venda_bruta:      number;
+  cmv:              number;
+  lucro_bruto:      number;
+  margem:           number;
+  markup:           number;
+  desconto:         number;
+  acrescimo:        number;
+  ticket_medio:     number;
+  dados:            VendasCmvSecao[];
+  Count:            number;
+}

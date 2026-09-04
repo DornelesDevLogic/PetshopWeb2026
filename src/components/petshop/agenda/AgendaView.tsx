@@ -22,7 +22,7 @@ import {
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, Loader2, Clock, List,
   X, Users, CheckCircle2, Timer, Phone, Pencil, SlidersHorizontal, Printer, XCircle,
-  PartyPopper, MessageCircle, Stethoscope,
+  PartyPopper, MessageCircle, Stethoscope, BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
@@ -36,6 +36,7 @@ import { printWindow } from '@/lib/printWindow';
 import { gerarCupomAgenda } from '@/components/petshop/print/cupomAgenda';
 import GerenciarTecnicosDialog from '@/components/petshop/agenda/GerenciarTecnicosDialog';
 import { definirAgendaTecnico } from '@/app/(petshop)/agenda/tecnicos-actions';
+import EstimativasPetModal from '@/components/petshop/shared/EstimativasPetModal';
 
 // Serviços que podem virar uma Consulta veterinária a partir da Agenda.
 // Lista com e sem acento pra não depender de como o texto foi cadastrado
@@ -465,6 +466,7 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
   const [cancelando,  setCancelando]  = useState(false);
   const [erroCancel,  setErroCancel]  = useState('');
   const [salvandoSit, setSalvandoSit] = useState(false);
+  const [estimativasAbertas, setEstimativasAbertas] = useState(false);
 
   async function mudarSituacao(novo: string) {
     setSalvandoSit(true);
@@ -598,8 +600,27 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
           <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border mt-2', info.color)}>
             {info.label}
           </span>
+          {item.animal_id > 0 && (
+            <button
+              type="button"
+              onClick={() => setEstimativasAbertas(true)}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+              title="Ver estimativas (vacinas, vermífugos e outros pendentes) deste pet"
+            >
+              <BellRing className="h-3 w-3" />
+              Estimativas
+            </button>
+          )}
         </div>
       </div>
+
+      {estimativasAbertas && (
+        <EstimativasPetModal
+          animalId={item.animal_id}
+          animalNome={current.animal || item.animal}
+          onClose={() => setEstimativasAbertas(false)}
+        />
+      )}
 
       {/* Informações */}
       <div className="flex-1 px-4 py-4 space-y-3 text-sm">
@@ -1755,8 +1776,8 @@ export default function AgendaView({
                     onValueChange={(v) => navigate({ filial: Number(v) === filialHome ? null : v })}
                     items={filiais.map((f) => ({ value: String(f.id), label: f.nome }))}
                   >
-                    <SelectTrigger className={cn('h-8 text-xs w-40', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
-                      <SelectValue />
+                    <SelectTrigger className={cn('h-8 text-xs w-40 min-w-0', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
+                      <SelectValue className="truncate" />
                     </SelectTrigger>
                     <SelectContent>
                       {filiais.map((f) => (

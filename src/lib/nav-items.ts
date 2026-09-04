@@ -21,6 +21,7 @@ const RELATORIOS_SUBMENU: SubmenuItem[] = [
   { href: '/relatorios/comissoes',             label: 'Comissões' },
   { href: '/relatorios/comissao-profissional', label: 'Comissão por Profissional' },
   { href: '/relatorios/vendas-secao',          label: 'Vendas por Seção' },
+  { href: '/relatorios/vendas-cmv',            label: 'Geral de Vendas - Detalhamento CMV' },
   { href: '/relatorios/atendimentos',          label: 'Agendas / Atendimentos' },
   { href: '/relatorios/espelho-cupons',        label: 'Espelho de Cupons' },
   { href: '/relatorios/vales',                 label: 'Vales de Clientes' },

@@ -23,10 +23,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  List, CalendarDays, Search, X, Plus, ArrowUpDown, History, Loader2, Receipt, Eye, Pencil,
+  List, CalendarDays, Search, X, Plus, ArrowUpDown, History, Loader2, Receipt, Eye, Pencil, BellRing,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HistoricoAnimalModal from '@/components/petshop/agenda/HistoricoAnimalModal';
+import EstimativasPetModal from '@/components/petshop/shared/EstimativasPetModal';
 import CupomPreviewModal from '@/components/petshop/relatorios/CupomPreviewModal';
 import type { CupomEspelho } from '@/components/petshop/relatorios/RelatorioEspelhoCupons';
 import { buscarItensCupom, buscarPagamentosCupom, type ItemCupomEspelho, type PagamentoCupom } from '@/app/(petshop)/relatorios/espelho-cupons/actions';
@@ -118,6 +119,7 @@ export default function AgendaListaView({
   const [numero,  setNumero]  = useState(filtros.numero);
   const [orderBy, setOrderBy] = useState(filtros.orderBy || 'abertura');
   const [historicoDe, setHistoricoDe] = useState<AgendaItem | null>(null);
+  const [estimativasDe, setEstimativasDe] = useState<AgendaItem | null>(null);
   const outraFilial = !!filialHome && filial !== filialHome;
 
   // ── Cupom da venda (F6 do legado) ──────────────────────────────────────────
@@ -254,15 +256,15 @@ export default function AgendaListaView({
         {/* Linha 1: Datas */}
         <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-3', filiais.length > 1 ? 'lg:grid-cols-9' : 'lg:grid-cols-8')}>
           {filiais.length > 1 && (
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <label className="text-[11px] text-muted-foreground">Filial</label>
               <Select
                 value={String(filial ?? filialHome ?? '')}
                 onValueChange={(v) => v && irPara({ filial: Number(v) === filialHome ? null : Number(v) })}
                 items={filiais.map((f) => ({ value: String(f.id), label: f.nome }))}
               >
-                <SelectTrigger className={cn('h-8 text-xs w-full', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
-                  <SelectValue />
+                <SelectTrigger className={cn('h-8 text-xs w-full min-w-0', outraFilial && 'border-amber-400 text-amber-700 bg-amber-50 font-semibold')}>
+                  <SelectValue className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   {filiais.map((f) => (
@@ -529,7 +531,21 @@ export default function AgendaListaView({
                         )}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm px-2">{i.animal || '—'}</TableCell>
+                    <TableCell className="text-sm px-2">
+                      <span className="flex items-center gap-1.5">
+                        {i.animal || '—'}
+                        {i.animal_id > 0 && (
+                          <button
+                            type="button"
+                            title="Estimativas do pet (vacinas, vermífugos e outros pendentes)"
+                            onClick={(e) => { e.stopPropagation(); setEstimativasDe(i); }}
+                            className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                          >
+                            <BellRing className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground px-2">{i.raca || '—'}</TableCell>
                     <TableCell className="text-sm px-2">
                       <span className="flex items-center gap-1.5">
@@ -625,6 +641,14 @@ export default function AgendaListaView({
           clienteNome={historicoDe.cliente || '—'}
           filial={historicoDe.filial}
           onClose={() => setHistoricoDe(null)}
+        />
+      )}
+
+      {estimativasDe && (
+        <EstimativasPetModal
+          animalId={estimativasDe.animal_id}
+          animalNome={estimativasDe.animal || 'Pet'}
+          onClose={() => setEstimativasDe(null)}
         />
       )}
 

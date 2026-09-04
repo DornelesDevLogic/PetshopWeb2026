@@ -24,6 +24,7 @@ import {
 import { PawPrint, Cake, ChevronRight, Phone, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MicrochipBadge from '@/components/petshop/animais/MicrochipBadge';
+import EnviarMensagemWhatsAppButton from '@/components/petshop/shared/EnviarMensagemWhatsAppButton';
 
 interface Props {
   animais:         Animal[];
@@ -365,6 +366,7 @@ export default function AnimaisView({
                       <TableHead>Espécie / Raça</TableHead>
                       <TableHead>Dono</TableHead>
                       <TableHead className="hidden md:table-cell">Contato</TableHead>
+                      <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -407,6 +409,13 @@ export default function AnimaisView({
                               <span className="text-xs">{a.email_cliente}</span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <EnviarMensagemWhatsAppButton
+                            telefone={a.celular_cliente || a.fone_cliente || ''}
+                            pet={a.nome}
+                            cliente={a.nome_cliente}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}

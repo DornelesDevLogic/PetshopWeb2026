@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket, Package, TrendingUp, Bell, PawPrint } from 'lucide-react';
+import { BarChart3, Users, ShoppingBag, UserRound, CalendarClock, Receipt, Ticket, Package, TrendingUp, Bell, PawPrint, Calculator } from 'lucide-react';
 
 const relatorios = [
   {
@@ -25,6 +25,12 @@ const relatorios = [
     icon:    ShoppingBag,
     titulo:  'Vendas por Seção',
     descricao: 'Itens vendidos agrupados por seção/categoria no período.',
+  },
+  {
+    href:    '/relatorios/vendas-cmv',
+    icon:    Calculator,
+    titulo:  'Geral de Vendas - Detalhamento CMV',
+    descricao: 'Venda bruta, CMV, lucro, margem e markup por seção no período.',
   },
   {
     href:    '/relatorios/espelho-cupons',
