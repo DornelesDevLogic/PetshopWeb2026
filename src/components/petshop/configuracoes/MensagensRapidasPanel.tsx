@@ -13,7 +13,7 @@ import {
 } from '@/app/(petshop)/configuracoes/mensagens-rapidas/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquareText, Plus, Trash2, Loader2, Info } from 'lucide-react';
+import { MessageSquareText, Plus, Trash2, Loader2, Info, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function MensagensRapidasPanel() {
@@ -21,6 +21,7 @@ export default function MensagensRapidasPanel() {
   const [novoTitulo, setNovoTitulo] = useState('');
   const [salvandoTitulo, setSalvandoTitulo] = useState(false);
   const [ocupado, setOcupado] = useState<Set<string>>(new Set());
+  const [erro, setErro] = useState('');
 
   function carregar() {
     buscarMensagensRapidas().then(setMsgs);
@@ -39,41 +40,78 @@ export default function MensagensRapidasPanel() {
   async function criar() {
     const titulo = novoTitulo.trim();
     if (!titulo) return;
+    setErro('');
     setSalvandoTitulo(true);
-    await criarMensagemRapida(titulo);
-    setNovoTitulo('');
-    setSalvandoTitulo(false);
-    carregar();
+    try {
+      const res = await criarMensagemRapida(titulo);
+      if (res.CodStatus !== 1) { setErro(res.DescricaoStatus || 'Não foi possível criar a mensagem.'); return; }
+      setNovoTitulo('');
+      carregar();
+    } catch {
+      setErro('Não foi possível conectar ao servidor. Verifique se o backend foi atualizado/recompilado.');
+    } finally {
+      setSalvandoTitulo(false);
+    }
   }
 
   async function renomear(id: number, titulo: string) {
     if (!titulo.trim()) return;
-    await renomearMensagemRapida(id, titulo.trim());
-    carregar();
+    setErro('');
+    try {
+      await renomearMensagemRapida(id, titulo.trim());
+      carregar();
+    } catch {
+      setErro('Não foi possível salvar o título.');
+    }
   }
 
   async function excluirTitulo(id: number) {
     if (!confirm('Excluir esta mensagem e todas as suas variações?')) return;
+    setErro('');
     marcarOcupado(`t${id}`, true);
-    await excluirMensagemRapida(id);
-    carregar();
+    try {
+      await excluirMensagemRapida(id);
+      carregar();
+    } catch {
+      setErro('Não foi possível excluir a mensagem.');
+    } finally {
+      marcarOcupado(`t${id}`, false);
+    }
   }
 
   async function novaVariante(idMsg: number) {
+    setErro('');
     marcarOcupado(`v${idMsg}`, true);
-    await adicionarVariante(idMsg, '');
-    marcarOcupado(`v${idMsg}`, false);
-    carregar();
+    try {
+      const res = await adicionarVariante(idMsg, '');
+      if (res.CodStatus !== 1) { setErro(res.DescricaoStatus || 'Não foi possível criar a variação.'); return; }
+      carregar();
+    } catch {
+      setErro('Não foi possível conectar ao servidor. Verifique se o backend foi atualizado/recompilado.');
+    } finally {
+      marcarOcupado(`v${idMsg}`, false);
+    }
   }
 
   async function salvarVariante(id: number, mensagem: string) {
-    await editarVariante(id, mensagem);
+    try {
+      await editarVariante(id, mensagem);
+    } catch {
+      setErro('Não foi possível salvar a variação.');
+    }
   }
 
   async function excluirVarianteItem(id: number) {
+    setErro('');
     marcarOcupado(`vd${id}`, true);
-    await excluirVariante(id);
-    carregar();
+    try {
+      await excluirVariante(id);
+      carregar();
+    } catch {
+      setErro('Não foi possível excluir a variação.');
+    } finally {
+      marcarOcupado(`vd${id}`, false);
+    }
   }
 
   if (!msgs) {
@@ -86,6 +124,12 @@ export default function MensagensRapidasPanel() {
 
   return (
     <div className="space-y-4 max-w-3xl">
+      {erro && (
+        <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />{erro}
+        </div>
+      )}
+
       <div className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
         <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         <p>
@@ -176,7 +220,6 @@ function CardMensagem({
         {msg.mensagens.map((v) => (
           <VarianteTextarea
             key={v.id}
-            id={v.id}
             mensagem={v.mensagem}
             ocupado={ocupado.has(`vd${v.id}`)}
             onSalvar={(texto) => onSalvarVariante(v.id, texto)}
@@ -199,9 +242,8 @@ function CardMensagem({
 }
 
 function VarianteTextarea({
-  id, mensagem, ocupado, onSalvar, onExcluir,
+  mensagem, ocupado, onSalvar, onExcluir,
 }: {
-  id: number;
   mensagem: string;
   ocupado: boolean;
   onSalvar: (texto: string) => void;
