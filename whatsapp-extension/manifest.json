@@ -12,7 +12,7 @@
     "matches": [
       "http://localhost:3002/*",
       "http://localhost:3005/*",
-      "https://SEU-DOMINIO-DE-PRODUCAO-AQUI/*"
+      "https://petshop.logidoc.pro/*"
     ]
   }
 }
