@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "PetShop Web - Envio em Lote WhatsApp",
+  "version": "1.0.0",
+  "description": "Automatiza o envio de lembretes de estimativa em lote pelo WhatsApp Web já logado, a partir do PetShop Web.",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": ["https://web.whatsapp.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3002/*",
+      "http://localhost:3005/*",
+      "https://SEU-DOMINIO-DE-PRODUCAO-AQUI/*"
+    ]
+  }
+}

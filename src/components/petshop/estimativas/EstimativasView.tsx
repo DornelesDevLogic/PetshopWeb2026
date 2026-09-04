@@ -43,10 +43,11 @@ import {
 import {
   BellRing, Search, Loader2, Plus, Pencil, Trash2, X,
   CheckCircle2, XCircle, RotateCcw, AlertCircle, Phone, Settings2,
-  MessageCircle,
+  MessageCircle, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { normalizarTermosBusca, termoPrincipal, filtrarProdutosPorTermos } from '@/lib/buscaProdutos';
+import EnvioLoteWhatsAppModal from './EnvioLoteWhatsAppModal';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -285,6 +286,24 @@ export default function EstimativasView({
   const [regraDialog,    setRegraDialog]    = useState<RegraEstimativa | null | 'nova'>(null);
   const [regraExcluindo, setRegraExcluindo] = useState<RegraEstimativa | null>(null);
 
+  // seleção para envio em lote pelo WhatsApp
+  const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set());
+  const [envioLoteAberto, setEnvioLoteAberto] = useState(false);
+
+  function alternarSelecao(id: number) {
+    setSelecionadas((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  function alternarSelecaoTodas() {
+    setSelecionadas((prev) =>
+      prev.size === estimativas.length ? new Set() : new Set(estimativas.map((e) => e.id)),
+    );
+  }
+
   // debounce da busca
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (debRef.current) clearTimeout(debRef.current); }, []);
@@ -339,6 +358,12 @@ export default function EstimativasView({
           Estimativas
         </h1>
         <div className="flex items-center gap-2">
+          {abaAtual === 'lista' && selecionadas.size > 0 && (
+            <Button size="sm" onClick={() => setEnvioLoteAberto(true)}>
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Enviar selecionadas ({selecionadas.size})
+            </Button>
+          )}
           <Button
             variant={abaAtual === 'lista' ? 'default' : 'outline'}
             size="sm"
@@ -475,6 +500,15 @@ export default function EstimativasView({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8 px-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-input"
+                        checked={selecionadas.size > 0 && selecionadas.size === estimativas.length}
+                        onChange={alternarSelecaoTodas}
+                        title="Selecionar todas"
+                      />
+                    </TableHead>
                     <TableHead className="w-12 px-2">#</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead className="px-2">Animal</TableHead>
@@ -492,6 +526,14 @@ export default function EstimativasView({
                     const sit = situacao(e);
                     return (
                       <TableRow key={e.id} className="hover:bg-muted/40">
+                        <TableCell className="px-2">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-input"
+                            checked={selecionadas.has(e.id)}
+                            onChange={() => alternarSelecao(e.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground px-2">{e.id}</TableCell>
                         <TableCell className="max-w-[160px] whitespace-normal">
                           <p className="font-medium text-sm break-words">{e.cliente_nome || '—'}</p>
@@ -641,6 +683,15 @@ export default function EstimativasView({
             </div>
           )}
         </>
+      )}
+
+      {/* Envio em lote pelo WhatsApp */}
+      {envioLoteAberto && (
+        <EnvioLoteWhatsAppModal
+          estimativas={estimativas.filter((e) => selecionadas.has(e.id))}
+          onClose={() => setEnvioLoteAberto(false)}
+          onAtualizado={() => { setSelecionadas(new Set()); router.refresh(); }}
+        />
       )}
 
       {/* Dialog regra (criar/editar) */}
