@@ -169,7 +169,12 @@ export default function EnvioLoteWhatsAppModal({ estimativas, onClose, onAtualiz
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium">Mensagem (Configurações → Mensagens Rápidas)</label>
-                <Select value={modeloSel} onValueChange={(v) => setModeloSel(v ?? '')} disabled={enviando}>
+                <Select
+                  value={modeloSel}
+                  onValueChange={(v) => setModeloSel(v ?? '')}
+                  disabled={enviando}
+                  items={(modelos ?? []).map((m) => ({ value: String(m.id), label: m.titulo }))}
+                >
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
                   <SelectContent>
                     {(modelos ?? []).map((m) => (
