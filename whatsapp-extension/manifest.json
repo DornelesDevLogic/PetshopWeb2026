@@ -12,6 +12,7 @@
     "matches": [
       "http://localhost:3002/*",
       "http://localhost:3005/*",
+      "http://10.1.4.194:3005/*",
       "https://petshop.logidoc.pro/*"
     ]
   }
