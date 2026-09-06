@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   buscarMensagensRapidas,
   criarMensagemRapida,
@@ -22,6 +22,11 @@ export default function MensagensRapidasPanel() {
   const [salvandoTitulo, setSalvandoTitulo] = useState(false);
   const [ocupado, setOcupado] = useState<Set<string>>(new Set());
   const [erro, setErro] = useState('');
+  // Mensagens com uma caixa de "nova variação" aberta ainda não salva no
+  // backend — o POST exige texto não-vazio, então não dá pra criar a
+  // variação vazia e deixar o usuário preencher depois; ela só é criada de
+  // fato quando o usuário sai do campo com algum texto digitado.
+  const [rascunhos, setRascunhos] = useState<Set<number>>(new Set());
 
   function carregar() {
     buscarMensagensRapidas().then(setMsgs);
@@ -79,12 +84,26 @@ export default function MensagensRapidasPanel() {
     }
   }
 
-  async function novaVariante(idMsg: number) {
+  function abrirRascunho(idMsg: number) {
+    setRascunhos((prev) => new Set(prev).add(idMsg));
+  }
+
+  function fecharRascunho(idMsg: number) {
+    setRascunhos((prev) => {
+      const novo = new Set(prev);
+      novo.delete(idMsg);
+      return novo;
+    });
+  }
+
+  async function salvarRascunho(idMsg: number, texto: string) {
+    if (!texto.trim()) { fecharRascunho(idMsg); return; }
     setErro('');
     marcarOcupado(`v${idMsg}`, true);
     try {
-      const res = await adicionarVariante(idMsg, '');
+      const res = await adicionarVariante(idMsg, texto.trim());
       if (res.CodStatus !== 1) { setErro(res.DescricaoStatus || 'Não foi possível criar a variação.'); return; }
+      fecharRascunho(idMsg);
       carregar();
     } catch {
       setErro('Não foi possível conectar ao servidor. Verifique se o backend foi atualizado/recompilado.');
@@ -167,9 +186,12 @@ export default function MensagensRapidasPanel() {
               key={m.id}
               msg={m}
               ocupado={ocupado}
+              rascunhoAberto={rascunhos.has(m.id)}
               onRenomear={(titulo) => renomear(m.id, titulo)}
               onExcluir={() => excluirTitulo(m.id)}
-              onNovaVariante={() => novaVariante(m.id)}
+              onAbrirRascunho={() => abrirRascunho(m.id)}
+              onSalvarRascunho={(texto) => salvarRascunho(m.id, texto)}
+              onCancelarRascunho={() => fecharRascunho(m.id)}
               onSalvarVariante={salvarVariante}
               onExcluirVariante={excluirVarianteItem}
             />
@@ -181,13 +203,18 @@ export default function MensagensRapidasPanel() {
 }
 
 function CardMensagem({
-  msg, ocupado, onRenomear, onExcluir, onNovaVariante, onSalvarVariante, onExcluirVariante,
+  msg, ocupado, rascunhoAberto, onRenomear, onExcluir,
+  onAbrirRascunho, onSalvarRascunho, onCancelarRascunho,
+  onSalvarVariante, onExcluirVariante,
 }: {
   msg: MensagemRapida;
   ocupado: Set<string>;
+  rascunhoAberto: boolean;
   onRenomear: (titulo: string) => void;
   onExcluir: () => void;
-  onNovaVariante: () => void;
+  onAbrirRascunho: () => void;
+  onSalvarRascunho: (texto: string) => void;
+  onCancelarRascunho: () => void;
   onSalvarVariante: (id: number, mensagem: string) => void;
   onExcluirVariante: (id: number) => void;
 }) {
@@ -226,33 +253,47 @@ function CardMensagem({
             onExcluir={() => onExcluirVariante(v.id)}
           />
         ))}
+        {rascunhoAberto && (
+          <VarianteTextarea
+            mensagem=""
+            ocupado={ocupado.has(`v${msg.id}`)}
+            onSalvar={onSalvarRascunho}
+            onExcluir={onCancelarRascunho}
+            autoFoco
+          />
+        )}
       </div>
 
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onNovaVariante}
-        disabled={ocupado.has(`v${msg.id}`)}
-      >
-        {ocupado.has(`v${msg.id}`) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-        Nova variação
-      </Button>
+      {!rascunhoAberto && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onAbrirRascunho}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nova variação
+        </Button>
+      )}
     </div>
   );
 }
 
 function VarianteTextarea({
-  mensagem, ocupado, onSalvar, onExcluir,
+  mensagem, ocupado, onSalvar, onExcluir, autoFoco,
 }: {
   mensagem: string;
   ocupado: boolean;
   onSalvar: (texto: string) => void;
   onExcluir: () => void;
+  autoFoco?: boolean;
 }) {
   const [texto, setTexto] = useState(mensagem);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { if (autoFoco) ref.current?.focus(); }, [autoFoco]);
   return (
     <div className="flex items-start gap-2">
       <textarea
+        ref={ref}
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         onBlur={() => { if (texto !== mensagem) onSalvar(texto); }}
