@@ -47,8 +47,9 @@ function fmtMoeda(v: string | number): string {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function calcTotal(valor: number, desconto: number, qtd: number): number {
-  return Math.max(0, (valor - desconto) * qtd);
+// "desconto" e' porcentagem (0-100), igual ao Pre-venda — nao valor em R$.
+function calcTotal(valor: number, descontoPct: number, qtd: number): number {
+  return Math.max(0, valor * (1 - descontoPct / 100) * qtd);
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ function AdicionarDialog({ produto, agendaId, filial, onSalvo, onClose }: Adicio
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">Desconto (R$)</label>
+              <label className="text-xs font-medium">Desconto (%)</label>
               <Input
                 value={desconto}
                 onChange={(e) => setDesconto(e.target.value)}
@@ -245,7 +246,7 @@ function EditarItemDialog({ item, agendaId, filial, onSalvo, onClose }: EditarIt
               <Input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="decimal" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">Desconto (R$)</label>
+              <label className="text-xs font-medium">Desconto (%)</label>
               <Input value={desconto} onChange={(e) => setDesconto(e.target.value)} inputMode="decimal" />
             </div>
           </div>
@@ -351,7 +352,11 @@ export default function ProdutosAgenda({ agendaId, filial, itensInic, podeEditar
 
   // totais
   const totalGeral = itens.reduce((acc, i) => acc + parseFlt(i.valor_liq) * parseFlt(i.qtd), 0);
-  const totalDesc  = itens.reduce((acc, i) => acc + parseFlt(i.desconto)  * parseFlt(i.qtd), 0);
+  // Desconto total em R$ (item.desconto e' %, entao o valor economizado real
+  // e' a diferenca entre valor de tabela e valor liquido, vezes a quantidade).
+  const totalDesc  = itens.reduce(
+    (acc, i) => acc + Math.max(0, parseFlt(i.valor) - parseFlt(i.valor_liq)) * parseFlt(i.qtd), 0,
+  );
 
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
@@ -476,7 +481,7 @@ export default function ProdutosAgenda({ agendaId, filial, itensInic, podeEditar
                     <TableCell className="text-right font-mono text-sm">R$ {fmtMoeda(val)}</TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {desc > 0 ? (
-                        <span className="text-amber-600">R$ {fmtMoeda(desc)}</span>
+                        <span className="text-amber-600">{desc.toFixed(2).replace('.', ',')}%</span>
                       ) : '—'}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-semibold">

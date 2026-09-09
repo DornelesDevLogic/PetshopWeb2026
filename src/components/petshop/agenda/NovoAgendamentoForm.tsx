@@ -494,8 +494,9 @@ export default function NovoAgendamentoForm({
     }
   }
 
+  // p.desconto e' porcentagem (0-100), igual ao Pre-venda — nao valor em R$.
   const totalProdutos = produtos.reduce(
-    (acc, p) => acc + Math.max(0, (p.valor - p.desconto) * p.qtd), 0,
+    (acc, p) => acc + Math.max(0, p.valor * (1 - p.desconto / 100) * p.qtd), 0,
   );
 
   // ── Desconto total (%) sobre os produtos ──
@@ -2033,7 +2034,7 @@ export default function NovoAgendamentoForm({
                 <tbody className="divide-y">
                   {/* Itens já salvos no banco */}
                   {itensSalvos.map((it) => {
-                    const total = Math.max(0, (it.valor - it.desconto) * it.qtd);
+                    const total = Math.max(0, it.valor * (1 - it.desconto / 100) * it.qtd);
                     return (
                       <tr key={`salvo-${it.id_item}`} className="hover:bg-muted/40">
                         <td className="px-3 py-1.5">
@@ -2045,7 +2046,7 @@ export default function NovoAgendamentoForm({
                           R$ <EditableValor valor={it.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorItemSalvo(it, v)} />
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono">
-                          {it.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(it.desconto)}</span> : '—'}
+                          {it.desconto > 0 ? <span className="text-amber-600">{fmtMoeda(it.desconto)}%</span> : '—'}
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
                         <td className="px-2 py-2">
@@ -2066,7 +2067,7 @@ export default function NovoAgendamentoForm({
                   })}
                   {/* Novos itens (ainda não salvos) */}
                   {produtos.map((p, i) => {
-                    const total = Math.max(0, (p.valor - p.desconto) * p.qtd);
+                    const total = Math.max(0, p.valor * (1 - p.desconto / 100) * p.qtd);
                     return (
                       <tr key={`novo-${i}`} className="hover:bg-muted/40 bg-primary/[0.02]">
                         <td className="px-3 py-1.5">
@@ -2090,7 +2091,7 @@ export default function NovoAgendamentoForm({
                           R$ <EditableValor valor={p.valor} fmt={fmtMoeda} onCommit={(v) => alterarValorProduto(i, v)} />
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono">
-                          {p.desconto > 0 ? <span className="text-amber-600">R$ {fmtMoeda(p.desconto)}</span> : '—'}
+                          {p.desconto > 0 ? <span className="text-amber-600">{fmtMoeda(p.desconto)}%</span> : '—'}
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono font-semibold">R$ {fmtMoeda(total)}</td>
                         <td className="px-2 py-2">
@@ -2243,14 +2244,14 @@ export default function NovoAgendamentoForm({
                   <Input value={pdValor} onChange={(e) => setPdValor(e.target.value)} inputMode="decimal" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Desconto (R$)</label>
+                  <label className="text-xs font-medium">Desconto (%)</label>
                   <Input value={pdDesconto} onChange={(e) => setPdDesconto(e.target.value)} inputMode="decimal" />
                 </div>
               </div>
               <div className="flex justify-between items-center rounded-md bg-primary/5 px-3 py-2 text-sm">
                 <span className="text-muted-foreground">Total</span>
                 <span className="font-bold text-primary">
-                  R$ {fmtMoeda(Math.max(0, (parseFlt(pdValor) - parseFlt(pdDesconto)) * (parseFlt(pdQtd) || 1)))}
+                  R$ {fmtMoeda(Math.max(0, parseFlt(pdValor) * (1 - parseFlt(pdDesconto) / 100) * (parseFlt(pdQtd) || 1)))}
                 </span>
               </div>
               {pdErro && (

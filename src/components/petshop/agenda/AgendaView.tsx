@@ -631,7 +631,7 @@ function DetailPanel({ item, corServico, profissionais, servicos, vendedores, on
         <InfoRow label="Valor"        value={valorFmt} highlight />
         <InfoRow label="Serviço"      value={current.servico} dot={corServico ?? undefined} />
         <InfoRow label="Profissional" value={current.profissional || '—'} />
-        <InfoRow label="Cliente"      value={current.cliente} />
+        <InfoRow label="Cliente"      value={current.cliente_id ? `${current.cliente} (${current.cliente_id})` : current.cliente} />
         {telefone && (
           <div className="flex items-start gap-2">
             <span className="text-muted-foreground w-24 shrink-0 text-xs pt-0.5">Telefone</span>
