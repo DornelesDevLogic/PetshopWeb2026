@@ -316,11 +316,11 @@ export default function CollapsibleSidebar({ filial, filialNome, supervisor, use
         {/* ── Versão do frontend + backend — só números, sem rótulo ────────── */}
         <div
           title={`petshop_web v${FRONTEND_VERSION}${backendVersion ? ` · API v${backendVersion}` : ''}`}
-          className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground/50 overflow-hidden"
+          className="flex items-center justify-center gap-1.5 text-muted-foreground/60 overflow-hidden"
         >
-          <span className="font-mono">v{FRONTEND_VERSION}</span>
+          <span className="font-mono text-[10px]">v{FRONTEND_VERSION}</span>
           {backendVersion && (
-            <span className="font-mono">· v{backendVersion.split('.').slice(0, 2).join('.')}</span>
+            <span className="font-mono text-xs font-semibold">· v{backendVersion}</span>
           )}
         </div>
       </div>
