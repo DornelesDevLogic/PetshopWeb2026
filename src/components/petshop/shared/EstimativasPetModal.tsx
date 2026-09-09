@@ -42,8 +42,14 @@ export default function EstimativasPetModal({ animalId, animalNome, onClose }: P
     buscarEstimativas({ animalId, status: 'todas' }).then(setLista);
   }, [animalId]);
 
-  const pendentes = (lista ?? []).filter((e) => situacao(e).label !== 'Cancelada' && situacao(e).label !== 'Enviada');
-  const outras = (lista ?? []).filter((e) => situacao(e).label === 'Cancelada' || situacao(e).label === 'Enviada');
+  // O backend devolve ordenado por data crescente — registros antigos com
+  // DATA_ESTIMADA quebrada (ex: 1899-12-27, de uma versão de 2020 que não
+  // gravava a data do lembrete direito) sempre caíam pro topo. Aqui, na
+  // visualização rápida da Agenda, inverte pra essas datas antigas afundarem
+  // pro final da lista em vez de aparecerem primeiro.
+  const listaOrdenada = [...(lista ?? [])].sort((a, b) => b.data_estimada.localeCompare(a.data_estimada));
+  const pendentes = listaOrdenada.filter((e) => situacao(e).label !== 'Cancelada' && situacao(e).label !== 'Enviada');
+  const outras = listaOrdenada.filter((e) => situacao(e).label === 'Cancelada' || situacao(e).label === 'Enviada');
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
